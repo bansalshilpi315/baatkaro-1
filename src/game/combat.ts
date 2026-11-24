@@ -156,7 +156,7 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     phaseTimer: skipIntro ? 0 : ROUND1_INTRO_DURATION,
     introDuration: ROUND1_INTRO_DURATION,
     koSubPhase: 'none',
-    koCalloutText: 'GHEE KHATAM!',
+    koCalloutText: 'DAHI KHATAM!',
     activeSuperSlot: null,
     activeSuperElapsed: 0,
     activeSuperDuration: 0,
@@ -193,12 +193,7 @@ export function resolveRoundEnd(
   state.activeSuperSlot = null;
   state.activeSuperElapsed = 0;
   state.activeSuperDuration = 0;
-  state.koCalloutText =
-    reason === 'timeout'
-      ? 'TIME KHATAM!'
-      : state.roundNumber % 2 === 1
-        ? 'GHEE KHATAM!'
-        : 'KHEL KHATAM!';
+  state.koCalloutText = reason === 'timeout' ? 'TIME KHATAM!' : 'DAHI KHATAM!';
 
   // Ensure defeated fighter gets launched cleanly onto the arena floor if still upright
   if (roundWinner === 0 || roundWinner === 1) {

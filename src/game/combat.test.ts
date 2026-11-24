@@ -223,9 +223,10 @@ test('Best-of-3 KO transitions Round 1 into Round 2, then 2nd round win finishes
   assert.equal(state.fighters[1].hp, 0);
   assert.equal(state.phase, 'ko_freeze');
   assert.equal(state.koSubPhase, 'impact_slowmo');
-  assert.ok(
-    state.koCalloutText === 'GHEE KHATAM!' || state.koCalloutText === 'KHEL KHATAM!',
-    `Expected desi KO callout, got ${state.koCalloutText}`,
+  assert.equal(
+    state.koCalloutText,
+    'DAHI KHATAM!',
+    `Expected DAHI KHATAM! KO callout on Round 1 KO, got ${state.koCalloutText}`,
   );
   assert.equal(state.p1RoundsWon, 1);
   assert.equal(state.p2RoundsWon, 0);
@@ -257,6 +258,11 @@ test('Best-of-3 KO transitions Round 1 into Round 2, then 2nd round win finishes
   stepFrames(state, createEmptyInput(), createEmptyInput(), 20);
   assert.equal(state.phase, 'ko_freeze');
   assert.equal(state.koSubPhase, 'impact_slowmo');
+  assert.equal(
+    state.koCalloutText,
+    'DAHI KHATAM!',
+    `Expected DAHI KHATAM! KO callout on Round 2 KO, got ${state.koCalloutText}`,
+  );
   assert.equal(state.p1RoundsWon, 2);
   assert.equal(state.winnerSlot, 0);
 

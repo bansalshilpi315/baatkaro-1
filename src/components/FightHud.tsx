@@ -498,7 +498,7 @@ export function FightHud({
       )}
 
       {/* =================================================================
-          HUGE SLANTED ARCADE CALLOUTS: ROUND 1 / GHEE KHATAM! / <NAME> WINS
+          HUGE SLANTED ARCADE CALLOUTS: ROUND 1 / DAHI KHATAM! / <NAME> WINS
           ================================================================= */}
       {hud.bannerText && (
         <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center px-4">

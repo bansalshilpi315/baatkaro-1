@@ -8,6 +8,7 @@ export const BILLA_SUPER_AUDIO_URL = '/audio/supers/billa.mp3';
 export const NETA_SUPER_AUDIO_URL = '/audio/supers/neta.mp3';
 export const ANDA_SUPER_AUDIO_URL = '/audio/supers/anda.mp3';
 export const MAUSI_SUPER_AUDIO_URL = '/audio/supers/mausi.mp3';
+export const DAHI_KO_AUDIO_URL = '/audio/supers/dahi.mp3';
 
 export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
   sheru: SHERU_SUPER_AUDIO_URL,
@@ -49,6 +50,13 @@ export class DesiAudioEngine {
   private activeSuperGain: GainNode | null = null;
   private superAudioActive = false;
   private superPlaybackToken = 0;
+
+  // Active Web Audio API KO ("DAHI KHATAM!") MP3 playback state
+  private activeDahiSource: AudioBufferSourceNode | null = null;
+  private activeDahiGain: GainNode | null = null;
+  private dahiAudioActive = false;
+  private dahiAudioPending = false;
+  private dahiPlaybackToken = 0;
 
   private ensureContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -144,6 +152,7 @@ export class DesiAudioEngine {
       this.preloadSuperAudio(NETA_SUPER_AUDIO_URL),
       this.preloadSuperAudio(ANDA_SUPER_AUDIO_URL),
       this.preloadSuperAudio(MAUSI_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(DAHI_KO_AUDIO_URL),
     ]);
   }
 
@@ -167,6 +176,8 @@ export class DesiAudioEngine {
   }
 
   private restoreBgmFromSuper(): void {
+    // Keep BGM ducked until both any active Super Power MP3 and the KO dahi.mp3 have finished
+    if (this.superAudioActive || this.dahiAudioActive) return;
     const ctx = this.ctx;
     const bgmGain = this.bgmGain;
     if (!ctx || !bgmGain) return;
@@ -343,11 +354,140 @@ export class DesiAudioEngine {
     return this.superAudioActive;
   }
 
+  private startDecodedDahiBuffer(
+    ctx: AudioContext,
+    buffer: AudioBuffer,
+    token: number,
+  ): void {
+    if (token !== this.dahiPlaybackToken || this.dahiAudioActive) return;
+
+    try {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(this.sfxMuted ? 0 : 1.0, ctx.currentTime);
+
+      source.connect(gain);
+      gain.connect(ctx.destination);
+
+      this.activeDahiSource = source;
+      this.activeDahiGain = gain;
+      this.dahiAudioActive = true;
+      this.dahiAudioPending = false;
+
+      source.onended = () => {
+        if (this.activeDahiSource === source) {
+          this.activeDahiSource = null;
+          this.activeDahiGain = null;
+          this.dahiAudioActive = false;
+          this.restoreBgmFromSuper();
+        }
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch {
+          // Ignore disconnect cleanup errors
+        }
+      };
+
+      source.start(0);
+    } catch {
+      this.activeDahiSource = null;
+      this.activeDahiGain = null;
+      this.dahiAudioActive = false;
+      this.dahiAudioPending = false;
+      this.restoreBgmFromSuper();
+    }
+  }
+
+  /**
+   * Plays the custom "DAHI KHATAM!" KO MP3 (/audio/supers/dahi.mp3) from the shared RAM AudioBuffer cache.
+   * Ducks BGM smoothly to 15% via setTargetAtTime, lets the audio finish naturally on source.onended
+   * (never cut off on transition to "<CHARACTER> WINS" or Newspaper screen), guards against duplicate
+   * rapid triggers on the same KO, and fails silently without ducking BGM if the MP3 is not uploaded yet.
+   */
+  public playDahiKoAudio(): void {
+    if (this.dahiAudioActive || this.dahiAudioPending) return;
+    if (superAudioFailedUrls.has(DAHI_KO_AUDIO_URL)) return;
+
+    const ctx = this.ensureContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    if (!ctx) return;
+
+    const token = ++this.dahiPlaybackToken;
+    const cached = superAudioBuffers.get(DAHI_KO_AUDIO_URL);
+    if (cached) {
+      this.duckBgmForSuper();
+      this.startDecodedDahiBuffer(ctx, cached, token);
+      return;
+    }
+
+    this.dahiAudioPending = true;
+    void this.preloadSuperAudio(DAHI_KO_AUDIO_URL).then((decoded) => {
+      if (token !== this.dahiPlaybackToken) return;
+      this.dahiAudioPending = false;
+      if (!decoded || !this.ctx || this.dahiAudioActive) return;
+      this.duckBgmForSuper();
+      this.startDecodedDahiBuffer(this.ctx, decoded, token);
+    });
+  }
+
+  /**
+   * Explicitly stops "DAHI KHATAM!" KO audio ONLY when the player clicks Rematch,
+   * exits to Character Select / Title, or the engine is disposed.
+   */
+  public stopDahiKoAudio(): void {
+    this.dahiPlaybackToken += 1;
+    const source = this.activeDahiSource;
+    const gain = this.activeDahiGain;
+    this.activeDahiSource = null;
+    this.activeDahiGain = null;
+    this.dahiAudioActive = false;
+    this.dahiAudioPending = false;
+
+    if (source) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        // Ignore if already stopped
+      }
+      try {
+        source.disconnect();
+      } catch {
+        // Ignore
+      }
+    }
+    if (gain) {
+      try {
+        gain.disconnect();
+      } catch {
+        // Ignore
+      }
+    }
+
+    this.restoreBgmFromSuper();
+  }
+
+  public isDahiKoAudioPlaying(): boolean {
+    return this.dahiAudioActive;
+  }
+
   public setMuted(mute: boolean): void {
     this.sfxMuted = mute;
     if (this.ctx && this.activeSuperGain) {
       try {
         this.activeSuperGain.gain.setTargetAtTime(mute ? 0 : 1.0, this.ctx.currentTime, 0.03);
+      } catch {
+        // Ignore
+      }
+    }
+    if (this.ctx && this.activeDahiGain) {
+      try {
+        this.activeDahiGain.gain.setTargetAtTime(mute ? 0 : 1.0, this.ctx.currentTime, 0.03);
       } catch {
         // Ignore
       }

@@ -169,6 +169,7 @@ export default function App() {
 
     return () => {
       audioEngine.stopSuperAudio();
+      audioEngine.stopDahiKoAudio();
       audioEngine.stopMusic();
       engine.dispose();
       engineRef.current = null;
@@ -325,6 +326,7 @@ export default function App() {
   const handleQuitToSelect = useCallback(() => {
     audioEngine.playUiClick();
     audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
     if (!musicMutedRef.current) audioEngine.startMusic();
     engineRef.current?.setScreen('select');
     engineRef.current?.setPreviewSelection(p1Id, p2Id, stageId, difficulty);

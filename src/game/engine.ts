@@ -292,6 +292,7 @@ export class DesiShowdownEngine {
   private dialogueTracker: DialogueTracker = createDialogueTracker();
   private lastTrackedRound = 1;
   private introTauntSeed = 0;
+  private koBannerAudioTriggered = false;
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -642,6 +643,7 @@ export class DesiShowdownEngine {
       this.andaSuperVfx.reset();
       this.mausiSuperVfx.reset();
       audioEngine.stopSuperAudio();
+      audioEngine.stopDahiKoAudio();
     }
   }
 
@@ -706,8 +708,10 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
-    // Explicit match start/restart: stop any prior Super audio and ensure buffers are preloaded
+    // Explicit match start/restart: stop any prior Super/KO audio and ensure buffers are preloaded
     audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
+    this.koBannerAudioTriggered = false;
     void audioEngine.preloadAllSuperAudios();
     this.matchState = createMatchState(p1, p2, skipIntro);
     if (initialP1Shakti > 0) {
@@ -1406,7 +1410,7 @@ export class DesiShowdownEngine {
         bannerText =
           this.matchState.finishReason === 'timeout'
             ? 'TIME UP!'
-            : this.matchState.koCalloutText || 'GHEE KHATAM!';
+            : this.matchState.koCalloutText || 'DAHI KHATAM!';
         if (!isSuperCinematic) {
           for (const slotEntry of this.dialogueTracker.slots) {
             if (slotEntry) {
@@ -1684,6 +1688,20 @@ export class DesiShowdownEngine {
         const events = stepMatch(this.matchState, [p1Input, p2Input], dt);
         if (events.length > 0) {
           this.handleCombatEvents(events);
+        }
+
+        // Trigger custom "DAHI KHATAM!" KO MP3 once at the exact frame the KO banner slams on screen
+        if (
+          this.matchState.phase === 'ko_freeze' &&
+          this.matchState.koSubPhase === 'impact_slowmo' &&
+          this.matchState.finishReason === 'ko'
+        ) {
+          if (!this.koBannerAudioTriggered) {
+            this.koBannerAudioTriggered = true;
+            audioEngine.playDahiKoAudio();
+          }
+        } else if (this.matchState.phase !== 'ko_freeze') {
+          this.koBannerAudioTriggered = false;
         }
 
         // Process Sheru Bhai Super beat signals (cash/coin explosions, micro-shake, crowd cheer, audio restore)
@@ -2060,6 +2078,7 @@ export class DesiShowdownEngine {
     this.renderer.domElement.removeEventListener('webglcontextlost', this.handleContextLost);
 
     audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
     this.sheruSuperVfx.dispose(this.scene);
     this.billaSuperVfx.dispose(this.scene);
     this.netaSuperVfx.dispose(this.scene);
