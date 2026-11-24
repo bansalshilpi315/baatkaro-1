@@ -264,7 +264,6 @@ export function stepNetaSuper(
         x: defender.x,
         y: 1.25 + (idx % 2) * 0.2,
         damage: dealt,
-        word: 'THOKKAR!',
         color: idx % 2 === 0 ? '#FB923C' : '#FACC15',
       });
     }
@@ -307,7 +306,6 @@ export function stepNetaSuper(
         x: defender.x,
         y: 1.55,
         damage: dealt,
-        word: 'MAHA THOKKAR!',
         color: '#F97316',
         headline:
           defender.hp <= 0

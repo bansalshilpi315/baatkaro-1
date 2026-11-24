@@ -4,6 +4,7 @@ import {
   computeTotalSuperDamage,
   createEmptyInput,
   createMatchState,
+  shouldAllowFloatingCallout,
   stepMatch,
 } from './combat';
 import {
@@ -58,16 +59,21 @@ test('Sheru Super deals exactly 33% opponent maxHp (~45% combo + ~55% finisher) 
 
       let preFinisherDamage = 0;
       let capturedPreFinisher = false;
-      let sawTrillionWord = false;
+      const emittedWords: string[] = [];
       let dashVerified = false;
       const steps = Math.ceil((SHERU_SUPER_DURATION + 0.25) / dt);
 
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
-        if (evs.some((e) => e.word === '$ TRILLION $')) {
-          sawTrillionWord = true;
+        for (const ev of evs) {
+          if (ev.word) emittedWords.push(ev.word);
         }
         if (state.sheruSuper?.active) {
+          assert.equal(
+            shouldAllowFloatingCallout(state),
+            false,
+            'Floating comic callouts must be suppressed throughout Sheru Super',
+          );
           if (state.sheruSuper.phase === 'paw_flurry' && state.sheruSuper.elapsed > 1.35) {
             if (Math.abs(sheru.x - opp.x) < 1.8) dashVerified = true;
           }
@@ -83,7 +89,11 @@ test('Sheru Super deals exactly 33% opponent maxHp (~45% combo + ~55% finisher) 
 
       assert.equal(state.sheruSuper?.active ?? false, false, 'Super should finish cleanly at 7.5s');
       assert.equal(dashVerified, true, 'Sheru should auto-dash into melee range');
-      assert.equal(sawTrillionWord, true, 'Finisher should emit $ TRILLION $');
+      assert.deepEqual(
+        emittedWords,
+        [],
+        'Sheru Super must emit zero floating comic impact text pop-ups',
+      );
       assert.equal(
         preFinisherDamage,
         expectedCombo,

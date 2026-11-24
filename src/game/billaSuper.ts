@@ -131,8 +131,12 @@ function applyBillaSuperDamage(
 const SMOKE_HIT_COUNT = 6;
 const SMOKE_HIT_START_T = 2.28;
 const SMOKE_HIT_STEP_T = 0.3; // 6 timed hits at 2.28, 2.58, 2.88, 3.18, 3.48, 3.78s
-const SMOKE_COMIC_WORDS = ['POW!', 'WHAM!', 'CHIRKUT!', 'POW!', 'WHAM!', 'CHIRKUT!'];
-const SMOKE_COMIC_COLORS = ['#FDE047', '#FB923C', '#4ADE80', '#FDE047', '#F472B6', '#38BDF8'];
+// Sparse, tasteful comic pops exclusively during Phase 3 swirling smoke-cloud beatdown
+const SMOKE_SPARSE_POPS: Record<number, { word: string; color: string; dx: number; dy: number }> = {
+  0: { word: 'POW!', color: '#FDE047', dx: -0.68, dy: 1.48 },
+  2: { word: 'WHAM!', color: '#FB923C', dx: 0.68, dy: 1.62 },
+  4: { word: 'CHIRKUT!', color: '#4ADE80', dx: -0.22, dy: 1.82 },
+};
 
 /**
  * Advances Blue Billa's 4.5-second choreographed "CHIRKUT CHAOS!" Super.
@@ -246,14 +250,15 @@ export function stepBillaSuper(
         y: offsetY,
         hitIndex: idx,
       });
+      const sparsePop = SMOKE_SPARSE_POPS[idx];
       events.push({
         type: idx % 2 === 1 ? 'heavy_hit' : 'hit',
         attackerSlot: attacker.slot,
-        x: defender.x + offsetX,
-        y: offsetY + 0.25,
+        x: defender.x + (sparsePop ? sparsePop.dx : offsetX),
+        y: sparsePop ? sparsePop.dy : offsetY + 0.25,
         damage: dealt,
-        word: SMOKE_COMIC_WORDS[idx % SMOKE_COMIC_WORDS.length],
-        color: SMOKE_COMIC_COLORS[idx % SMOKE_COMIC_COLORS.length],
+        word: sparsePop?.word,
+        color: sparsePop?.color ?? '#FDE047',
       });
     }
     return signals;
@@ -287,7 +292,6 @@ export function stepBillaSuper(
       x: defender.x,
       y: 1.55,
       damage: dealt,
-      word: 'CHIRKUT POP!',
       color: '#4ADE80',
       headline:
         defender.hp <= 0

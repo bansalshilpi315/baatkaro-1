@@ -16,6 +16,7 @@ import {
   computeTotalSuperDamage,
   createEmptyInput,
   createMatchState,
+  shouldAllowFloatingCallout,
   stepMatch,
 } from './combat';
 import {
@@ -79,19 +80,28 @@ test('Anda Bhai Super deals exact 33% maxHp (~25% lightning + ~75% red-brick wal
 
       let preWallDamage = 0;
       let capturedPreWall = false;
-      let sawCrushWord = false;
+      const andaComicWords: string[] = [];
+      let sawWallImpact = false;
       let sawWallShatter = false;
       const steps = Math.ceil((ANDA_SUPER_DURATION + 0.25) / dt);
 
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
-        if (evs.some((e) => e.word === 'CRUSH!')) {
-          sawCrushWord = true;
+        for (const ev of evs) {
+          if (ev.word) andaComicWords.push(ev.word);
+        }
+        if (state.andaSuperSignals.some((s) => s.kind === 'wall_impact')) {
+          sawWallImpact = true;
         }
         if (state.andaSuperSignals.some((s) => s.kind === 'wall_shatter')) {
           sawWallShatter = true;
         }
         if (state.andaSuper?.active) {
+          assert.equal(
+            shouldAllowFloatingCallout(state),
+            false,
+            'Floating comic callouts must be suppressed throughout Anda Bhai Super',
+          );
           if (!capturedPreWall && state.andaSuper.elapsed >= 2.45 && state.andaSuper.elapsed < 2.65) {
             preWallDamage = startHp - opp.hp;
             capturedPreWall = true;
@@ -103,8 +113,13 @@ test('Anda Bhai Super deals exact 33% maxHp (~25% lightning + ~75% red-brick wal
       const wallDamage = totalDamage - preWallDamage;
 
       assert.equal(state.andaSuper?.active ?? false, false, 'Anda Super must finish cleanly at 4.5s');
-      assert.equal(sawCrushWord, true, 'Wall impact must emit CRUSH! callout');
+      assert.equal(sawWallImpact, true, 'Wall impact VFX signal must fire');
       assert.equal(sawWallShatter, true, 'Wall shatter beat must emit after flattened beat');
+      assert.deepEqual(
+        andaComicWords,
+        [],
+        'Anda Bhai Super must emit zero floating comic impact text pop-ups',
+      );
       assert.equal(
         preWallDamage,
         expectedLightning,
@@ -213,20 +228,27 @@ test('Laddoo Mausi Super deals exact 33% maxHp (~50% laddoo storm + ~50% Mega La
       let preMegaDamage = 0;
       let capturedPreMega = false;
       let maxHoverY = 0;
-      let sawLaddooPowerWord = false;
-      let sawMegaWord = false;
+      const mausiComicWords: string[] = [];
+      let laddooHitSignals = 0;
+      let sawMegaImpact = false;
       const steps = Math.ceil((MAUSI_SUPER_DURATION + 0.25) / dt);
 
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
         if (mausi.y > maxHoverY) maxHoverY = mausi.y;
-        if (evs.some((e) => e.word === 'LADDOO POWER!' || e.word === 'MEETHA HIT!')) {
-          sawLaddooPowerWord = true;
+        for (const ev of evs) {
+          if (ev.word) mausiComicWords.push(ev.word);
         }
-        if (evs.some((e) => e.word === 'MEGA LADDOO!')) {
-          sawMegaWord = true;
+        laddooHitSignals += state.mausiSuperSignals.filter((s) => s.kind === 'laddoo_hit').length;
+        if (state.mausiSuperSignals.some((s) => s.kind === 'mega_impact')) {
+          sawMegaImpact = true;
         }
         if (state.mausiSuper?.active) {
+          assert.equal(
+            shouldAllowFloatingCallout(state),
+            false,
+            'Floating comic callouts must be suppressed throughout Laddoo Mausi Super',
+          );
           if (!capturedPreMega && state.mausiSuper.elapsed >= 4.08 && state.mausiSuper.elapsed < 4.24) {
             preMegaDamage = startHp - opp.hp;
             capturedPreMega = true;
@@ -240,8 +262,13 @@ test('Laddoo Mausi Super deals exact 33% maxHp (~50% laddoo storm + ~50% Mega La
       assert.equal(state.mausiSuper?.active ?? false, false, 'Mausi Super must finish cleanly at 5.0s');
       assert.ok(maxHoverY >= 1.9, `Mausi must levitate up to ~2.0, peaked at ${maxHoverY.toFixed(2)}`);
       assert.equal(mausi.y, 0, 'Mausi must touch down cleanly on ground at end of Super');
-      assert.equal(sawLaddooPowerWord, true, 'Barrage must emit LADDOO POWER! / MEETHA HIT!');
-      assert.equal(sawMegaWord, true, 'Finisher must emit MEGA LADDOO!');
+      assert.equal(laddooHitSignals, 7, 'All 7 laddoo barrage hit VFX signals must fire');
+      assert.equal(sawMegaImpact, true, 'Mega Laddoo impact VFX signal must fire');
+      assert.deepEqual(
+        mausiComicWords,
+        [],
+        'Laddoo Mausi Super must emit zero floating comic impact text pop-ups',
+      );
       assert.equal(
         preMegaDamage,
         expectedBarrage,

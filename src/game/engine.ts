@@ -17,6 +17,7 @@ import {
   computeCpuInput,
   createEmptyInput,
   createMatchState,
+  shouldAllowFloatingCallout,
   stepMatch,
 } from './combat';
 import {
@@ -62,6 +63,7 @@ import type {
 export interface EngineCallbacks {
   onHudUpdate: (hud: HudSnapshot) => void;
   onCallout: (callout: FloatingCallout) => void;
+  onClearCallouts: () => void;
   onHeadline: (headline: string) => void;
   onMatchFinish: (result: MatchResultSnapshot) => void;
 }
@@ -635,8 +637,9 @@ export class DesiShowdownEngine {
     } else if (screen === 'paused') {
       pauseDialogueTimers(this.dialogueTracker, performance.now());
     } else if (screen === 'select' || screen === 'title' || screen === 'notice') {
-      // Explicitly exited to menu: reset Super VFX, mid-fight dialogues, and stop active Super audio
+      // Explicitly exited to menu: reset Super VFX, mid-fight dialogues, floating callouts, and stop active Super audio
       clearAllMidFightDialogues(this.dialogueTracker);
+      this.callbacks.onClearCallouts();
       this.sheruSuperVfx.reset();
       this.billaSuperVfx.reset();
       this.netaSuperVfx.reset();
@@ -745,6 +748,7 @@ export class DesiShowdownEngine {
     this.moveCalloutText = null;
     this.moveCalloutTimer = 0;
     clearAllMidFightDialogues(this.dialogueTracker);
+    this.callbacks.onClearCallouts();
     this.lastTrackedRound = this.matchState.roundNumber;
     this.resultDispatched = false;
     this.trauma = 0;
@@ -1160,8 +1164,9 @@ export class DesiShowdownEngine {
           audioEngine.playSuper();
           this.trauma = Math.min(1, this.trauma + 0.65);
         }
-        // Only clear mid-fight bubbles early when a cinematic Super Power cutscene starts
+        // Clear mid-fight speech bubbles & any lingering floating comic text the instant a Super starts
         clearAllMidFightDialogues(this.dialogueTracker);
+        this.callbacks.onClearCallouts();
         this.stage?.triggerExcitement(1.8);
         const superBurstColor =
           caster?.id === 'billa'
@@ -1225,7 +1230,7 @@ export class DesiShowdownEngine {
         this.moveCalloutTimer = 1.05;
       }
 
-      if (ev.word) {
+      if (ev.word && shouldAllowFloatingCallout(this.matchState)) {
         const pt = this.projectToScreen(ev.x, ev.y + 0.55);
         if (pt) {
           this.callbacks.onCallout({
@@ -1753,6 +1758,8 @@ export class DesiShowdownEngine {
               this.spawnStarburstSparks(sig.x, sig.y, false);
               this.spawnParticles(sig.x, sig.y, 10, 0xfde047, 6.2);
             } else if (sig.kind === 'pop_finisher') {
+              // Immediately clear all smoke-cloud comic pop-ups the moment the smoke cloud bursts open
+              this.callbacks.onClearCallouts();
               this.trauma = 0.96;
               this.spawnImpactRing(sig.x, sig.y, true);
               this.spawnStarburstSparks(sig.x, sig.y, true);

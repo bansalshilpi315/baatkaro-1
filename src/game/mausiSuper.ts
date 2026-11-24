@@ -19,16 +19,6 @@ export const MAUSI_MEGA_IMPACT_TIME = 4.3;
 export const MAUSI_BARRAGE_HIT_TIMES = [2.68, 2.9, 3.12, 3.34, 3.56, 3.78, 4.0] as const;
 export const MAUSI_BARRAGE_DAMAGE_SHARE = 0.5;
 
-const MAUSI_BARRAGE_WORDS = [
-  'LADDOO POWER!',
-  'MEETHA HIT!',
-  'GOL-GOL!',
-  'LADDOO POWER!',
-  'MEETHA HIT!',
-  'BESAN BLAST!',
-  'LADDOO POWER!',
-] as const;
-
 export type MausiSuperPhase =
   | 'laddoo_gulp'    // 0.0s - 1.6s: Holds up glowing golden Power Laddoo, pops into mouth, fiery golden aura ignites
   | 'levitate'       // 1.6s - 2.5s: Levitates smoothly to y=2.0 with golden aura rings & fluttering saree pallu
@@ -291,7 +281,6 @@ export function stepMausiSuper(
       defender.vy = 2.4 + (idx % 2) * 0.8;
       defender.y = Math.max(defender.y, 0.06);
 
-      const word = MAUSI_BARRAGE_WORDS[idx % MAUSI_BARRAGE_WORDS.length];
       signals.push({ kind: 'laddoo_hit', x: defender.x, y: 1.15 + (idx % 3) * 0.22, hitIndex: idx });
       events.push({
         type: 'hit',
@@ -299,7 +288,6 @@ export function stepMausiSuper(
         x: defender.x + ((idx % 2 === 0 ? 1 : -1) * 0.25),
         y: 1.35 + (idx % 3) * 0.2,
         damage: dealt,
-        word,
         color: idx % 2 === 0 ? '#FACC15' : '#FB923C',
       });
     }
@@ -332,7 +320,6 @@ export function stepMausiSuper(
         x: superState.targetX,
         y: 1.55,
         damage: dealt,
-        word: 'MEGA LADDOO!',
         color: '#FDE047',
         headline:
           defender.hp <= 0

@@ -393,6 +393,7 @@ export function FightHud({
         {callouts.map((c) => (
           <div
             key={c.id}
+            data-testid="floating-comic-callout"
             className="comic-pop-text absolute text-2xl sm:text-4xl"
             style={{
               left: `${c.screenX}px`,

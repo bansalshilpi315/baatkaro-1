@@ -179,6 +179,28 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
   };
 }
 
+export function isAnySuperActive(state: MatchState): boolean {
+  return Boolean(
+    state.activeSuperSlot !== null ||
+      state.sheruSuper?.active ||
+      state.billaSuper?.active ||
+      state.netaSuper?.active ||
+      state.andaSuper?.active ||
+      state.mausiSuper?.active ||
+      state.fighters[0].action === 'super' ||
+      state.fighters[1].action === 'super',
+  );
+}
+
+/**
+ * Floating comic impact text pop-ups are strictly disabled during ALL Super Powers,
+ * with the sole exception of Blue Billa's Phase 3 swirling cartoon smoke-cloud beatdown.
+ */
+export function shouldAllowFloatingCallout(state: MatchState): boolean {
+  if (!isAnySuperActive(state)) return true;
+  return Boolean(state.billaSuper?.active && state.billaSuper.phase === 'smoke_beatdown');
+}
+
 export function resolveRoundEnd(
   state: MatchState,
   roundWinner: 0 | 1 | 'draw',
@@ -740,7 +762,6 @@ function startAction(
         x: fighter.x,
         y: fighter.y + 1.5,
         damage: 0,
-        word: 'SHAKTI STRIKE!',
         moveCallout: `${cfg.superName}!`,
         color: '#FDE047',
         headline: `SHAKTI METER EXPLODES! ${cfg.name.toUpperCase()} UNLEASHES ${cfg.superName}!`,

@@ -136,11 +136,11 @@ export default function App() {
       onHudUpdate: (nextHud) => setHud(nextHud),
       onCallout: (callout) => {
         setCallouts((prev) => [...prev.slice(-5), callout]);
-        const ttl = callout.text.includes('TRILLION') ? 1350 : 720;
         window.setTimeout(() => {
           setCallouts((prev) => prev.filter((c) => c.id !== callout.id));
-        }, ttl);
+        }, 720);
       },
+      onClearCallouts: () => setCallouts([]),
       onHeadline: () => {},
       onMatchFinish: (result) => {
         setMatchResult(result);

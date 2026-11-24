@@ -252,7 +252,6 @@ export function stepAndaSuper(
         x: defender.x,
         y: 1.7 + (idx % 2) * 0.25,
         damage: dealt,
-        word: idx === 1 ? 'ZAP!' : 'BIJLI!',
         color: '#38BDF8',
       });
     }
@@ -306,7 +305,6 @@ export function stepAndaSuper(
         x: superState.targetX,
         y: 1.45,
         damage: dealt,
-        word: 'CRUSH!',
         color: '#EF4444',
         headline:
           defender.hp <= 0

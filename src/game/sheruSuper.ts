@@ -235,7 +235,6 @@ export function stepSheruSuper(
         x: hitX,
         y: hitY,
         damage: dealt,
-        word: hitIdx % 3 === 0 ? 'TADBAN!' : hitIdx % 3 === 1 ? 'DHISHUM!' : 'PAISA!',
         color: '#FDE047',
       });
     }
@@ -269,7 +268,6 @@ export function stepSheruSuper(
         x: defender.x,
         y: 1.45,
         damage: dealt,
-        word: 'KHADE HOKE!',
         color: '#FACC15',
       });
     }
@@ -298,7 +296,6 @@ export function stepSheruSuper(
         x: defender.x,
         y: 0.78,
         damage: dealt,
-        word: 'LET KE MAARA!',
         color: '#FDE047',
       });
     }
@@ -315,7 +312,6 @@ export function stepSheruSuper(
         x: defender.x,
         y: 1.05,
         damage: dealt,
-        word: 'JHAKAAS!',
         color: '#FB923C',
       });
     }
@@ -358,7 +354,6 @@ export function stepSheruSuper(
         x: defender.x,
         y: 1.6,
         damage: dealt,
-        word: '$ TRILLION $',
         color: '#FDE047',
         headline:
           defender.hp <= 0

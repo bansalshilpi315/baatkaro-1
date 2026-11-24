@@ -11,6 +11,7 @@ import {
   computeTotalSuperDamage,
   createEmptyInput,
   createMatchState,
+  shouldAllowFloatingCallout,
   stepMatch,
 } from './combat';
 import {
@@ -72,13 +73,28 @@ test('Blue Billa "CHIRKUT CHAOS" deals exact 33% opponent maxHp (~45% smoke tick
 
       let preFinisherDamage = 0;
       let capturedPreFinisher = false;
-      const comicWords = new Set<string>();
+      const smokeComicWords: string[] = [];
+      const nonSmokeComicWords: string[] = [];
       const steps = Math.ceil((BILLA_SUPER_DURATION + 0.25) / dt);
 
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
+        const phase: string | null = state.billaSuper?.active ? state.billaSuper.phase : null;
+        if (state.billaSuper?.active) {
+          assert.equal(
+            shouldAllowFloatingCallout(state),
+            phase === 'smoke_beatdown',
+            `Blue Billa callouts allowed ONLY in smoke_beatdown, phase=${phase}`,
+          );
+        }
         for (const ev of evs) {
-          if (ev.word) comicWords.add(ev.word);
+          if (ev.word) {
+            if (phase === 'smoke_beatdown') {
+              smokeComicWords.push(ev.word);
+            } else {
+              nonSmokeComicWords.push(`${phase}:${ev.word}`);
+            }
+          }
         }
         if (state.billaSuper?.active) {
           if (!capturedPreFinisher && state.billaSuper.elapsed >= 3.92 && state.billaSuper.elapsed < 4.09) {
@@ -92,8 +108,16 @@ test('Blue Billa "CHIRKUT CHAOS" deals exact 33% opponent maxHp (~45% smoke tick
       const finisherDamage = totalDamage - preFinisherDamage;
 
       assert.equal(state.billaSuper?.active ?? false, false, 'Blue Billa Super must finish cleanly at 4.5s');
-      assert.ok(comicWords.has('POW!') || comicWords.has('WHAM!'), 'Smoke beatdown must emit POW!/WHAM!');
-      assert.ok(comicWords.has('CHIRKUT!'), 'Blue Billa Super must emit CHIRKUT!');
+      assert.deepEqual(
+        nonSmokeComicWords,
+        [],
+        'Blue Billa Super must emit ZERO comic text in Phases 1, 2, or 4 (pop burst)',
+      );
+      assert.deepEqual(
+        smokeComicWords,
+        ['POW!', 'WHAM!', 'CHIRKUT!'],
+        'Blue Billa Phase 3 smoke cloud must emit only sparse POW!, WHAM!, CHIRKUT! pops',
+      );
       assert.equal(
         preFinisherDamage,
         expectedCombo,
@@ -214,16 +238,23 @@ test('Garib Sena Neta "VANS, ATTACK!" deals exact 33% opponent maxHp (~45% van h
       let preFinisherDamage = 0;
       let capturedPreFinisher = false;
       let maxNetaY = 0;
-      let sawThokkar = false;
+      const netaComicWords: string[] = [];
+      let vanHitSignals = 0;
       const steps = Math.ceil((NETA_SUPER_DURATION + 0.25) / dt);
 
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
-        if (evs.some((e) => e.word === 'THOKKAR!')) {
-          sawThokkar = true;
+        for (const ev of evs) {
+          if (ev.word) netaComicWords.push(ev.word);
         }
+        vanHitSignals += state.netaSuperSignals.filter((s) => s.kind === 'van_hit').length;
         if (neta.y > maxNetaY) maxNetaY = neta.y;
         if (state.netaSuper?.active) {
+          assert.equal(
+            shouldAllowFloatingCallout(state),
+            false,
+            'Floating comic callouts must be suppressed throughout Garib Sena Neta Super',
+          );
           if (!capturedPreFinisher && state.netaSuper.elapsed >= 3.72 && state.netaSuper.elapsed < 4.0) {
             preFinisherDamage = startHp - opp.hp;
             capturedPreFinisher = true;
@@ -237,7 +268,12 @@ test('Garib Sena Neta "VANS, ATTACK!" deals exact 33% opponent maxHp (~45% van h
       assert.equal(state.netaSuper?.active ?? false, false, 'Neta Super must finish cleanly at 4.8s');
       assert.ok(maxNetaY >= 2.05, `Neta should levitate to y ≈ 2.2, max reached ${maxNetaY.toFixed(2)}`);
       assert.equal(neta.y, 0, 'Neta must touch down to ground y = 0');
-      assert.equal(sawThokkar, true, 'Van impacts must emit THOKKAR!');
+      assert.equal(vanHitSignals, 4, 'All 4 convoy van_hit signals must still fire intact');
+      assert.deepEqual(
+        netaComicWords,
+        [],
+        'Garib Sena Neta Super must emit zero floating comic impact text pop-ups',
+      );
       assert.equal(
         preFinisherDamage,
         expectedCombo,
