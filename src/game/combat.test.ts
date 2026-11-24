@@ -367,7 +367,7 @@ test('interrupting opponent attack startup triggers COUNTER! callout and bonus d
   );
 });
 
-test('Kick 3-hit combo executes High Snap Kick -> Low Sweep -> Jump-Kick Finisher', () => {
+test('Kick 3-hit combo executes Front Snap Kick -> Side/Roundhouse Kick -> Jumping Spinning Kick Finisher', () => {
   const state = createMatchState('sheru', 'billa', true);
   state.fighters[0].x = -0.62;
   state.fighters[1].x = 0.62;
@@ -375,7 +375,7 @@ test('Kick 3-hit combo executes High Snap Kick -> Low Sweep -> Jump-Kick Finishe
   const kickIn = { ...createEmptyInput(), kick: true };
   const idleIn = createEmptyInput();
 
-  // Hit 1: High Snap Kick (comboStep 0)
+  // Hit 1: Chambered Front Snap Kick (comboStep 0)
   stepMatch(state, [kickIn, idleIn], 1 / 60);
   const h1 = stepFrames(state, idleIn, idleIn, 16);
   assert.ok(
@@ -383,16 +383,16 @@ test('Kick 3-hit combo executes High Snap Kick -> Low Sweep -> Jump-Kick Finishe
     '1st kick should connect at chest/head height',
   );
 
-  // Hit 2: Low Sweep Kick (comboStep 1)
+  // Hit 2: Side / Roundhouse Kick (comboStep 1) at chest/head height (no knockdown so Hit 3 chains cleanly!)
   state.fighters[1].x = state.fighters[0].x + 1.15;
   stepMatch(state, [kickIn, idleIn], 1 / 60);
   const h2 = stepFrames(state, idleIn, idleIn, 18);
   assert.ok(
-    h2.some((e) => e.moveCallout === 'TANGDI SWEEP!' && e.y < 0.6),
-    '2nd kick combo should execute low sweep at floor contact height',
+    h2.some((e) => e.moveCallout === 'ROUNDHOUSE!' && e.y > 1.2),
+    '2nd kick combo should execute Side/Roundhouse Kick at chest/head height',
   );
 
-  // Hit 3: Jump-Kick Finisher (comboStep 2) - test fresh fighter in range with comboChainTimer active
+  // Hit 3: Jumping Spinning Kick Finisher (comboStep 2)
   const state3 = createMatchState('sheru', 'billa', true);
   state3.fighters[0].x = -0.65;
   state3.fighters[1].x = 0.65;
@@ -400,11 +400,11 @@ test('Kick 3-hit combo executes High Snap Kick -> Low Sweep -> Jump-Kick Finishe
   state3.fighters[0].comboChainTimer = 0.45;
   stepMatch(state3, [kickIn, idleIn], 1 / 60);
   assert.equal(state3.fighters[0].comboStep, 2, '3rd kick should advance to comboStep 2');
-  assert.ok(state3.fighters[0].vy > 4.0, '3rd kick jump-kick finisher should hop briskly off the ground');
+  assert.ok(state3.fighters[0].vy > 4.0, '3rd kick jump-spin finisher should hop briskly off the ground');
   const h3 = stepFrames(state3, idleIn, idleIn, 20);
   assert.ok(
     h3.some((e) => e.type === 'heavy_hit'),
-    '3rd kick jump-kick finisher should land as heavy knockdown hit',
+    '3rd kick jump-spin finisher should land as heavy knockdown hit',
   );
   assert.equal(state3.fighters[1].action, 'knockdown', '3rd kick finisher should launch opponent into knockdown');
 });

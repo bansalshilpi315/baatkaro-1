@@ -347,23 +347,23 @@ export function getAttackTiming(fighter: FighterState): {
     }
     case 'kick': {
       if (fighter.comboStep === 1) {
-        // 2nd Kick Combo -> Low Sweep Kick!
+        // 2nd Kick Combo -> Side / Roundhouse Kick at chest/head height (chains cleanly into Jump Spinning Kick)
         return {
           windup: 0.09,
           active: 0.13,
-          recovery: 0.24,
-          range: 2.18,
-          damage: Math.round(cfg.kickDamage * 0.92),
-          knockbackX: 5.2,
-          knockbackY: 5.8,
-          hitstop: 0.054,
+          recovery: 0.21,
+          range: 2.24,
+          damage: Math.round(cfg.kickDamage * 1.08),
+          knockbackX: 5.4,
+          knockbackY: 1.8,
+          hitstop: 0.052,
           stun: 0.38,
           isHeavy: true,
           isGrab: false,
           isSpecial: false,
           isSuper: false,
-          causesKnockdown: true,
-          moveCallout: 'TANGDI SWEEP!',
+          causesKnockdown: false,
+          moveCallout: 'ROUNDHOUSE!',
         };
       }
       const isFinisher = fighter.comboStep === 2;
@@ -1327,12 +1327,12 @@ export function stepMatch(
         f.vx = 0;
         const holdProgress = Math.min(1, f.actionTimer / Math.max(0.05, timing.windup));
         if (!f.hasHitCurrentAttack && opp.action === 'grabbed') {
-          // Lift & spin/pull opponent dramatically before slamming them!
+          // 180° Kung-Fu Hip-Throw arc: hoist opponent off the ground across attacker's hip/shoulder!
           opp.x = Math.max(
             ARENA_MIN_X,
-            Math.min(ARENA_MAX_X, f.x + f.facing * (0.78 - holdProgress * 0.22)),
+            Math.min(ARENA_MAX_X, f.x + f.facing * (0.72 - holdProgress * 0.95)),
           );
-          opp.y = 0.22 + Math.sin(holdProgress * Math.PI) * 0.68;
+          opp.y = 0.25 + Math.sin(holdProgress * Math.PI) * 0.92;
           opp.vx = 0;
           opp.vy = 0;
         }
@@ -1428,15 +1428,17 @@ export function stepMatch(
               const contactX = f.x + (opp.x - f.x) * 0.62;
               const baseY = Math.max(f.y, opp.y);
               const contactY =
-                f.action === 'sweep' || (f.action === 'kick' && f.comboStep === 1)
+                f.action === 'sweep'
                   ? baseY + 0.34
                   : f.action === 'punch' && f.comboStep === 2
                     ? baseY + 1.62
                     : f.action === 'kick' && f.comboStep === 2
                       ? baseY + 1.56
-                      : f.action === 'kick'
-                        ? baseY + 1.48
-                        : baseY + 1.42;
+                      : f.action === 'kick' && f.comboStep === 1
+                        ? baseY + 1.5
+                        : f.action === 'kick'
+                          ? baseY + 1.48
+                          : baseY + 1.42;
               applyHit(
                 state,
                 f,

@@ -10,6 +10,8 @@ import {
   computeSuperCameraTarget,
 } from './camera';
 import { animateFighterRig, buildFighterRig, FIGHTER_CONFIGS, type FighterRig } from './characters';
+import { getActiveStrikeTrailInfo } from './characters/kinematics';
+import { StrikeTrailRibbon } from './characters/strikeTrail';
 import {
   buildMatchResultSnapshot,
   computeCpuInput,
@@ -196,6 +198,9 @@ export class DesiShowdownEngine {
   // Sheru Bhai's "Trillion Dollar Beatdown" Super VFX manager
   private sheruSuperVfx: SheruSuperVfx;
 
+  // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
+  private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
+
   // 3D Projectile visual map + pre-allocated shared geometries/materials/textures (zero mid-fight spikes)
   private projectileMeshes = new Map<number, THREE.Object3D>();
   private activeProjectileIds = new Set<number>();
@@ -373,6 +378,10 @@ export class DesiShowdownEngine {
 
     this.sheruSuperVfx = new SheruSuperVfx(this.scene);
 
+    this.strikeTrails = [new StrikeTrailRibbon(), new StrikeTrailRibbon()];
+    this.scene.add(this.strikeTrails[0].mesh);
+    this.scene.add(this.strikeTrails[1].mesh);
+
     // Pre-create shared projectile texture, geometries, and materials once at scene init
     this.currencyNoteTex = this.createCurrencyNoteTexture();
     this.currencyNoteGeo = new THREE.BoxGeometry(0.52, 0.26, 0.025);
@@ -423,12 +432,14 @@ export class DesiShowdownEngine {
     void audioEngine.preloadSuperAudio();
 
     if (!this.isSoftwareGl) {
-      // Pre-warm all Super VFX & shockwave shader programs during init to avoid mid-Super spikes
+      // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes
       this.sheruSuperVfx.setPrewarmVisible(true);
       this.shockwaveRing.visible = true;
+      this.strikeTrails[0].mesh.visible = true;
       this.renderer.compile(this.scene, this.camera);
       this.sheruSuperVfx.setPrewarmVisible(false);
       this.shockwaveRing.visible = false;
+      this.strikeTrails[0].mesh.visible = false;
     }
 
     // Input & Dynamic Viewport Resize listeners
@@ -609,6 +620,8 @@ export class DesiShowdownEngine {
     this.loadFighters(p1, p2);
     this.clearProjectiles();
     this.sheruSuperVfx.reset();
+    this.strikeTrails[0].reset();
+    this.strikeTrails[1].reset();
     // Explicit match start/restart: stop any prior Super audio and ensure buffer is preloaded
     audioEngine.stopSuperAudio();
     void audioEngine.preloadSuperAudio();
@@ -695,6 +708,7 @@ export class DesiShowdownEngine {
       const rig = buildFighterRig(i === 0 ? p1 : p2);
       this.rigs[i] = rig;
       this.scene.add(rig.root);
+      this.strikeTrails[i].reset();
     }
   }
 
@@ -1516,13 +1530,19 @@ export class DesiShowdownEngine {
       for (let i = 0; i < 2; i++) {
         const rig = this.rigs[i];
         if (rig) {
+          const fighterState = this.matchState.fighters[i];
           animateFighterRig(
             rig,
-            this.matchState.fighters[i],
+            fighterState,
             this.elapsed,
             dt,
             i === 0 ? p1PropThrown : p2PropThrown,
           );
+          const trailInfo = getActiveStrikeTrailInfo(fighterState);
+          if (trailInfo.limb !== null) {
+            rig.root.updateMatrixWorld(true);
+          }
+          this.strikeTrails[i].update(rig, trailInfo.limb, trailInfo.intensity, dt);
         }
       }
 
@@ -1594,6 +1614,10 @@ export class DesiShowdownEngine {
 
     audioEngine.stopSuperAudio();
     this.sheruSuperVfx.dispose(this.scene);
+    for (const trail of this.strikeTrails) {
+      this.scene.remove(trail.mesh);
+      trail.dispose();
+    }
     this.stage?.dispose();
     this.rigs.forEach((r) => r?.dispose());
     this.particleMesh.geometry.dispose();

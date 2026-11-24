@@ -2819,18 +2819,38 @@ export function buildFighterRig(id: FighterId): FighterRig {
   switch (id) {
     case 'sheru':
       buildSheruBhai(rig);
+      rig.leftFistAnchor.position.set(0, -0.355, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.355, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.39, 0.08);
+      rig.rightFootAnchor.position.set(0, -0.39, 0.08);
       break;
     case 'billa':
       buildBlueBilla(rig);
+      rig.leftFistAnchor.position.set(0, -0.38, 0.03);
+      rig.rightFistAnchor.position.set(0, -0.38, 0.03);
+      rig.leftFootAnchor.position.set(0, -0.31, 0.12);
+      rig.rightFootAnchor.position.set(0, -0.31, 0.12);
       break;
     case 'neta':
       buildGaribSenaNeta(rig);
+      rig.leftFistAnchor.position.set(0, -0.30, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.30, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.415, 0.08);
+      rig.rightFootAnchor.position.set(0, -0.415, 0.08);
       break;
     case 'anda':
       buildAndaBhai(rig);
+      rig.leftFistAnchor.position.set(0, -0.31, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.31, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.32, 0.12);
+      rig.rightFootAnchor.position.set(0, -0.32, 0.12);
       break;
     case 'mausi':
       buildLaddooMausi(rig);
+      rig.leftFistAnchor.position.set(0, -0.31, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.31, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.41, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.41, 0.10);
       break;
   }
 

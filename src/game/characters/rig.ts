@@ -18,6 +18,10 @@ export interface FighterRig {
   leftKnee: THREE.Group;
   rightHip: THREE.Group;
   rightKnee: THREE.Group;
+  leftFistAnchor: THREE.Object3D;
+  rightFistAnchor: THREE.Object3D;
+  leftFootAnchor: THREE.Object3D;
+  rightFootAnchor: THREE.Object3D;
   contactShadow: THREE.Mesh;
   handProp: THREE.Object3D | null;
   tailPivot: THREE.Group | null;
@@ -66,10 +70,12 @@ export function createBaseRigSkeleton(
   root.add(bodyGroup);
 
   const pelvis = new THREE.Group();
+  pelvis.rotation.order = 'YXZ';
   pelvis.position.set(0, isEggBody ? 0.68 : 0.92, 0);
   bodyGroup.add(pelvis);
 
   const torso = new THREE.Group();
+  torso.rotation.order = 'YXZ';
   torso.position.set(0, isEggBody ? 0.04 : 0.14, 0);
   pelvis.add(torso);
 
@@ -81,6 +87,7 @@ export function createBaseRigSkeleton(
   const shoulderX = isEggBody ? 0.53 : 0.43;
 
   const leftShoulder = new THREE.Group();
+  leftShoulder.rotation.order = 'YXZ';
   leftShoulder.position.set(-shoulderX, shoulderY, 0);
   torso.add(leftShoulder);
 
@@ -88,7 +95,12 @@ export function createBaseRigSkeleton(
   leftElbow.position.set(0, isEggBody ? -0.27 : -0.34, 0);
   leftShoulder.add(leftElbow);
 
+  const leftFistAnchor = new THREE.Object3D();
+  leftFistAnchor.position.set(0, -0.35, 0.02);
+  leftElbow.add(leftFistAnchor);
+
   const rightShoulder = new THREE.Group();
+  rightShoulder.rotation.order = 'YXZ';
   rightShoulder.position.set(shoulderX, shoulderY, 0);
   torso.add(rightShoulder);
 
@@ -96,8 +108,13 @@ export function createBaseRigSkeleton(
   rightElbow.position.set(0, isEggBody ? -0.27 : -0.34, 0);
   rightShoulder.add(rightElbow);
 
+  const rightFistAnchor = new THREE.Object3D();
+  rightFistAnchor.position.set(0, -0.35, 0.02);
+  rightElbow.add(rightFistAnchor);
+
   const hipX = isEggBody ? 0.2 : 0.19;
   const leftHip = new THREE.Group();
+  leftHip.rotation.order = 'YXZ';
   leftHip.position.set(-hipX, isEggBody ? 0.04 : 0, 0);
   pelvis.add(leftHip);
 
@@ -105,13 +122,22 @@ export function createBaseRigSkeleton(
   leftKnee.position.set(0, isEggBody ? -0.32 : -0.44, 0);
   leftHip.add(leftKnee);
 
+  const leftFootAnchor = new THREE.Object3D();
+  leftFootAnchor.position.set(0, -0.4, 0.08);
+  leftKnee.add(leftFootAnchor);
+
   const rightHip = new THREE.Group();
+  rightHip.rotation.order = 'YXZ';
   rightHip.position.set(hipX, isEggBody ? 0.04 : 0, 0);
   pelvis.add(rightHip);
 
   const rightKnee = new THREE.Group();
   rightKnee.position.set(0, isEggBody ? -0.32 : -0.44, 0);
   rightHip.add(rightKnee);
+
+  const rightFootAnchor = new THREE.Object3D();
+  rightFootAnchor.position.set(0, -0.4, 0.08);
+  rightKnee.add(rightFootAnchor);
 
   // Soft radial contact shadow on floor
   const shadowGeo = new THREE.CircleGeometry(0.75, 24);
@@ -173,6 +199,10 @@ export function createBaseRigSkeleton(
     leftKnee,
     rightHip,
     rightKnee,
+    leftFistAnchor,
+    rightFistAnchor,
+    leftFootAnchor,
+    rightFootAnchor,
     contactShadow,
     handProp: null,
     tailPivot: null,
@@ -326,14 +356,18 @@ export function animateFighterRig(
   let lShY = pose.lShY;
   let lShZ = pose.lShZ;
   let lElbX = pose.lElbX;
+  let lElbZ = pose.lElbZ;
   let rShX = pose.rShX;
   let rShY = pose.rShY;
   let rShZ = pose.rShZ;
   let rElbX = pose.rElbX;
+  let rElbZ = pose.rElbZ;
   let lHipX = pose.lHipX;
+  let lHipY = pose.lHipY;
   let lHipZ = pose.lHipZ;
   let lKneeX = pose.lKneeX;
   let rHipX = pose.rHipX;
+  let rHipY = pose.rHipY;
   let rHipZ = pose.rHipZ;
   let rKneeX = pose.rKneeX;
 
@@ -377,6 +411,10 @@ export function animateFighterRig(
       headRotY = 0;
       lShY = 0;
       rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
       lHipZ = 0;
       rHipZ = 0;
       if (t < 1.0) {
@@ -825,11 +863,15 @@ export function animateFighterRig(
     lShX = -1.6;
     lShZ = -0.95;
     lElbX = -0.2;
+    lElbZ = 0;
     rShX = -1.6;
     rShZ = 0.95;
     rElbX = -0.2;
+    rElbZ = 0;
     lHipX = 0.1;
+    lHipY = 0;
     rHipX = -0.1;
+    rHipY = 0;
     lKneeX = 0.12;
     rKneeX = 0.12;
     jointAlpha = 1 - Math.exp(-32 * Math.max(dt, 0.008));
@@ -853,17 +895,21 @@ export function animateFighterRig(
   rig.leftShoulder.rotation.y = lerpAngle(rig.leftShoulder.rotation.y, lShY, jointAlpha);
   rig.leftShoulder.rotation.z = lerpAngle(rig.leftShoulder.rotation.z, lShZ, jointAlpha);
   rig.leftElbow.rotation.x = lerpAngle(rig.leftElbow.rotation.x, lElbX, jointAlpha);
+  rig.leftElbow.rotation.z = lerpAngle(rig.leftElbow.rotation.z, lElbZ, jointAlpha);
 
   rig.rightShoulder.rotation.x = lerpAngle(rig.rightShoulder.rotation.x, rShX, jointAlpha);
   rig.rightShoulder.rotation.y = lerpAngle(rig.rightShoulder.rotation.y, rShY, jointAlpha);
   rig.rightShoulder.rotation.z = lerpAngle(rig.rightShoulder.rotation.z, rShZ, jointAlpha);
   rig.rightElbow.rotation.x = lerpAngle(rig.rightElbow.rotation.x, rElbX, jointAlpha);
+  rig.rightElbow.rotation.z = lerpAngle(rig.rightElbow.rotation.z, rElbZ, jointAlpha);
 
   rig.leftHip.rotation.x = lerpAngle(rig.leftHip.rotation.x, lHipX, jointAlpha);
+  rig.leftHip.rotation.y = lerpAngle(rig.leftHip.rotation.y, lHipY, jointAlpha);
   rig.leftHip.rotation.z = lerpAngle(rig.leftHip.rotation.z, lHipZ, jointAlpha);
   rig.leftKnee.rotation.x = lerpAngle(rig.leftKnee.rotation.x, lKneeX, jointAlpha);
 
   rig.rightHip.rotation.x = lerpAngle(rig.rightHip.rotation.x, rHipX, jointAlpha);
+  rig.rightHip.rotation.y = lerpAngle(rig.rightHip.rotation.y, rHipY, jointAlpha);
   rig.rightHip.rotation.z = lerpAngle(rig.rightHip.rotation.z, rHipZ, jointAlpha);
   rig.rightKnee.rotation.x = lerpAngle(rig.rightKnee.rotation.x, rKneeX, jointAlpha);
 }
