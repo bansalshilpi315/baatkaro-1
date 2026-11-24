@@ -130,10 +130,17 @@ export class DesiShowdownEngine {
   // Sheru Bhai's "Trillion Dollar Beatdown" Super VFX manager
   private sheruSuperVfx: SheruSuperVfx;
 
-  // 3D Projectile visual map
+  // 3D Projectile visual map + pre-allocated shared geometries/materials/textures (zero mid-fight spikes)
   private projectileMeshes = new Map<number, THREE.Object3D>();
+  private activeProjectileIds = new Set<number>();
   private projectileGroup = new THREE.Group();
-  private currencyNoteTex: THREE.CanvasTexture | null = null;
+  private currencyNoteTex: THREE.CanvasTexture;
+  private currencyNoteGeo: THREE.BoxGeometry;
+  private currencyNoteMat: THREE.MeshStandardMaterial;
+  private belanBarrelGeo: THREE.LatheGeometry;
+  private belanBarrelMat: THREE.MeshStandardMaterial;
+  private belanHandleGeo: THREE.CylinderGeometry;
+  private belanHandleMat: THREE.MeshStandardMaterial;
 
   // Loop & lifecycle
   private frameId = 0;
@@ -250,12 +257,47 @@ export class DesiShowdownEngine {
 
     this.sheruSuperVfx = new SheruSuperVfx(this.scene);
 
+    // Pre-create shared projectile texture, geometries, and materials once at scene init
+    this.currencyNoteTex = this.createCurrencyNoteTexture();
+    this.currencyNoteGeo = new THREE.BoxGeometry(0.52, 0.26, 0.025);
+    this.currencyNoteMat = new THREE.MeshStandardMaterial({
+      map: this.currencyNoteTex,
+      color: 0xffffff,
+      emissive: 0x15803d,
+      emissiveIntensity: 0.22,
+      roughness: 0.42,
+      metalness: 0.12,
+    });
+    const belanPts: THREE.Vector2[] = [
+      new THREE.Vector2(0.002, -0.5),
+      new THREE.Vector2(0.038, -0.48),
+      new THREE.Vector2(0.034, -0.34),
+      new THREE.Vector2(0.068, -0.3),
+      new THREE.Vector2(0.082, 0.0),
+      new THREE.Vector2(0.068, 0.3),
+      new THREE.Vector2(0.034, 0.34),
+      new THREE.Vector2(0.038, 0.48),
+      new THREE.Vector2(0.002, 0.5),
+    ];
+    this.belanBarrelGeo = new THREE.LatheGeometry(belanPts, 12);
+    this.belanBarrelMat = new THREE.MeshStandardMaterial({ color: 0xc68b49, roughness: 0.52 });
+    this.belanHandleGeo = new THREE.CylinderGeometry(0.04, 0.038, 0.16, 8);
+    this.belanHandleMat = new THREE.MeshStandardMaterial({ color: 0x9b642c, roughness: 0.48 });
+
     this.matchState = createMatchState(this.p1Id, this.p2Id, false);
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
 
+    // Preload Super Power MP3 bytes early so Web Audio decode is instant when unlocked
+    void audioEngine.preloadSuperAudio();
+
     if (!this.isSoftwareGl) {
+      // Pre-warm all Super VFX & shockwave shader programs during init to avoid mid-Super spikes
+      this.sheruSuperVfx.setPrewarmVisible(true);
+      this.shockwaveRing.visible = true;
       this.renderer.compile(this.scene, this.camera);
+      this.sheruSuperVfx.setPrewarmVisible(false);
+      this.shockwaveRing.visible = false;
     }
 
     // Input & Dynamic Viewport Resize listeners
@@ -377,9 +419,10 @@ export class DesiShowdownEngine {
     this.currentScreen = screen;
     if (screen === 'playing') {
       this.clearInputs();
-    } else if (screen !== 'paused') {
+    } else if (screen === 'select' || screen === 'title' || screen === 'notice') {
+      // Explicitly exited to menu: reset Super VFX and stop active Super audio
       this.sheruSuperVfx.reset();
-      audioEngine.stopSheruSuperAudio(0.15);
+      audioEngine.stopSuperAudio();
     }
   }
 
@@ -435,7 +478,9 @@ export class DesiShowdownEngine {
     this.loadFighters(p1, p2);
     this.clearProjectiles();
     this.sheruSuperVfx.reset();
-    audioEngine.stopSheruSuperAudio(0.1);
+    // Explicit match start/restart: stop any prior Super audio and ensure buffer is preloaded
+    audioEngine.stopSuperAudio();
+    void audioEngine.preloadSuperAudio();
     this.matchState = createMatchState(p1, p2, skipIntro);
     if (initialP1Shakti > 0) {
       this.matchState.fighters[0].shakti = Math.min(100, initialP1Shakti);
@@ -562,8 +607,7 @@ export class DesiShowdownEngine {
     }
   }
 
-  private getCurrencyNoteTexture(): THREE.CanvasTexture {
-    if (this.currencyNoteTex) return this.currencyNoteTex;
+  private createCurrencyNoteTexture(): THREE.CanvasTexture {
     const c = document.createElement('canvas');
     c.width = 128;
     c.height = 64;
@@ -592,53 +636,27 @@ export class DesiShowdownEngine {
     ctx.fillText('500', 102, 46);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    this.currencyNoteTex = tex;
     return tex;
   }
 
   private syncProjectiles(): void {
-    const activeIds = new Set<number>();
+    const activeIds = this.activeProjectileIds;
+    activeIds.clear();
     for (const proj of this.matchState.projectiles) {
       activeIds.add(proj.uid);
       let mesh = this.projectileMeshes.get(proj.uid);
       if (!mesh) {
         if (proj.kind === 'belan') {
           const grp = new THREE.Group();
-          const belanPts: THREE.Vector2[] = [
-            new THREE.Vector2(0.002, -0.5),
-            new THREE.Vector2(0.038, -0.48),
-            new THREE.Vector2(0.034, -0.34),
-            new THREE.Vector2(0.068, -0.3),
-            new THREE.Vector2(0.082, 0.0),
-            new THREE.Vector2(0.068, 0.3),
-            new THREE.Vector2(0.034, 0.34),
-            new THREE.Vector2(0.038, 0.48),
-            new THREE.Vector2(0.002, 0.5),
-          ];
-          const barrel = new THREE.Mesh(
-            new THREE.LatheGeometry(belanPts, 12),
-            new THREE.MeshStandardMaterial({ color: 0xc68b49, roughness: 0.52 }),
-          );
-          const handleMat = new THREE.MeshStandardMaterial({ color: 0x9b642c, roughness: 0.48 });
-          const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.038, 0.16, 8), handleMat);
+          const barrel = new THREE.Mesh(this.belanBarrelGeo, this.belanBarrelMat);
+          const h1 = new THREE.Mesh(this.belanHandleGeo, this.belanHandleMat);
           h1.position.y = 0.41;
-          const h2 = h1.clone();
+          const h2 = new THREE.Mesh(this.belanHandleGeo, this.belanHandleMat);
           h2.position.y = -0.41;
           grp.add(barrel, h1, h2);
           mesh = grp;
         } else {
-          const noteTex = this.getCurrencyNoteTexture();
-          mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(0.52, 0.26, 0.025),
-            new THREE.MeshStandardMaterial({
-              map: noteTex,
-              color: 0xffffff,
-              emissive: 0x15803d,
-              emissiveIntensity: 0.22,
-              roughness: 0.42,
-              metalness: 0.12,
-            }),
-          );
+          mesh = new THREE.Mesh(this.currencyNoteGeo, this.currencyNoteMat);
         }
         this.projectileGroup.add(mesh);
         this.projectileMeshes.set(proj.uid, mesh);
@@ -1008,7 +1026,8 @@ export class DesiShowdownEngine {
               this.spawnParticles(sig.x, sig.y, 28, 0xfde047, 9.2);
               this.stage?.triggerExcitement(2.5);
             } else if (sig.kind === 'super_end') {
-              audioEngine.stopSheruSuperAudio(0.45);
+              // Never cut off active Super MP3 early — let source.onended restore BGM naturally
+              audioEngine.notifySuperAnimationEnd();
             }
           }
         }
@@ -1019,17 +1038,20 @@ export class DesiShowdownEngine {
         if (this.matchState.phase === 'finished' && !this.resultDispatched) {
           this.resultDispatched = true;
           this.currentScreen = 'victory';
-          audioEngine.stopSheruSuperAudio(0.2);
           audioEngine.playVictoryFanfare();
           const result = buildMatchResultSnapshot(this.matchState, this.stageId, this.difficulty);
           this.callbacks.onMatchFinish(result);
         }
       }
 
-      // Animate 3D fighter rigs
-      const activeBelanSlots = new Set<number>();
+      // Animate 3D fighter rigs (zero per-frame Set allocation)
+      let p1HasBelan = false;
+      let p2HasBelan = false;
       for (const proj of this.matchState.projectiles) {
-        if (proj.kind === 'belan') activeBelanSlots.add(proj.ownerSlot);
+        if (proj.kind === 'belan') {
+          if (proj.ownerSlot === 0) p1HasBelan = true;
+          else p2HasBelan = true;
+        }
       }
       for (let i = 0; i < 2; i++) {
         const rig = this.rigs[i];
@@ -1039,7 +1061,7 @@ export class DesiShowdownEngine {
             this.matchState.fighters[i],
             this.elapsed,
             dt,
-            activeBelanSlots.has(i),
+            i === 0 ? p1HasBelan : p2HasBelan,
           );
         }
       }
@@ -1110,7 +1132,7 @@ export class DesiShowdownEngine {
     document.removeEventListener('webkitfullscreenchange', this.handleViewportResize);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.handleContextLost);
 
-    audioEngine.stopSheruSuperAudio(0.05);
+    audioEngine.stopSuperAudio();
     this.sheruSuperVfx.dispose(this.scene);
     this.stage?.dispose();
     this.rigs.forEach((r) => r?.dispose());
@@ -1118,7 +1140,13 @@ export class DesiShowdownEngine {
     (this.particleMesh.material as THREE.Material).dispose();
     this.shockwaveRing.geometry.dispose();
     (this.shockwaveRing.material as THREE.Material).dispose();
-    this.currencyNoteTex?.dispose();
+    this.currencyNoteTex.dispose();
+    this.currencyNoteGeo.dispose();
+    this.currencyNoteMat.dispose();
+    this.belanBarrelGeo.dispose();
+    this.belanBarrelMat.dispose();
+    this.belanHandleGeo.dispose();
+    this.belanHandleMat.dispose();
     this.pmremTexture.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {

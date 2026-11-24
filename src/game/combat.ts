@@ -23,6 +23,12 @@ export const GROUND_Y = 0;
 export const GRAVITY = -28;
 export const ROUND_DURATION_SECONDS = 60;
 export const MIN_FIGHTER_SEPARATION = 1.05;
+export const SUPER_MAX_HP_DAMAGE_RATIO = 0.33;
+export const SUPER_COMBO_DAMAGE_SHARE = 0.45;
+
+export function computeTotalSuperDamage(opponentMaxHp: number): number {
+  return Math.round(opponentMaxHp * SUPER_MAX_HP_DAMAGE_RATIO);
+}
 
 const HIT_WORDS_LIGHT = ['DHISHUM!', 'THAPAD!', 'KADAK!', 'BUMPER!'];
 const HIT_WORDS_HEAVY = ['PAISA VASOOL!', 'JHAKAAS!', 'DHAMAKA!', 'MAHA HIT!'];
@@ -68,6 +74,8 @@ export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
     comboTimer: 0,
     maxCombo: 0,
     damageDealt: 0,
+    superDamageBudget: 0,
+    superDamageDealt: 0,
     specialsLanded: 0,
     walkCycle: 0,
     hitFlashTimer: 0,
@@ -291,9 +299,12 @@ function startAction(
       });
     }
   } else if (action === 'super') {
+    const opp = state.fighters[1 - fighter.slot];
+    const totalSuperDamage = computeTotalSuperDamage(opp.maxHp);
     fighter.shakti = 0;
+    fighter.superDamageBudget = totalSuperDamage;
+    fighter.superDamageDealt = 0;
     if (fighter.id === 'sheru') {
-      const opp = state.fighters[1 - fighter.slot];
       fighter.invulnTimer = 0.65;
       fighter.vx = 0;
       fighter.vy = 0;
@@ -360,10 +371,28 @@ function applyHit(
   const atkCfg = FIGHTER_CONFIGS[attacker.id];
   const defCfg = FIGHTER_CONFIGS[defender.id];
 
+  // Global Super Power damage cap: never exceed 33% of opponent maxHp across an activation
+  let effectiveDamage = params.damage;
+  if (params.isSuper) {
+    const budget =
+      attacker.superDamageBudget > 0
+        ? attacker.superDamageBudget
+        : computeTotalSuperDamage(defender.maxHp);
+    const remainingCap = Math.max(0, budget - attacker.superDamageDealt);
+    effectiveDamage = Math.min(params.damage, remainingCap);
+    if (effectiveDamage <= 0) return;
+  }
+
   // Check Dharna Shield counter on defender!
   if (defender.dharnaShieldTimer > 0 && !params.isGrab) {
-    const reducedDamage = Math.max(1, Math.round(params.damage * 0.3));
-    defender.hp = Math.max(0, defender.hp - reducedDamage);
+    const reducedDamage = Math.max(1, Math.round(effectiveDamage * 0.3));
+    const appliedReduced = params.isSuper
+      ? Math.min(reducedDamage, Math.max(0, attacker.superDamageBudget - attacker.superDamageDealt))
+      : reducedDamage;
+    defender.hp = Math.max(0, defender.hp - appliedReduced);
+    if (params.isSuper) {
+      attacker.superDamageDealt += appliedReduced;
+    }
     defender.shakti = Math.min(100, defender.shakti + 10);
     defender.hitFlashTimer = 0.08;
 
@@ -388,7 +417,7 @@ function applyHit(
       attackerSlot: defender.slot,
       x: params.hitX,
       y: params.hitY,
-      damage: reducedDamage,
+      damage: appliedReduced,
       word: 'DHARNA BLOCK!',
       color: '#FB923C',
       headline: `${defCfg.name.toUpperCase()} COUNTERED WITH PEACEFUL DHARNA!`,
@@ -405,8 +434,14 @@ function applyHit(
     isHoldingBack(defender, defenderInput);
 
   if (canBlock) {
-    const chipDamage = params.isSpecial || params.isSuper ? Math.max(2, Math.round(params.damage * 0.25)) : 1;
+    const rawChip = params.isSpecial || params.isSuper ? Math.max(2, Math.round(effectiveDamage * 0.25)) : 1;
+    const chipDamage = params.isSuper
+      ? Math.min(rawChip, Math.max(0, attacker.superDamageBudget - attacker.superDamageDealt))
+      : rawChip;
     defender.hp = Math.max(1, defender.hp - chipDamage);
+    if (params.isSuper) {
+      attacker.superDamageDealt += chipDamage;
+    }
     defender.action = 'block';
     defender.expression = 'block';
     defender.blockstunTimer = params.isHeavy ? 0.22 : 0.14;
@@ -429,7 +464,8 @@ function applyHit(
 
   // Clean Hit!
   const dir = attacker.x <= defender.x ? 1 : -1;
-  defender.hp = Math.max(0, defender.hp - params.damage);
+  const actualDamage = Math.min(effectiveDamage, defender.hp);
+  defender.hp = Math.max(0, defender.hp - actualDamage);
   defender.vx = dir * params.knockbackX;
   defender.vy = Math.max(defender.vy, params.knockbackY);
   defender.hitstunTimer = params.stun;
@@ -441,7 +477,10 @@ function applyHit(
   defender.squashX = 1.2;
   defender.squashY = 0.82;
 
-  attacker.damageDealt += params.damage;
+  attacker.damageDealt += actualDamage;
+  if (params.isSuper) {
+    attacker.superDamageDealt += actualDamage;
+  }
   if (params.isSpecial) {
     attacker.specialsLanded += 1;
   }
@@ -740,7 +779,7 @@ export function stepMatch(
             opp,
             inputs[1 - i],
             {
-              damage: timing.damage,
+              damage: timing.isSuper ? computeTotalSuperDamage(opp.maxHp) : timing.damage,
               knockbackX: timing.knockbackX,
               knockbackY: timing.knockbackY,
               hitstop: timing.hitstop,

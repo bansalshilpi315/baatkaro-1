@@ -123,6 +123,8 @@ export interface FighterState {
   comboTimer: number;
   maxCombo: number;
   damageDealt: number;
+  superDamageBudget: number;
+  superDamageDealt: number;
   specialsLanded: number;
   walkCycle: number;
   hitFlashTimer: number;

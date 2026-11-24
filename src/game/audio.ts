@@ -1,6 +1,22 @@
 // Zero-dependency procedural Web Audio API sound effects + upbeat Desi arcade music synthesizer
+// + Web Audio API AudioBuffer Super Power MP3 player (zero-stutter RAM playback)
 
-class DesiAudioEngine {
+export const SHERU_SUPER_AUDIO_URL = '/audio/supers/sheru.mp3';
+
+// Persistent module-level caches for decoded Super Power AudioBuffers & fetched bytes
+const superAudioBuffers = new Map<string, AudioBuffer>();
+const superAudioRawBytes = new Map<string, ArrayBuffer>();
+const superAudioFailedUrls = new Set<string>();
+const superAudioLoadPromises = new Map<string, Promise<AudioBuffer | null>>();
+
+export function clearSuperAudioCacheForTests(): void {
+  superAudioBuffers.clear();
+  superAudioRawBytes.clear();
+  superAudioFailedUrls.clear();
+  superAudioLoadPromises.clear();
+}
+
+export class DesiAudioEngine {
   private ctx: AudioContext | null = null;
   private bgmGain: GainNode | null = null;
   private sfxMuted = false;
@@ -9,8 +25,12 @@ class DesiAudioEngine {
   private musicTimer: number | null = null;
   private musicStep = 0;
   private musicPlaying = false;
-  private sheruSuperAudio: HTMLAudioElement | null = null;
-  private sheruSuperPreloaded = false;
+
+  // Active Web Audio API Super MP3 playback state
+  private activeSuperSource: AudioBufferSourceNode | null = null;
+  private activeSuperGain: GainNode | null = null;
+  private superAudioActive = false;
+  private superPlaybackToken = 0;
 
   private ensureContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -36,111 +56,248 @@ class DesiAudioEngine {
     return this.ensureContext();
   }
 
-  private preloadSheruSuperAudio(): void {
-    if (this.sheruSuperPreloaded || typeof window === 'undefined' || typeof Audio === 'undefined') {
-      return;
+  /**
+   * Preloads & decodes a Super Power MP3 into RAM (cached in module-level superAudioBuffers).
+   * Safe to call before user gesture (caches raw ArrayBuffer bytes until AudioContext is available)
+   * and fails silently if the MP3 asset is not yet uploaded.
+   */
+  public preloadSuperAudio(url = SHERU_SUPER_AUDIO_URL): Promise<AudioBuffer | null> {
+    if (superAudioBuffers.has(url)) {
+      return Promise.resolve(superAudioBuffers.get(url)!);
     }
-    this.sheruSuperPreloaded = true;
-    try {
-      const audio = new Audio('/audio/supers/sheru.mp3');
-      audio.preload = 'auto';
-      audio.volume = 1.0;
-      audio.addEventListener('error', () => {
-        // Silent crash-safe fallback when custom MP3 is not yet uploaded
-      });
-      audio.load();
-      this.sheruSuperAudio = audio;
-    } catch {
-      this.sheruSuperAudio = null;
+    if (superAudioFailedUrls.has(url) || typeof fetch !== 'function') {
+      return Promise.resolve(null);
     }
+    const existing = superAudioLoadPromises.get(url);
+    if (existing) {
+      return existing;
+    }
+
+    const loadTask = (async (): Promise<AudioBuffer | null> => {
+      try {
+        let rawBytes = superAudioRawBytes.get(url);
+        if (!rawBytes) {
+          const res = await fetch(url);
+          if (!res.ok) {
+            superAudioFailedUrls.add(url);
+            return null;
+          }
+          const contentType = (res.headers?.get?.('content-type') ?? '').toLowerCase();
+          if (contentType.includes('text/html') || contentType.includes('application/json')) {
+            // Vite SPA fallback returned index.html instead of an audio file
+            superAudioFailedUrls.add(url);
+            return null;
+          }
+          rawBytes = await res.arrayBuffer();
+          if (!rawBytes || rawBytes.byteLength < 64) {
+            superAudioFailedUrls.add(url);
+            return null;
+          }
+          superAudioRawBytes.set(url, rawBytes);
+        }
+
+        const ctx = this.ctx ?? this.ensureContext();
+        if (!ctx) {
+          // Keep rawBytes cached so decode runs as soon as AudioContext becomes available
+          return null;
+        }
+
+        const decoded = await ctx.decodeAudioData(rawBytes.slice(0));
+        superAudioBuffers.set(url, decoded);
+        superAudioRawBytes.delete(url);
+        return decoded;
+      } catch {
+        // Crash-safe silent fallback when MP3 is absent or undecodable
+        superAudioFailedUrls.add(url);
+        return null;
+      } finally {
+        superAudioLoadPromises.delete(url);
+      }
+    })();
+
+    superAudioLoadPromises.set(url, loadTask);
+    return loadTask;
   }
 
   public unlock(): void {
     this.ensureContext();
-    this.preloadSheruSuperAudio();
+    void this.preloadSuperAudio(SHERU_SUPER_AUDIO_URL);
     if (!this.musicMuted && !this.musicPlaying) {
       this.startMusic();
     }
   }
 
-  public setBgmDuckLevel(level: number, rampSeconds = 0.25): void {
+  private duckBgmForSuper(): void {
     const ctx = this.ctx;
     const bgmGain = this.bgmGain;
     if (!ctx || !bgmGain) return;
-    const clamped = Math.max(0.01, Math.min(1.0, level));
     try {
-      const now = ctx.currentTime;
-      bgmGain.gain.cancelScheduledValues(now);
-      bgmGain.gain.setValueAtTime(bgmGain.gain.value, now);
-      bgmGain.gain.linearRampToValueAtTime(clamped, now + Math.max(0.02, rampSeconds));
+      bgmGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.08);
     } catch {
-      // Ignore WebAudio scheduling edge errors
+      // Ignore Web Audio scheduling edge errors
     }
+  }
+
+  private restoreBgmFromSuper(): void {
+    const ctx = this.ctx;
+    const bgmGain = this.bgmGain;
+    if (!ctx || !bgmGain) return;
+    try {
+      bgmGain.gain.setTargetAtTime(1.0, ctx.currentTime, 0.2);
+    } catch {
+      // Ignore Web Audio scheduling edge errors
+    }
+  }
+
+  private startDecodedSuperBuffer(
+    ctx: AudioContext,
+    buffer: AudioBuffer,
+    token: number,
+  ): void {
+    if (token !== this.superPlaybackToken || this.superAudioActive) return;
+
+    try {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(this.sfxMuted ? 0 : 1.0, ctx.currentTime);
+
+      source.connect(gain);
+      gain.connect(ctx.destination);
+
+      this.activeSuperSource = source;
+      this.activeSuperGain = gain;
+      this.superAudioActive = true;
+
+      source.onended = () => {
+        if (this.activeSuperSource === source) {
+          this.activeSuperSource = null;
+          this.activeSuperGain = null;
+          this.superAudioActive = false;
+          this.superSfxMuted = false;
+          this.restoreBgmFromSuper();
+        }
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch {
+          // Ignore disconnect cleanup errors
+        }
+      };
+
+      source.start(0);
+    } catch {
+      this.activeSuperSource = null;
+      this.activeSuperGain = null;
+      this.superAudioActive = false;
+    }
+  }
+
+  /**
+   * Plays a Super Power MP3 from decoded RAM AudioBuffer on the browser's audio thread.
+   * Ducks BGM ONCE via setTargetAtTime(0.15, now, 0.08) and restores cleanly on source.onended.
+   * Guards against overlapping playback if triggered again while active.
+   */
+  public playSuperAudio(url = SHERU_SUPER_AUDIO_URL): void {
+    // Guard against overlapping Super playback if already active
+    if (this.superAudioActive) return;
+
+    const ctx = this.ensureContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    // Duck BGM smoothly ONCE and mute generic synth combat SFX
+    this.duckBgmForSuper();
+    this.superSfxMuted = true;
+
+    if (!ctx) return;
+
+    const token = ++this.superPlaybackToken;
+    const cached = superAudioBuffers.get(url);
+    if (cached) {
+      this.startDecodedSuperBuffer(ctx, cached, token);
+      return;
+    }
+
+    // Fallback: decode & start as soon as preload resolves (unless match was restarted/exited)
+    void this.preloadSuperAudio(url).then((decoded) => {
+      if (!decoded || !this.ctx) return;
+      this.startDecodedSuperBuffer(this.ctx, decoded, token);
+    });
   }
 
   public playSheruSuperAudio(): void {
-    // Duck BGM smoothly to 15% and mute generic synth hit SFX so custom vocal track is crystal clear
-    this.setBgmDuckLevel(0.15, 0.22);
-    this.superSfxMuted = true;
-    if (this.sfxMuted) return;
-
-    this.preloadSheruSuperAudio();
-    try {
-      const audio = this.sheruSuperAudio;
-      if (!audio) return;
-      audio.pause();
-      audio.currentTime = 0;
-      audio.volume = 1.0;
-      const playPromise = audio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {
-          // Crash-safe fallback if MP3 is absent or autoplay blocked
-        });
-      }
-    } catch {
-      // Never throw if audio asset is missing
-    }
+    this.playSuperAudio(SHERU_SUPER_AUDIO_URL);
   }
 
-  public pauseSheruSuperAudio(): void {
-    try {
-      this.sheruSuperAudio?.pause();
-    } catch {
-      // Ignore
+  /**
+   * Called when the Super animation finishes:
+   * NEVER stops or cuts off an active AudioBufferSourceNode — lets it finish naturally via onended.
+   * Only restores BGM/SFX if no custom MP3 AudioBufferSourceNode is playing (e.g. missing MP3 fallback).
+   */
+  public notifySuperAnimationEnd(): void {
+    if (this.superAudioActive) {
+      return;
     }
-  }
-
-  public resumeSheruSuperAudio(): void {
-    if (this.sfxMuted || !this.superSfxMuted) return;
-    try {
-      const audio = this.sheruSuperAudio;
-      if (audio && audio.paused && audio.currentTime > 0 && !audio.ended) {
-        const p = audio.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      }
-    } catch {
-      // Ignore
-    }
-  }
-
-  public stopSheruSuperAudio(restoreRampSeconds = 0.45): void {
     this.superSfxMuted = false;
-    this.setBgmDuckLevel(1.0, restoreRampSeconds);
-    try {
-      const audio = this.sheruSuperAudio;
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
+    this.restoreBgmFromSuper();
+  }
+
+  /**
+   * Explicitly stops Super audio ONLY when the player restarts the match, exits to Select/Title,
+   * or the engine is disposed.
+   */
+  public stopSuperAudio(): void {
+    this.superPlaybackToken += 1;
+    const source = this.activeSuperSource;
+    const gain = this.activeSuperGain;
+    this.activeSuperSource = null;
+    this.activeSuperGain = null;
+    this.superAudioActive = false;
+    this.superSfxMuted = false;
+
+    if (source) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        // Ignore if already stopped
       }
-    } catch {
-      // Ignore
+      try {
+        source.disconnect();
+      } catch {
+        // Ignore
+      }
     }
+    if (gain) {
+      try {
+        gain.disconnect();
+      } catch {
+        // Ignore
+      }
+    }
+
+    this.restoreBgmFromSuper();
+  }
+
+  public stopSheruSuperAudio(): void {
+    this.stopSuperAudio();
+  }
+
+  public isSuperAudioPlaying(): boolean {
+    return this.superAudioActive;
   }
 
   public setMuted(mute: boolean): void {
     this.sfxMuted = mute;
-    if (mute) {
-      this.pauseSheruSuperAudio();
+    if (this.ctx && this.activeSuperGain) {
+      try {
+        this.activeSuperGain.gain.setTargetAtTime(mute ? 0 : 1.0, this.ctx.currentTime, 0.03);
+      } catch {
+        // Ignore
+      }
     }
   }
 

@@ -449,6 +449,22 @@ export class SheruSuperVfx {
     }
   }
 
+  /**
+   * Temporarily toggles VFX meshes visible with 0 opacity/intensity during scene init
+   * so Three.js compiles all Super shader programs up front (zero mid-Super frame spike).
+   */
+  public setPrewarmVisible(visible: boolean): void {
+    this.spotlight.intensity = visible ? 0.001 : 0;
+    this.spotlightBeam.visible = visible;
+    this.beamMat.opacity = 0;
+    this.auraRing.visible = visible;
+    this.auraMat.opacity = 0;
+    this.finisherRing.visible = visible;
+    this.finisherRingMat.opacity = 0;
+    this.leftPawGlow.visible = visible;
+    this.rightPawGlow.visible = visible;
+  }
+
   public reset(): void {
     this.spotlight.intensity = 0;
     this.spotlightBeam.visible = false;

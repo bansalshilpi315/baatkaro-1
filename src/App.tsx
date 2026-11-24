@@ -124,12 +124,14 @@ export default function App() {
     });
     engineRef.current = engine;
 
+    void audioEngine.preloadSuperAudio();
+
     if (isAutostartRequested()) {
       engine.startMatch('sheru', 'billa', 'mohalla', 'normal', true, getInitialShaktiParam());
     }
 
     return () => {
-      audioEngine.stopSheruSuperAudio(0.05);
+      audioEngine.stopSuperAudio();
       audioEngine.stopMusic();
       engine.dispose();
       engineRef.current = null;
@@ -143,7 +145,6 @@ export default function App() {
         if (screenRef.current === 'playing') {
           e.preventDefault();
           audioEngine.playUiClick();
-          audioEngine.pauseSheruSuperAudio();
           audioEngine.stopMusic();
           engineRef.current?.setScreen('paused');
           setScreen('paused');
@@ -151,7 +152,6 @@ export default function App() {
           e.preventDefault();
           audioEngine.playUiClick();
           if (!musicMutedRef.current) audioEngine.startMusic();
-          audioEngine.resumeSheruSuperAudio();
           engineRef.current?.setScreen('playing');
           setScreen('playing');
         }
@@ -244,7 +244,6 @@ export default function App() {
 
   const handlePause = useCallback(() => {
     audioEngine.playUiClick();
-    audioEngine.pauseSheruSuperAudio();
     audioEngine.stopMusic();
     engineRef.current?.setScreen('paused');
     setScreen('paused');
@@ -253,7 +252,6 @@ export default function App() {
   const handleResume = useCallback(() => {
     audioEngine.playUiClick();
     if (!musicMutedRef.current) audioEngine.startMusic();
-    audioEngine.resumeSheruSuperAudio();
     (document.activeElement as HTMLElement | null)?.blur?.();
     engineRef.current?.setScreen('playing');
     setScreen('playing');
@@ -291,7 +289,7 @@ export default function App() {
 
   const handleQuitToSelect = useCallback(() => {
     audioEngine.playUiClick();
-    audioEngine.stopSheruSuperAudio(0.1);
+    audioEngine.stopSuperAudio();
     if (!musicMutedRef.current) audioEngine.startMusic();
     engineRef.current?.setScreen('select');
     engineRef.current?.setPreviewSelection(p1Id, p2Id, stageId, difficulty);
