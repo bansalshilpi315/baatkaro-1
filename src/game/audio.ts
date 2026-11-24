@@ -2,11 +2,15 @@
 
 class DesiAudioEngine {
   private ctx: AudioContext | null = null;
+  private bgmGain: GainNode | null = null;
   private sfxMuted = false;
+  private superSfxMuted = false;
   private musicMuted = false;
   private musicTimer: number | null = null;
   private musicStep = 0;
   private musicPlaying = false;
+  private sheruSuperAudio: HTMLAudioElement | null = null;
+  private sheruSuperPreloaded = false;
 
   private ensureContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -16,6 +20,9 @@ class DesiAudioEngine {
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
+      this.bgmGain = this.ctx.createGain();
+      this.bgmGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+      this.bgmGain.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
@@ -23,20 +30,118 @@ class DesiAudioEngine {
     return this.ctx;
   }
 
-  private ensureSfxContext(): AudioContext | null {
+  private ensureSfxContext(ignoreSuperMute = false): AudioContext | null {
     if (this.sfxMuted) return null;
+    if (!ignoreSuperMute && this.superSfxMuted) return null;
     return this.ensureContext();
+  }
+
+  private preloadSheruSuperAudio(): void {
+    if (this.sheruSuperPreloaded || typeof window === 'undefined' || typeof Audio === 'undefined') {
+      return;
+    }
+    this.sheruSuperPreloaded = true;
+    try {
+      const audio = new Audio('/audio/supers/sheru.mp3');
+      audio.preload = 'auto';
+      audio.volume = 1.0;
+      audio.addEventListener('error', () => {
+        // Silent crash-safe fallback when custom MP3 is not yet uploaded
+      });
+      audio.load();
+      this.sheruSuperAudio = audio;
+    } catch {
+      this.sheruSuperAudio = null;
+    }
   }
 
   public unlock(): void {
     this.ensureContext();
+    this.preloadSheruSuperAudio();
     if (!this.musicMuted && !this.musicPlaying) {
       this.startMusic();
     }
   }
 
+  public setBgmDuckLevel(level: number, rampSeconds = 0.25): void {
+    const ctx = this.ctx;
+    const bgmGain = this.bgmGain;
+    if (!ctx || !bgmGain) return;
+    const clamped = Math.max(0.01, Math.min(1.0, level));
+    try {
+      const now = ctx.currentTime;
+      bgmGain.gain.cancelScheduledValues(now);
+      bgmGain.gain.setValueAtTime(bgmGain.gain.value, now);
+      bgmGain.gain.linearRampToValueAtTime(clamped, now + Math.max(0.02, rampSeconds));
+    } catch {
+      // Ignore WebAudio scheduling edge errors
+    }
+  }
+
+  public playSheruSuperAudio(): void {
+    // Duck BGM smoothly to 15% and mute generic synth hit SFX so custom vocal track is crystal clear
+    this.setBgmDuckLevel(0.15, 0.22);
+    this.superSfxMuted = true;
+    if (this.sfxMuted) return;
+
+    this.preloadSheruSuperAudio();
+    try {
+      const audio = this.sheruSuperAudio;
+      if (!audio) return;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = 1.0;
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          // Crash-safe fallback if MP3 is absent or autoplay blocked
+        });
+      }
+    } catch {
+      // Never throw if audio asset is missing
+    }
+  }
+
+  public pauseSheruSuperAudio(): void {
+    try {
+      this.sheruSuperAudio?.pause();
+    } catch {
+      // Ignore
+    }
+  }
+
+  public resumeSheruSuperAudio(): void {
+    if (this.sfxMuted || !this.superSfxMuted) return;
+    try {
+      const audio = this.sheruSuperAudio;
+      if (audio && audio.paused && audio.currentTime > 0 && !audio.ended) {
+        const p = audio.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  public stopSheruSuperAudio(restoreRampSeconds = 0.45): void {
+    this.superSfxMuted = false;
+    this.setBgmDuckLevel(1.0, restoreRampSeconds);
+    try {
+      const audio = this.sheruSuperAudio;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
   public setMuted(mute: boolean): void {
     this.sfxMuted = mute;
+    if (mute) {
+      this.pauseSheruSuperAudio();
+    }
   }
 
   public isMuted(): boolean {
@@ -72,6 +177,8 @@ class DesiAudioEngine {
       const idx = this.musicStep % 16;
       this.musicStep++;
 
+      const bgmDest = this.bgmGain ?? this.ctx.destination;
+
       // Dhol low thump on beats 0, 4, 8, 11, 14
       if (idx === 0 || idx === 4 || idx === 8 || idx === 11 || idx === 14) {
         const osc = this.ctx.createOscillator();
@@ -82,7 +189,7 @@ class DesiAudioEngine {
         gain.gain.setValueAtTime(0.085, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(bgmDest);
         osc.start(now);
         osc.stop(now + 0.13);
       }
@@ -97,7 +204,7 @@ class DesiAudioEngine {
         gain.gain.setValueAtTime(0.055, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(bgmDest);
         osc.start(now);
         osc.stop(now + 0.15);
       }
@@ -116,7 +223,7 @@ class DesiAudioEngine {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
         osc.connect(filter);
         filter.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(bgmDest);
         osc.start(now);
         osc.stop(now + 0.12);
       }
@@ -167,7 +274,7 @@ class DesiAudioEngine {
   }
 
   public playUiClick(): void {
-    const ctx = this.ensureSfxContext();
+    const ctx = this.ensureSfxContext(true);
     if (!ctx) return;
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();

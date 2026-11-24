@@ -14,6 +14,8 @@ import {
   createMatchState,
   stepMatch,
 } from './combat';
+import { SHERU_SUPER_BANNER } from './sheruSuper';
+import { SheruSuperVfx } from './sheruSuperVfx';
 import { buildStage, type StageInstance } from './stages';
 import type {
   CombatEvent,
@@ -56,6 +58,9 @@ const _pos = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
 const _scale = new THREE.Vector3();
 const _projVec = new THREE.Vector3();
+const _stageBgColor = new THREE.Color();
+const _stageFogColor = new THREE.Color();
+const _superDimColor = new THREE.Color(0x0b0805);
 
 function detectSoftwareWebGL(): boolean {
   try {
@@ -121,6 +126,9 @@ export class DesiShowdownEngine {
   private shockwaveRing: THREE.Mesh;
   private shockwaveTimer = 0;
   private readonly shockwaveDuration = 0.42;
+
+  // Sheru Bhai's "Trillion Dollar Beatdown" Super VFX manager
+  private sheruSuperVfx: SheruSuperVfx;
 
   // 3D Projectile visual map
   private projectileMeshes = new Map<number, THREE.Object3D>();
@@ -240,6 +248,8 @@ export class DesiShowdownEngine {
     this.shockwaveRing.visible = false;
     this.scene.add(this.shockwaveRing);
 
+    this.sheruSuperVfx = new SheruSuperVfx(this.scene);
+
     this.matchState = createMatchState(this.p1Id, this.p2Id, false);
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
@@ -327,6 +337,15 @@ export class DesiShowdownEngine {
     }
 
     if (!this.keysHeld.has(code)) {
+      if (
+        code === 'KeyJ' ||
+        code === 'KeyK' ||
+        code === 'KeyI' ||
+        code === 'KeyB' ||
+        code === 'KeyL'
+      ) {
+        audioEngine.unlock();
+      }
       if (code === 'KeyW' || code === 'ArrowUp' || code === 'Space') this.oneShotQueue.up = true;
       if (code === 'KeyJ') this.oneShotQueue.punch = true;
       if (code === 'KeyK') this.oneShotQueue.kick = true;
@@ -358,6 +377,9 @@ export class DesiShowdownEngine {
     this.currentScreen = screen;
     if (screen === 'playing') {
       this.clearInputs();
+    } else if (screen !== 'paused') {
+      this.sheruSuperVfx.reset();
+      audioEngine.stopSheruSuperAudio(0.15);
     }
   }
 
@@ -401,6 +423,7 @@ export class DesiShowdownEngine {
     stage: StageId,
     difficulty: Difficulty,
     skipIntro = false,
+    initialP1Shakti = 0,
   ): void {
     this.p1Id = p1;
     this.p2Id = p2;
@@ -411,7 +434,12 @@ export class DesiShowdownEngine {
     }
     this.loadFighters(p1, p2);
     this.clearProjectiles();
+    this.sheruSuperVfx.reset();
+    audioEngine.stopSheruSuperAudio(0.1);
     this.matchState = createMatchState(p1, p2, skipIntro);
+    if (initialP1Shakti > 0) {
+      this.matchState.fighters[0].shakti = Math.min(100, initialP1Shakti);
+    }
     const taglines = [
       'DESH JAANNA CHAHTA HAI!',
       '9 PM MAHA-SHOWDOWN · FULL PAISA VASOOL!',
@@ -703,9 +731,15 @@ export class DesiShowdownEngine {
           this.spawnParticles(ev.x, ev.y, 12, 0xf97316, 4.8);
         }
       } else if (ev.type === 'super') {
-        audioEngine.playSuper();
-        this.trauma = Math.min(1, this.trauma + 0.65);
-        this.stage?.triggerExcitement(1.5);
+        const caster = this.matchState.fighters[ev.attackerSlot];
+        if (caster?.id === 'sheru') {
+          audioEngine.playSheruSuperAudio();
+          this.trauma = Math.min(1, this.trauma + 0.45);
+        } else {
+          audioEngine.playSuper();
+          this.trauma = Math.min(1, this.trauma + 0.65);
+        }
+        this.stage?.triggerExcitement(1.8);
         this.spawnParticles(ev.x, ev.y, 24, 0xfde047, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -791,6 +825,11 @@ export class DesiShowdownEngine {
       bannerText = this.matchState.finishReason === 'timeout' ? 'TIME UP!' : 'K.O.!';
     }
 
+    const superBannerText =
+      this.matchState.sheruSuper?.active && this.matchState.sheruSuper.elapsed < 1.35
+        ? SHERU_SUPER_BANNER
+        : null;
+
     if (force || this.hudThrottleTimer <= 0) {
       this.hudThrottleTimer = 0.08;
       this.callbacks.onHudUpdate({
@@ -809,6 +848,7 @@ export class DesiShowdownEngine {
         roundTime: Math.ceil(this.matchState.roundTime),
         phase: this.matchState.phase,
         bannerText,
+        superBannerText,
         showBroadcastIntro,
         introTagline: this.introTagline,
       });
@@ -944,12 +984,42 @@ export class DesiShowdownEngine {
         if (events.length > 0) {
           this.handleCombatEvents(events);
         }
+
+        // Process Sheru Bhai Super beat signals (cash/coin explosions, micro-shake, crowd cheer, audio restore)
+        const signals = this.matchState.sheruSuperSignals;
+        if (signals.length > 0) {
+          this.sheruSuperVfx.handleBeatSignals(signals, this.graphics === 'low');
+          for (const sig of signals) {
+            if (sig.kind === 'spotlight_start') {
+              this.trauma = Math.min(1, this.trauma + 0.35);
+              this.stage?.triggerExcitement(1.6);
+            } else if (sig.kind === 'flurry_hit') {
+              this.trauma = Math.min(1, this.trauma + 0.22);
+              this.spawnParticles(sig.x, sig.y, 8, 0xfde047, 5.6);
+            } else if (sig.kind === 'standing_hit') {
+              this.trauma = Math.min(1, this.trauma + 0.55);
+              this.spawnParticles(sig.x, sig.y, 18, 0xfacc15, 7.2);
+              this.stage?.triggerExcitement(1.6);
+            } else if (sig.kind === 'lying_kick' || sig.kind === 'lying_slap') {
+              this.trauma = Math.min(1, this.trauma + 0.42);
+              this.spawnParticles(sig.x, sig.y, 14, 0xfde047, 6.2);
+            } else if (sig.kind === 'finisher_snap') {
+              this.trauma = 1.0;
+              this.spawnParticles(sig.x, sig.y, 28, 0xfde047, 9.2);
+              this.stage?.triggerExcitement(2.5);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.stopSheruSuperAudio(0.45);
+            }
+          }
+        }
+
         this.hudThrottleTimer -= dt;
-        this.emitHud(events.length > 0);
+        this.emitHud(events.length > 0 || signals.length > 0);
 
         if (this.matchState.phase === 'finished' && !this.resultDispatched) {
           this.resultDispatched = true;
           this.currentScreen = 'victory';
+          audioEngine.stopSheruSuperAudio(0.2);
           audioEngine.playVictoryFanfare();
           const result = buildMatchResultSnapshot(this.matchState, this.stageId, this.difficulty);
           this.callbacks.onMatchFinish(result);
@@ -971,6 +1041,37 @@ export class DesiShowdownEngine {
             dt,
             activeBelanSlots.has(i),
           );
+        }
+      }
+
+      // Update Sheru Bhai Super 3D VFX & smooth arena spotlight dimming/restoration
+      const sheruSuper = this.matchState.sheruSuper;
+      const attackerSlot = sheruSuper?.attackerSlot ?? 0;
+      const attackerRig = sheruSuper?.active ? this.rigs[attackerSlot] : null;
+      const attackerX = sheruSuper?.active ? this.matchState.fighters[attackerSlot].x : 0;
+      if (attackerRig) {
+        attackerRig.root.updateMatrixWorld(true);
+      }
+      const dimFactor = this.sheruSuperVfx.update(
+        dt,
+        this.elapsed,
+        sheruSuper,
+        attackerRig,
+        attackerX,
+      );
+      if (this.stage) {
+        this.keyLight.intensity = this.stage.keyLightIntensity * (1 - dimFactor * 0.82);
+        this.hemiLight.intensity = this.stage.hemiIntensity * (1 - dimFactor * 0.78);
+        this.rimLight.intensity = this.stage.rimLightIntensity * (1 - dimFactor * 0.65);
+        this.scene.environmentIntensity = 1 - dimFactor * 0.78;
+        this.renderer.toneMappingExposure = 1.08 * (1 - dimFactor * 0.18);
+        _stageBgColor.setHex(this.stage.backgroundColor).lerp(_superDimColor, dimFactor * 0.82);
+        if (this.scene.background instanceof THREE.Color) {
+          this.scene.background.copy(_stageBgColor);
+        }
+        if (this.scene.fog instanceof THREE.Fog) {
+          _stageFogColor.setHex(this.stage.fogColor).lerp(_superDimColor, dimFactor * 0.82);
+          this.scene.fog.color.copy(_stageFogColor);
         }
       }
 
@@ -1009,6 +1110,8 @@ export class DesiShowdownEngine {
     document.removeEventListener('webkitfullscreenchange', this.handleViewportResize);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.handleContextLost);
 
+    audioEngine.stopSheruSuperAudio(0.05);
+    this.sheruSuperVfx.dispose(this.scene);
     this.stage?.dispose();
     this.rigs.forEach((r) => r?.dispose());
     this.particleMesh.geometry.dispose();

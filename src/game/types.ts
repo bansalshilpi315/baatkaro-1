@@ -1,3 +1,5 @@
+import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
+
 export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi';
 
 export type StageId = 'mohalla' | 'school' | 'studio' | 'shaadi' | 'railway';
@@ -187,6 +189,8 @@ export interface MatchState {
   aiThinkTimer: number;
   aiCurrentIntent: 'approach' | 'retreat' | 'idle' | 'block' | 'jump_in';
   aiIntentTimer: number;
+  sheruSuper: SheruSuperState | null;
+  sheruSuperSignals: SheruSuperBeatSignal[];
 }
 
 export interface FloatingCallout {
@@ -232,6 +236,7 @@ export interface HudSnapshot {
   roundTime: number;
   phase: MatchState['phase'];
   bannerText: string | null;
+  superBannerText: string | null;
   showBroadcastIntro: boolean;
   introTagline: string;
 }

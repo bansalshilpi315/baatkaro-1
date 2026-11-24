@@ -32,7 +32,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       stunDuration: 0.55,
       accentColor: '#22C55E',
     },
-    superName: 'EMI OVERDRIVE',
+    superName: 'TRILLION DOLLAR BEATDOWN',
     victoryQuotes: [
       'PAISA BOLTA HAI, OPPONENT ROTA HAI!',
       '10 MILLION VIEWS, ZERO MERCY!',

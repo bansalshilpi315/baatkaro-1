@@ -265,7 +265,8 @@ export function animateFighterRig(
       rig.dharnaRing.rotation.y = elapsed * 1.65;
     }
   }
-  rig.superAura.visible = state.action === 'super' || state.shakti >= 100;
+  rig.superAura.visible =
+    (state.action === 'super' && state.id !== 'sheru') || state.shakti >= 100;
   if (rig.superAura.visible) {
     rig.superAura.rotation.z = elapsed * 5;
     const sc = state.action === 'super' ? 1.35 : 0.88 + Math.sin(elapsed * 6) * 0.06;
@@ -584,6 +585,113 @@ export function animateFighterRig(
       lShX = -0.22;
       lShZ = -0.42;
       lElbX = -1.05;
+    } else if (state.action === 'super') {
+      // Choreographed 7.5s "TRILLION DOLLAR BEATDOWN" 4-phase animation
+      const t = state.actionTimer;
+      if (t < 1.0) {
+        // Phase 1 (0.0-1.0s): Beat Drop & Spotlight Freeze — puffed chest + sunglasses tilt
+        const tiltWave = Math.sin(Math.min(1, t / 0.85) * Math.PI);
+        pelvisY = basePelvisY + 0.04;
+        torsoRotX = -0.18;
+        torsoRotY = -0.14;
+        headRotX = 0.08;
+        headRotZ = -0.09 * tiltWave;
+        rShX = -0.75 - 1.05 * tiltWave;
+        rShZ = 0.28 - 0.52 * tiltWave;
+        rElbX = -0.95 - 0.82 * tiltWave;
+        lShX = -0.15;
+        lShZ = -0.52;
+        lElbX = -1.35;
+      } else if (t < 3.0) {
+        // Phase 2 (1.0-3.0s): Ultra-fast alternating anime golden paw flurry ("Tadban Tadban")
+        jointAlpha = 1 - Math.exp(-32 * Math.max(dt, 0.008));
+        const flurryOsc = Math.sin((t - 1.0) * 38);
+        pelvisY = basePelvisY - 0.07;
+        torsoRotX = 0.24;
+        torsoRotY = flurryOsc * 0.52;
+        headRotX = -0.06;
+        const rightForward = Math.max(0, flurryOsc);
+        const leftForward = Math.max(0, -flurryOsc);
+        rShX = -1.25 - rightForward * 0.72;
+        rShZ = 0.14 + (1 - rightForward) * 0.24;
+        rElbX = -1.48 + rightForward * 1.38;
+        lShX = -1.25 - leftForward * 0.72;
+        lShZ = -0.14 - (1 - leftForward) * 0.24;
+        lElbX = -1.48 + leftForward * 1.38;
+        lHipX = -0.26;
+        rHipX = 0.32;
+        lKneeX = 0.34;
+        rKneeX = 0.26;
+      } else if (t < 4.05) {
+        // Phase 3a (3.0-4.05s): Standing billionaire backhand slap / uppercut ("Khade Hoke Maara")
+        jointAlpha = 1 - Math.exp(-24 * Math.max(dt, 0.008));
+        const isWindup = t < 3.42;
+        const wind = isWindup ? (t - 3.0) / 0.42 : 1;
+        const swing = isWindup ? 0 : Math.min(1, (t - 3.42) / 0.26);
+        pelvisY = basePelvisY + (isWindup ? -0.04 * wind : 0.08 * swing);
+        torsoRotX = isWindup ? 0.12 * wind : -0.22 * swing;
+        torsoRotY = isWindup ? 0.68 * wind : -0.82 * swing;
+        headRotX = isWindup ? 0.06 : -0.12;
+        rShX = isWindup ? -0.45 - 0.25 * wind : -2.35 * swing - 0.3 * (1 - swing);
+        rShZ = isWindup ? 0.88 * wind + 0.15 : -0.22 * swing + 0.4 * (1 - swing);
+        rElbX = isWindup ? -0.48 : -0.12;
+        lShX = -0.25;
+        lShZ = -0.48;
+        lElbX = -1.15;
+      } else if (t < 5.5) {
+        // Phase 3b (4.05-5.5s): Hilarious lying-down floor kick + ground-slap combo ("Let Ke Maara")
+        jointAlpha = 1 - Math.exp(-18 * Math.max(dt, 0.008));
+        pelvisY = 0.38;
+        pelvisRotX = -Math.PI * 0.43;
+        pelvisRotZ = 0.22;
+        torsoRotX = 0.26;
+        headRotX = 0.42;
+        headRotZ = -0.16;
+
+        if (t < 4.78) {
+          // Fast sliding kick while reclined on the arena floor!
+          const kickSnap = Math.sin(Math.min(1, Math.max(0, (t - 4.28) / 0.36)) * Math.PI);
+          rHipX = -0.35 - 1.25 * kickSnap;
+          rKneeX = 0.45 * (1 - kickSnap) + 0.08;
+          lHipX = -0.25;
+          lKneeX = 0.72;
+          lShX = -0.55;
+          lShZ = -0.52;
+          lElbX = -1.25;
+          rShX = -0.42;
+          rShZ = 0.42;
+          rElbX = -0.95;
+        } else {
+          // Cheeky reclining billionaire ground-slap combo!
+          const slapSnap = Math.sin(Math.min(1, Math.max(0, (t - 4.82) / 0.42)) * Math.PI);
+          rHipX = -0.22;
+          rKneeX = 0.55;
+          lHipX = -0.18;
+          lKneeX = 0.65;
+          rShX = -0.65 - 1.55 * slapSnap;
+          rShZ = 0.55 * (1 - slapSnap) - 0.15 * slapSnap;
+          rElbX = -0.18;
+          lShX = -0.65;
+          lShZ = -0.48;
+          lElbX = -1.25;
+        }
+      } else {
+        // Phase 4 (5.5-7.5s): Pop back up into swagger pose -> raise gold-ringed paw -> SNAP!
+        jointAlpha = 1 - Math.exp(-20 * Math.max(dt, 0.008));
+        const snapped = t >= 6.15;
+        const snapBounce = snapped ? Math.exp(-(t - 6.15) * 6.5) : 0;
+        pelvisY = basePelvisY + 0.04 + snapBounce * 0.08;
+        torsoRotX = -0.16;
+        torsoRotY = snapped ? -0.24 : 0.14;
+        headRotX = 0.08;
+        headRotZ = snapped ? -0.12 : 0.04;
+        rShX = snapped ? -2.2 + snapBounce * 0.35 : -2.48;
+        rShZ = snapped ? 0.44 : 0.22;
+        rElbX = snapped ? -0.58 : -0.22;
+        lShX = -0.15;
+        lShZ = -0.54;
+        lElbX = -1.35;
+      }
     } else if (state.action === 'hit') {
       headRotX = -0.32;
       headRotZ = 0.18;
@@ -627,25 +735,38 @@ export function animateFighterRig(
       rig.maneGroup.scale.set(maneScale, 1, maneScale);
     }
 
-    // Aviator Sunglasses tilt & flash on heavy hits / KO
+    // Aviator Sunglasses tilt & flash on heavy hits / KO / Super beat drop & snap
     if (rig.shadesPivot) {
+      const superTilt =
+        state.action === 'super' && state.actionTimer < 1.0
+          ? -0.16 * Math.sin(Math.min(1, state.actionTimer / 0.85) * Math.PI)
+          : state.action === 'super' && state.actionTimer >= 6.15 && state.actionTimer < 6.75
+            ? 0.12 * Math.exp(-(state.actionTimer - 6.15) * 5)
+            : 0;
       const targetTiltZ =
         state.action === 'ko'
           ? 0.34
           : state.action === 'hit'
             ? 0.22 * Math.sin(elapsed * 28)
-            : 0;
+            : superTilt;
       const targetDropY = state.action === 'ko' ? -0.04 : state.action === 'hit' ? -0.015 : 0;
       rig.shadesPivot.rotation.z = lerpAngle(rig.shadesPivot.rotation.z, targetTiltZ, alpha);
       rig.shadesPivot.position.y = lerpAngle(rig.shadesPivot.position.y, targetDropY, alpha);
     }
     if (rig.shadesLensMat) {
+      const superGlint =
+        state.action === 'super' &&
+        (state.actionTimer < 1.0 || (state.actionTimer >= 6.0 && state.actionTimer <= 6.8))
+          ? 0.95 + Math.abs(Math.sin(elapsed * 16)) * 0.75
+          : 0;
       const glint =
-        state.hitFlashTimer > 0
-          ? 1.15
-          : state.action === 'special' || state.action === 'victory'
-            ? 0.28 + Math.max(0, Math.sin(elapsed * 10)) * 0.35
-            : 0.04;
+        superGlint > 0
+          ? superGlint
+          : state.hitFlashTimer > 0
+            ? 1.15
+            : state.action === 'special' || state.action === 'victory'
+              ? 0.28 + Math.max(0, Math.sin(elapsed * 10)) * 0.35
+              : 0.04;
       rig.shadesLensMat.emissiveIntensity = glint;
     }
   } else if (state.id === 'billa') {

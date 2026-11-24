@@ -39,6 +39,7 @@ const INITIAL_HUD: HudSnapshot = {
   roundTime: 60,
   phase: 'intro',
   bannerText: null,
+  superBannerText: null,
   showBroadcastIntro: false,
   introTagline: 'DESH JAANNA CHAHTA HAI!',
 };
@@ -46,6 +47,12 @@ const INITIAL_HUD: HudSnapshot = {
 function isAutostartRequested(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('autostart') === '1';
+}
+
+function getInitialShaktiParam(): number {
+  if (typeof window === 'undefined') return 0;
+  const raw = Number(new URLSearchParams(window.location.search).get('shakti'));
+  return Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 0;
 }
 
 export default function App() {
@@ -102,9 +109,10 @@ export default function App() {
       onHudUpdate: (nextHud) => setHud(nextHud),
       onCallout: (callout) => {
         setCallouts((prev) => [...prev.slice(-5), callout]);
+        const ttl = callout.text.includes('TRILLION') ? 1350 : 720;
         window.setTimeout(() => {
           setCallouts((prev) => prev.filter((c) => c.id !== callout.id));
-        }, 720);
+        }, ttl);
       },
       onHeadline: (headline) => {
         setHeadlines((prev) => [headline, ...prev.slice(0, 4)]);
@@ -117,10 +125,11 @@ export default function App() {
     engineRef.current = engine;
 
     if (isAutostartRequested()) {
-      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', true);
+      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', true, getInitialShaktiParam());
     }
 
     return () => {
+      audioEngine.stopSheruSuperAudio(0.05);
       audioEngine.stopMusic();
       engine.dispose();
       engineRef.current = null;
@@ -134,6 +143,7 @@ export default function App() {
         if (screenRef.current === 'playing') {
           e.preventDefault();
           audioEngine.playUiClick();
+          audioEngine.pauseSheruSuperAudio();
           audioEngine.stopMusic();
           engineRef.current?.setScreen('paused');
           setScreen('paused');
@@ -141,6 +151,7 @@ export default function App() {
           e.preventDefault();
           audioEngine.playUiClick();
           if (!musicMutedRef.current) audioEngine.startMusic();
+          audioEngine.resumeSheruSuperAudio();
           engineRef.current?.setScreen('playing');
           setScreen('playing');
         }
@@ -233,6 +244,7 @@ export default function App() {
 
   const handlePause = useCallback(() => {
     audioEngine.playUiClick();
+    audioEngine.pauseSheruSuperAudio();
     audioEngine.stopMusic();
     engineRef.current?.setScreen('paused');
     setScreen('paused');
@@ -241,6 +253,7 @@ export default function App() {
   const handleResume = useCallback(() => {
     audioEngine.playUiClick();
     if (!musicMutedRef.current) audioEngine.startMusic();
+    audioEngine.resumeSheruSuperAudio();
     (document.activeElement as HTMLElement | null)?.blur?.();
     engineRef.current?.setScreen('playing');
     setScreen('playing');
@@ -278,6 +291,7 @@ export default function App() {
 
   const handleQuitToSelect = useCallback(() => {
     audioEngine.playUiClick();
+    audioEngine.stopSheruSuperAudio(0.1);
     if (!musicMutedRef.current) audioEngine.startMusic();
     engineRef.current?.setScreen('select');
     engineRef.current?.setPreviewSelection(p1Id, p2Id, stageId, difficulty);

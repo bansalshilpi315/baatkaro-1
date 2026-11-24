@@ -339,20 +339,46 @@ export function FightHud({
 
       {/* FLOATING 2D COMIC HIT-WORDS */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        {callouts.map((c) => (
-          <div
-            key={c.id}
-            className="comic-pop-text absolute whitespace-nowrap text-3xl sm:text-4xl"
-            style={{
-              left: `${c.screenX}px`,
-              top: `${c.screenY}px`,
-              color: c.color,
-            }}
-          >
-            {c.text}
-          </div>
-        ))}
+        {callouts.map((c) => {
+          const isTrillion = c.text.includes('TRILLION');
+          return (
+            <div
+              key={c.id}
+              className={`comic-pop-text absolute whitespace-nowrap ${
+                isTrillion
+                  ? 'text-4xl font-black tracking-wider drop-shadow-[0_0_18px_rgba(250,204,21,0.95)] sm:text-5xl'
+                  : 'text-3xl sm:text-4xl'
+              }`}
+              style={{
+                left: `${c.screenX}px`,
+                top: `${c.screenY}px`,
+                color: c.color,
+              }}
+            >
+              {c.text}
+            </div>
+          );
+        })}
       </div>
+
+      {/* SHERU BHAI SUPER POWER COMIC-ARCADE BANNER */}
+      {hud.superBannerText && (
+        <div
+          data-testid="sheru-super-banner"
+          className="pointer-events-none fixed inset-x-0 top-[14%] z-30 flex justify-center px-3 sm:top-[15%]"
+        >
+          <div className="-skew-x-12 border-4 border-[#facc15] bg-[#140e08]/95 px-5 py-1.5 shadow-[6px_6px_0_#ca8a04] sm:px-8 sm:py-2">
+            <div className="skew-x-12 text-center">
+              <div className="font-display text-[10px] font-black uppercase tracking-[0.26em] text-[#fde047] sm:text-xs">
+                ★ SHERU BHAI · SUPER POWER ★
+              </div>
+              <div className="font-display text-2xl font-black uppercase italic tracking-wide text-[#facc15] news-stroke sm:text-4xl">
+                {hud.superBannerText}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PRE-FIGHT TV DEBATE CLASH BANNER (2s intro with SKIP ›) */}
       {hud.showBroadcastIntro && (

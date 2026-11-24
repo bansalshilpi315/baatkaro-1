@@ -1,4 +1,9 @@
 import { FIGHTER_CONFIGS, STAGE_CONFIGS } from './characters/configs';
+import {
+  SHERU_SUPER_DURATION,
+  createSheruSuperState,
+  stepSheruSuper,
+} from './sheruSuper';
 import type {
   CombatEvent,
   Difficulty,
@@ -88,6 +93,8 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     aiThinkTimer: 0.25,
     aiCurrentIntent: 'idle',
     aiIntentTimer: 0.4,
+    sheruSuper: null,
+    sheruSuperSignals: [],
   };
 }
 
@@ -285,18 +292,37 @@ function startAction(
     }
   } else if (action === 'super') {
     fighter.shakti = 0;
-    fighter.invulnTimer = 0.25;
-    fighter.vx = fighter.facing * 7.5;
-    events.push({
-      type: 'super',
-      attackerSlot: fighter.slot,
-      x: fighter.x,
-      y: fighter.y + 1.5,
-      damage: 0,
-      word: 'SHAKTI STRIKE!',
-      color: '#FDE047',
-      headline: `SHAKTI METER EXPLODES! ${cfg.name.toUpperCase()} UNLEASHES ${cfg.superName}!`,
-    });
+    if (fighter.id === 'sheru') {
+      const opp = state.fighters[1 - fighter.slot];
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = SHERU_SUPER_DURATION;
+      state.sheruSuper = createSheruSuperState(fighter, opp);
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.5,
+        damage: 0,
+        color: '#FDE047',
+        headline: `TRILLION DOLLAR BEATDOWN! ${cfg.name.toUpperCase()} DROPS THE GOLDEN SPOTLIGHT!`,
+      });
+    } else {
+      fighter.invulnTimer = 0.25;
+      fighter.vx = fighter.facing * 7.5;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.5,
+        damage: 0,
+        word: 'SHAKTI STRIKE!',
+        color: '#FDE047',
+        headline: `SHAKTI METER EXPLODES! ${cfg.name.toUpperCase()} UNLEASHES ${cfg.superName}!`,
+      });
+    }
   } else {
     events.push({
       type: 'whiff',
@@ -578,10 +604,25 @@ export function stepMatch(
     return events;
   }
 
+  // Clear per-tick Sheru Super beat signals
+  state.sheruSuperSignals = [];
+
   // Hit-stop freezes simulation physics while camera shake / flashes still tick
   if (state.hitstopTimer > 0) {
     state.hitstopTimer = Math.max(0, state.hitstopTimer - dt);
     return events;
+  }
+
+  // Choreographed 7.5s Sheru Bhai Super sequence locks both fighters & pauses round clock
+  if (state.sheruSuper) {
+    if (state.sheruSuper.active) {
+      state.sheruSuperSignals = stepSheruSuper(state, state.sheruSuper, dt, events);
+      if (!state.sheruSuper.active) {
+        state.sheruSuper = null;
+      }
+      return events;
+    }
+    state.sheruSuper = null;
   }
 
   // Update Round Timer
