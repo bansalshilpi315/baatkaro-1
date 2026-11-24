@@ -61,7 +61,7 @@ test('holding back blocks incoming kick and drastically reduces damage', () => {
   );
 });
 
-test('grab beats blocking at close range', () => {
+test('grab beats blocking at close range, lifts opponent, and throws into knockdown', () => {
   const state = createMatchState('sheru', 'billa', true);
   state.fighters[0].x = -0.55;
   state.fighters[1].x = 0.55;
@@ -71,10 +71,77 @@ test('grab beats blocking at close range', () => {
   const blockIn = { ...createEmptyInput(), right: true };
 
   stepMatch(state, [grabIn, blockIn], 1 / 60);
-  const events = stepFrames(state, createEmptyInput(), blockIn, 15);
+  const events = stepFrames(state, createEmptyInput(), blockIn, 24);
 
-  assert.ok(events.some((e) => e.type === 'grab'), 'Grab should connect through block');
+  assert.ok(events.some((e) => e.type === 'grab'), 'Grab should lock on through block');
+  assert.ok(events.some((e) => e.type === 'grab_throw'), 'Grab should execute throw release');
   assert.ok(state.fighters[1].hp < startHp - 10, 'Grab should deal full grab damage');
+  assert.equal(state.fighters[1].action, 'knockdown', 'Grab throw should knock opponent down');
+});
+
+test('3-hit punch combo chains Jab -> Cross -> Finisher with hit-stop and launches opponent into knockdown', () => {
+  const state = createMatchState('sheru', 'billa', true);
+  state.fighters[0].x = -0.58;
+  state.fighters[1].x = 0.58;
+
+  const punchIn = { ...createEmptyInput(), punch: true };
+  const idleIn = createEmptyInput();
+  const allEvents = [];
+
+  // Hit 1: Jab (comboStep 0)
+  allEvents.push(...stepMatch(state, [punchIn, idleIn], 1 / 60));
+  allEvents.push(...stepFrames(state, idleIn, idleIn, 10));
+  assert.ok(state.fighters[0].comboCount >= 1, 'Jab should register first combo hit');
+
+  // Hit 2: Cross (comboStep 1)
+  state.fighters[1].x = state.fighters[0].x + 1.1;
+  allEvents.push(...stepMatch(state, [punchIn, idleIn], 1 / 60));
+  allEvents.push(...stepFrames(state, idleIn, idleIn, 12));
+  assert.ok(state.fighters[0].comboCount >= 2, 'Cross should chain to 2 HITS');
+
+  // Hit 3: Heavy Finisher (comboStep 2)
+  state.fighters[1].x = state.fighters[0].x + 1.1;
+  allEvents.push(...stepMatch(state, [punchIn, idleIn], 1 / 60));
+  allEvents.push(...stepFrames(state, idleIn, idleIn, 18));
+
+  assert.ok(state.fighters[0].comboCount >= 3, '3rd hit should chain to 3 HITS');
+  assert.ok(
+    allEvents.some((e) => e.type === 'heavy_hit' && e.moveCallout === 'PAISA UPPERCUT!'),
+    '3rd hit finisher should emit character move callout',
+  );
+  assert.equal(state.fighters[1].action, 'knockdown', '3rd hit finisher should launch into knockdown');
+});
+
+test('low sweep knocks opponent flat onto floor, triggers knockdown_land dust event, and wakes up with invincibility', () => {
+  const state = createMatchState('sheru', 'billa', true);
+  state.fighters[0].x = -0.65;
+  state.fighters[1].x = 0.65;
+
+  const sweepIn = { ...createEmptyInput(), down: true, kick: true };
+  const idleIn = createEmptyInput();
+
+  stepMatch(state, [sweepIn, idleIn], 1 / 60);
+  const hitEvents = stepFrames(state, idleIn, idleIn, 20);
+  assert.ok(
+    hitEvents.some((e) => e.moveCallout === 'TANGDI SWEEP!'),
+    'Low sweep should emit TANGDI SWEEP! move callout',
+  );
+  assert.equal(state.fighters[1].action, 'knockdown', 'Sweep should knock opponent down');
+
+  // Step through launch arc & floor landing + ~0.8s grounded knockdown into get-up
+  const landEvents = stepFrames(state, idleIn, idleIn, 90);
+  assert.ok(
+    landEvents.some((e) => e.type === 'knockdown_land'),
+    'Knocked down fighter hitting floor should emit knockdown_land dust event',
+  );
+  const postAction: string = state.fighters[1].action;
+  assert.ok(
+    postAction === 'getup' || postAction === 'idle',
+    `Opponent should transition into get-up after grounded knockdown, got ${postAction}`,
+  );
+  if (postAction === 'getup') {
+    assert.ok(state.fighters[1].invulnTimer > 0, 'Get-up must grant wake-up invincibility');
+  }
 });
 
 test('Laddoo Mausi Belan Throw spawns spinning projectile and hits at mid-range', () => {
@@ -123,20 +190,31 @@ test('Best-of-3 KO transitions Round 1 into Round 2, then 2nd round win finishes
 
   assert.equal(state.fighters[1].hp, 0);
   assert.equal(state.phase, 'ko_freeze');
+  assert.equal(state.koSubPhase, 'impact_slowmo');
+  assert.ok(
+    state.koCalloutText === 'GHEE KHATAM!' || state.koCalloutText === 'KHEL KHATAM!',
+    `Expected desi KO callout, got ${state.koCalloutText}`,
+  );
   assert.equal(state.p1RoundsWon, 1);
   assert.equal(state.p2RoundsWon, 0);
   assert.equal(state.roundWinnerSlot, 0);
   assert.equal(state.winnerSlot, null, 'Match must not end after only 1 round win');
 
-  // Advance past Round 1 ko_freeze -> starts Round 2 intro with full HP reset
-  stepFrames(state, createEmptyInput(), createEmptyInput(), 65);
+  // Advance past 0.9s impact_slowmo into winner_celebration
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 62);
+  assert.equal(state.phase, 'ko_freeze');
+  assert.equal(state.koSubPhase, 'winner_celebration');
+  assert.equal(state.fighters[0].action, 'victory');
+
+  // Advance past 1.45s winner_celebration -> starts Round 2 intro with full HP reset
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 95);
   assert.equal(state.phase, 'intro');
   assert.equal(state.roundNumber, 2);
   assert.equal(state.fighters[0].hp, state.fighters[0].maxHp);
   assert.equal(state.fighters[1].hp, state.fighters[1].maxHp);
 
   // Advance past Round 2 intro into active fighting
-  stepFrames(state, createEmptyInput(), createEmptyInput(), 100);
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 105);
   assert.equal(state.phase, 'fighting');
 
   // Round 2 KO -> P1 reaches 2 round wins (Landslide 2-0)
@@ -146,10 +224,11 @@ test('Best-of-3 KO transitions Round 1 into Round 2, then 2nd round win finishes
   stepMatch(state, [{ ...createEmptyInput(), kick: true }, createEmptyInput()], 1 / 60);
   stepFrames(state, createEmptyInput(), createEmptyInput(), 20);
   assert.equal(state.phase, 'ko_freeze');
+  assert.equal(state.koSubPhase, 'impact_slowmo');
   assert.equal(state.p1RoundsWon, 2);
   assert.equal(state.winnerSlot, 0);
 
-  stepFrames(state, createEmptyInput(), createEmptyInput(), 65);
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 160);
   assert.equal(state.phase, 'finished');
   assert.equal(state.fighters[0].action, 'victory');
   assert.equal(state.fighters[1].action, 'ko');

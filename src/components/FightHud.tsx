@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
-import { FIGHTER_CONFIGS, getFighterPortraitDataUrl, STAGE_CONFIGS } from '../game/characters';
+import { FIGHTER_CONFIGS, getFighterPortraitDataUrl } from '../game/characters';
 import type { FighterId, FloatingCallout, HudSnapshot, StageId } from '../game/types';
 import { FullscreenButton } from './FullscreenButton';
 
@@ -24,7 +24,6 @@ interface FightHudProps {
 export function FightHud({
   p1Id,
   p2Id,
-  stageId,
   hud,
   callouts,
   muted,
@@ -39,7 +38,6 @@ export function FightHud({
 }: FightHudProps) {
   const p1Cfg = FIGHTER_CONFIGS[p1Id];
   const p2Cfg = FIGHTER_CONFIGS[p2Id];
-  const stageCfg = STAGE_CONFIGS[stageId];
 
   const p1Pct = Math.max(0, Math.min(100, (hud.p1Hp / hud.p1MaxHp) * 100));
   const p2Pct = Math.max(0, Math.min(100, (hud.p2Hp / hud.p2MaxHp) * 100));
@@ -69,7 +67,6 @@ export function FightHud({
   // Auto-hide touch controls during pre-fight intros, cinematic Supers, and KO/Victory
   const controlsHidden =
     hud.phase === 'intro' ||
-    hud.showBroadcastIntro ||
     hud.isSuperCinematic ||
     hud.phase === 'ko_freeze' ||
     hud.phase === 'finished';
@@ -352,19 +349,37 @@ export function FightHud({
           </div>
         </div>
 
-        {/* Combo Counters */}
-        <div className="hud-combo-row mx-auto mt-1 flex w-full max-w-6xl justify-between px-16 sm:px-20">
-          <div className="h-6">
+        {/* Combo Counters + Floating Top-Center Move Callout */}
+        <div className="hud-combo-row mx-auto mt-1 flex w-full max-w-6xl items-center justify-between px-16 sm:px-20">
+          <div className="h-7 min-w-[7rem]">
             {hud.p1Combo >= 2 && (
-              <div className="hud-combo-text news-stroke font-display text-xl font-extrabold italic text-[#facc15] sm:text-2xl">
-                {hud.p1Combo} HIT COMBO!
+              <div
+                data-testid="p1-combo-counter"
+                className="hud-combo-text news-stroke font-display text-2xl font-extrabold uppercase italic tracking-wide text-[#facc15] sm:text-3xl"
+              >
+                {hud.p1Combo} HITS
               </div>
             )}
           </div>
-          <div className="h-6">
+
+          <div className="flex h-7 items-center justify-center">
+            {hud.moveCallout && !hud.superBanner && !hud.bannerText && (
+              <div
+                data-testid="move-callout"
+                className="move-callout-pop news-stroke -skew-x-[10deg] font-display text-lg font-extrabold uppercase italic tracking-wider text-[#fde047] sm:text-2xl"
+              >
+                {hud.moveCallout}
+              </div>
+            )}
+          </div>
+
+          <div className="h-7 min-w-[7rem] text-right">
             {hud.p2Combo >= 2 && (
-              <div className="hud-combo-text news-stroke font-display text-xl font-extrabold italic text-[#fb7185] sm:text-2xl">
-                {hud.p2Combo} HIT COMBO!
+              <div
+                data-testid="p2-combo-counter"
+                className="hud-combo-text news-stroke font-display text-2xl font-extrabold uppercase italic tracking-wide text-[#facc15] sm:text-3xl"
+              >
+                {hud.p2Combo} HITS
               </div>
             )}
           </div>
@@ -391,94 +406,102 @@ export function FightHud({
       </div>
 
       {/* =================================================================
-          PRE-FIGHT BROADCAST INTRO CARD (ROUND 1)
+          WHITE COMIC SPEECH BUBBLE (INTRO TAUNTS, KNOCKDOWNS & VICTORY)
           ================================================================= */}
-      {hud.showBroadcastIntro && (
-        <div className="pointer-events-auto fixed inset-0 z-30 flex items-center justify-center px-4">
-          <div className="w-full max-w-2xl border-4 border-[#110b08] bg-[#140e0b]/95 shadow-[8px_8px_0_#dc2626]">
-            <div className="flex items-center justify-between border-b-2 border-[#facc15] bg-[#dc2626] px-4 py-1.5">
-              <span className="font-display text-xs font-extrabold uppercase tracking-[0.18em] text-white sm:text-sm">
-                BREAKING BAKWAS · ROUND 1 SHOWDOWN
-              </span>
-              <span className="font-display text-xs font-extrabold uppercase tracking-widest text-[#facc15]">
-                {stageCfg.name}
-              </span>
-            </div>
-            <div className="hud-intro-body flex items-center justify-between gap-4 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <img
-                  src={getFighterPortraitDataUrl(p1Id)}
-                  alt={p1Cfg.name}
-                  className="hud-intro-avatar h-14 w-14 border-2 border-[#facc15] object-cover sm:h-16 sm:w-16"
-                />
-                <div>
-                  <div className="font-display text-xs font-bold uppercase text-[#facc15]">P1</div>
-                  <div className="hud-intro-name font-display text-xl font-extrabold uppercase text-white sm:text-2xl">
-                    {p1Cfg.name}
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-2 border-[#110b08] bg-[#facc15] px-3 py-1 font-display text-2xl font-extrabold italic text-[#110b08] shadow-[3px_3px_0_#dc2626]">
-                VS
-              </div>
-
-              <div className="flex items-center gap-3 text-right">
-                <div>
-                  <div className="font-display text-xs font-bold uppercase text-[#facc15]">CPU</div>
-                  <div className="hud-intro-name font-display text-xl font-extrabold uppercase text-white sm:text-2xl">
-                    {p2Cfg.name}
-                  </div>
-                </div>
-                <img
-                  src={getFighterPortraitDataUrl(p2Id)}
-                  alt={p2Cfg.name}
-                  className="hud-intro-avatar h-14 w-14 -scale-x-100 border-2 border-[#facc15] object-cover sm:h-16 sm:w-16"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between border-t border-white/15 bg-[#1c1510] px-4 py-2">
-              <span className="font-display text-xs font-bold uppercase tracking-wider text-[#fde047] sm:text-sm">
-                &ldquo;{hud.introTagline}&rdquo;
-              </span>
-              <button
-                type="button"
-                onClick={onSkipIntro}
-                className="flex cursor-pointer items-center gap-1 border border-[#facc15] bg-[#facc15] px-2.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#110b08] hover:bg-[#fde047]"
-              >
-                <span>SKIP</span>
-                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =================================================================
-          SHERU BHAI SUPER POWER CINEMATIC BANNER
-          ================================================================= */}
-      {hud.superBannerText && (
+      {hud.speechBubble && (
         <div
-          data-testid="sheru-super-banner"
-          className="pointer-events-none fixed inset-x-0 top-[18%] z-30 flex flex-col items-center justify-center px-4"
+          data-testid="comic-speech-bubble"
+          className="pointer-events-none fixed z-30"
+          style={{
+            left: `${hud.speechBubble.screenX}px`,
+            top: `${hud.speechBubble.screenY}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
         >
-          <div className="border-4 border-[#110b08] bg-gradient-to-r from-[#b45309] via-[#facc15] to-[#b45309] px-7 py-2 shadow-[0_0_40px_rgba(250,204,21,0.85),6px_6px_0_#110b08]">
-            <div className="text-center font-display text-xs font-extrabold uppercase tracking-[0.28em] text-[#1c1005] sm:text-sm">
-              SHERU BHAI · SUPER POWER
+          <div className="comic-bubble-pop relative max-w-[14rem] rounded-xl border-[3px] border-[#110b08] bg-white px-3.5 py-2 text-[#110b08] shadow-[4px_4px_0_#110b08] sm:max-w-[17rem] sm:px-4 sm:py-2.5">
+            <div className="font-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#b45309] sm:text-xs">
+              {hud.speechBubble.speakerName}
             </div>
-            <div className="news-stroke text-center font-display text-3xl font-extrabold uppercase italic tracking-wider text-white sm:text-5xl">
-              {hud.superBannerText}
+            <div className="font-display text-sm font-extrabold leading-tight tracking-wide text-[#110b08] sm:text-base">
+              &ldquo;{hud.speechBubble.text}&rdquo;
+            </div>
+            {/* Crisp comic speech tail */}
+            <div
+              aria-hidden="true"
+              className="absolute -bottom-[11px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-r-[3px] border-b-[3px] border-[#110b08] bg-white"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Subtle Skip Intro button during Round 1 3D camera sweep */}
+      {hud.canSkipIntro && (
+        <div className="pointer-events-auto fixed right-5 bottom-4 z-30">
+          <button
+            type="button"
+            data-testid="skip-intro-btn"
+            onClick={onSkipIntro}
+            className="flex cursor-pointer items-center gap-1 border-2 border-[#facc15] bg-[#140e0b]/90 px-3 py-1 font-display text-xs font-extrabold uppercase tracking-widest text-[#facc15] shadow-[3px_3px_0_#110b08] transition hover:bg-[#facc15] hover:text-[#110b08] sm:text-sm"
+          >
+            <span>SKIP INTRO</span>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {/* =================================================================
+          SLEEK DARK TRANSLUCENT HORIZONTAL SUPER POWER BANNER STRIP
+          ================================================================= */}
+      {hud.superBanner && (
+        <div
+          data-testid={
+            hud.superBanner.fighterId === 'sheru' ? 'sheru-super-banner' : 'super-banner'
+          }
+          className="super-strip-in pointer-events-none fixed inset-x-0 bottom-[10%] z-30 border-y-[3px] border-[#facc15] bg-[#0b0806]/90 shadow-[0_10px_36px_rgba(0,0,0,0.85)]"
+        >
+          <div
+            className={`mx-auto flex max-w-5xl items-center gap-4 px-5 py-2 sm:gap-6 sm:px-8 sm:py-3 ${
+              hud.superBanner.slot === 1 ? 'flex-row-reverse text-right' : 'flex-row text-left'
+            }`}
+          >
+            <div className="hud-super-portrait relative h-14 w-14 shrink-0 overflow-hidden border-2 border-[#facc15] bg-[#16100c] shadow-[0_0_18px_rgba(250,204,21,0.55)] sm:h-20 sm:w-20">
+              <img
+                src={getFighterPortraitDataUrl(hud.superBanner.fighterId)}
+                alt={hud.superBanner.fighterName}
+                className={`h-full w-full object-cover ${
+                  hud.superBanner.slot === 1 ? '-scale-x-100' : ''
+                }`}
+              />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-xs font-extrabold uppercase tracking-[0.26em] text-[#facc15] sm:text-sm">
+                {hud.superBanner.fighterName} · SUPER POWER
+              </div>
+              <div className="hud-super-title news-stroke truncate font-display text-3xl font-extrabold uppercase italic leading-none tracking-wider text-white sm:text-6xl">
+                {hud.superBanner.superName}
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* =================================================================
-          ROUND / FIGHT KARO! / K.O.! CENTER BANNER
+          HUGE SLANTED ARCADE CALLOUTS: ROUND 1 / GHEE KHATAM! / <NAME> WINS
           ================================================================= */}
       {hud.bannerText && (
-        <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
-          <div className="hud-banner-box news-stroke -rotate-2 border-4 border-[#110b08] bg-[#dc2626] px-8 py-2 font-display text-5xl font-extrabold uppercase italic tracking-wider text-[#facc15] shadow-[8px_8px_0_#110b08] sm:text-7xl">
+        <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center px-4">
+          <div
+            data-testid="arcade-center-banner"
+            data-tone={hud.bannerTone}
+            className={`hud-arcade-banner font-display font-extrabold uppercase italic tracking-wider ${
+              hud.bannerTone === 'ko'
+                ? 'arcade-banner-ko text-5xl sm:text-8xl'
+                : hud.bannerTone === 'winner'
+                  ? 'arcade-banner-winner text-4xl sm:text-7xl'
+                  : 'arcade-banner-round text-5xl sm:text-8xl'
+            }`}
+          >
             {hud.bannerText}
           </div>
         </div>

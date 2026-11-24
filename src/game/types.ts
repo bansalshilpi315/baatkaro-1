@@ -25,10 +25,15 @@ export type FighterAction =
   | 'block'
   | 'punch'
   | 'kick'
+  | 'sweep'
   | 'grab'
+  | 'grab_hold'
+  | 'grabbed'
   | 'special'
   | 'super'
   | 'hit'
+  | 'knockdown'
+  | 'getup'
   | 'ko'
   | 'victory';
 
@@ -121,6 +126,10 @@ export interface FighterState {
   invulnTimer: number;
   comboCount: number;
   comboTimer: number;
+  comboStep: 0 | 1 | 2;
+  comboChainTimer: number;
+  knockdownTimer: number;
+  grabTargetSlot: 0 | 1 | null;
   maxCombo: number;
   damageDealt: number;
   superDamageBudget: number;
@@ -131,7 +140,7 @@ export interface FighterState {
   squashX: number;
   squashY: number;
   expression: FaceExpression;
-  bufferedAction: 'punch' | 'kick' | 'grab' | 'special' | 'super' | 'jump' | null;
+  bufferedAction: 'punch' | 'kick' | 'sweep' | 'grab' | 'special' | 'super' | 'jump' | null;
   bufferTimer: number;
 }
 
@@ -159,9 +168,11 @@ export type CombatEventType =
   | 'heavy_hit'
   | 'block'
   | 'grab'
+  | 'grab_throw'
   | 'special'
   | 'super'
   | 'dharna_counter'
+  | 'knockdown_land'
   | 'ko'
   | 'jump'
   | 'land'
@@ -174,8 +185,24 @@ export interface CombatEvent {
   y: number;
   damage: number;
   word?: string;
+  moveCallout?: string;
   color?: string;
   headline?: string;
+}
+
+export interface ComicSpeechBubble {
+  slot: 0 | 1;
+  speakerName: string;
+  text: string;
+  screenX: number;
+  screenY: number;
+}
+
+export interface SuperBannerInfo {
+  fighterId: FighterId;
+  fighterName: string;
+  superName: string;
+  slot: 0 | 1;
 }
 
 export interface MatchState {
@@ -190,6 +217,12 @@ export interface MatchState {
   hitstopTimer: number;
   phase: 'intro' | 'fighting' | 'ko_freeze' | 'finished';
   phaseTimer: number;
+  introDuration: number;
+  koSubPhase: 'none' | 'impact_slowmo' | 'winner_celebration';
+  koCalloutText: string;
+  activeSuperSlot: 0 | 1 | null;
+  activeSuperElapsed: number;
+  activeSuperDuration: number;
   winnerSlot: 0 | 1 | 'draw' | null;
   finishReason: 'ko' | 'timeout' | null;
   nextProjectileUid: number;
@@ -251,7 +284,9 @@ export interface HudSnapshot {
   phase: MatchState['phase'];
   isSuperCinematic: boolean;
   bannerText: string | null;
-  superBannerText: string | null;
-  showBroadcastIntro: boolean;
-  introTagline: string;
+  bannerTone: 'round' | 'ko' | 'winner';
+  superBanner: SuperBannerInfo | null;
+  moveCallout: string | null;
+  speechBubble: ComicSpeechBubble | null;
+  canSkipIntro: boolean;
 }

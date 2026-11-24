@@ -42,14 +42,21 @@ const INITIAL_HUD: HudSnapshot = {
   phase: 'intro',
   isSuperCinematic: false,
   bannerText: null,
-  superBannerText: null,
-  showBroadcastIntro: false,
-  introTagline: 'DESH JAANNA CHAHTA HAI!',
+  bannerTone: 'round',
+  superBanner: null,
+  moveCallout: null,
+  speechBubble: null,
+  canSkipIntro: false,
 };
 
 function isAutostartRequested(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('autostart') === '1';
+}
+
+function isAutostartIntroRequested(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('intro') === '1';
 }
 
 function getNumericQueryParam(key: string): number | undefined {
@@ -138,7 +145,8 @@ export default function App() {
       const p2RoundsWon = getNumericQueryParam('p2rounds');
       const p1Hp = getNumericQueryParam('p1hp');
       const p2Hp = getNumericQueryParam('p2hp');
-      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', true, getInitialShaktiParam(), {
+      const skipIntro = !isAutostartIntroRequested();
+      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', skipIntro, getInitialShaktiParam(), {
         p1RoundsWon,
         p2RoundsWon,
         p1Hp,

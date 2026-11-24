@@ -7,6 +7,9 @@ import {
   FIGHT_CAMERA_Z,
   FIGHT_LOOK_Y,
   computeFixedZoomCameraTarget,
+  computeIntroCameraTarget,
+  computeKoWinnerCameraTarget,
+  computeSuperCameraTarget,
 } from './camera';
 import { ARENA_MAX_X, ARENA_MIN_X } from './combat';
 
@@ -49,3 +52,42 @@ test('camera smoothly tracks horizontal midpoint and clamps strictly to [-6.5, +
   assert.equal(farRight.x, CAMERA_PAN_MAX_X);
   assert.equal(farRight.x, 6.5);
 });
+
+test('Round 1 intro camera sweeps from P1 3/4 over-the-shoulder to CPU to fixed fight angle', () => {
+  const p1Pose = computeIntroCameraTarget(1, 0.2, 2.65, -2.4, 2.4);
+  assert.ok(p1Pose.x < -2.4, 'Opening pose should sit behind/beside P1 shoulder');
+  assert.ok(p1Pose.z < FIGHT_CAMERA_Z, 'Opening pose should be closer than fight camera');
+  assert.ok(p1Pose.lookX > p1Pose.x, 'Opening pose should look across toward CPU');
+
+  const p2Pose = computeIntroCameraTarget(1, 1.45, 2.65, -2.4, 2.4);
+  assert.ok(p2Pose.x > 0, 'Mid-intro pose should pan over to frame CPU');
+
+  const endPose = computeIntroCameraTarget(1, 2.65, 2.65, -2.4, 2.4);
+  assert.equal(endPose.z, FIGHT_CAMERA_Z);
+  assert.equal(endPose.y, FIGHT_CAMERA_Y);
+  assert.equal(endPose.lookY, FIGHT_LOOK_Y);
+
+  const round2EndPose = computeIntroCameraTarget(2, 1.55, 1.55, -2.4, 2.4);
+  assert.equal(round2EndPose.z, FIGHT_CAMERA_Z);
+  assert.equal(round2EndPose.y, FIGHT_CAMERA_Y);
+});
+
+test('Super camera sweeps low-angle close-up -> dynamic high-angle 3D orbit -> smooth return', () => {
+  const startup = computeSuperCameraTarget(0.25, 1.6, -1.5, 1, 1.2, false);
+  assert.ok(startup.y < FIGHT_CAMERA_Y, 'Super startup should dip to dramatic low angle');
+  assert.ok(startup.z < FIGHT_CAMERA_Z, 'Super startup should close in on attacker');
+
+  const highOrbit = computeSuperCameraTarget(0.9, 1.6, -1.5, 1, 1.2, false);
+  assert.ok(highOrbit.y > FIGHT_CAMERA_Y, 'Super impact phase should rise to dynamic high-angle orbit');
+
+  const returnEnd = computeSuperCameraTarget(1.6, 1.6, -1.5, 1, 1.2, false);
+  assert.equal(returnEnd.z, FIGHT_CAMERA_Z);
+  assert.equal(returnEnd.y, FIGHT_CAMERA_Y);
+});
+
+test('KO winner celebration camera zooms in gently on the victorious fighter', () => {
+  const pose = computeKoWinnerCameraTarget(-1.2, 1);
+  assert.ok(pose.z < FIGHT_CAMERA_Z, 'Winner celebration should gently zoom closer');
+  assert.ok(Math.abs(pose.lookX - -1.2) < 0.01, 'Winner celebration should focus on winner X');
+});
+

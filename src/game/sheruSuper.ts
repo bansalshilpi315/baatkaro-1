@@ -395,7 +395,7 @@ export function stepSheruSuper(
     if (defender.hp > 0) {
       defender.hitstunTimer = Math.min(defender.hitstunTimer, 0.2);
     } else {
-      resolveRoundEnd(state, attacker.slot, 'ko', 1.35);
+      resolveRoundEnd(state, attacker.slot, 'ko');
       defender.action = 'ko';
       defender.expression = 'ko';
     }

@@ -250,8 +250,17 @@ export function animateFighterRig(
   }
   rig.face.update(state.expression, crackLevel);
 
-  // Hit flash emissive highlight
-  const flashVal = state.hitFlashTimer > 0 ? 0.65 : 0;
+  // Hit flash & subtle wake-up invincibility shimmer
+  const isWakeupShimmer =
+    state.hitFlashTimer <= 0 &&
+    state.action !== 'super' &&
+    (state.action === 'getup' || (state.invulnTimer > 0 && state.action !== 'knockdown'));
+  const flashVal =
+    state.hitFlashTimer > 0
+      ? 0.65
+      : isWakeupShimmer
+        ? 0.14 + Math.abs(Math.sin(elapsed * 26)) * 0.22
+        : 0;
   for (const mat of rig.flashMaterials) {
     mat.emissiveIntensity = flashVal;
   }
@@ -374,26 +383,74 @@ export function animateFighterRig(
       break;
     }
     case 'punch': {
-      // Snappy jab forward
+      // 3-Hit Punch Combo: Jab (0) -> Left Cross (1) -> Rising Heavy Uppercut (2)
       const snap = Math.sin(atkProgress * Math.PI);
-      torsoRotY = -0.42 * snap;
-      torsoRotX = 0.14 * snap;
-      rShX = -1.55 * snap - 0.3;
-      rElbX = -0.1 * snap - 0.3 * (1 - snap);
-      lShX = -0.65;
-      lElbX = -1.45;
+      if (state.comboStep === 1) {
+        torsoRotY = 0.52 * snap;
+        torsoRotX = 0.16 * snap;
+        lShX = -1.62 * snap - 0.3;
+        lElbX = -0.08 * snap - 0.35 * (1 - snap);
+        rShX = -0.58;
+        rElbX = -1.45;
+      } else if (state.comboStep >= 2) {
+        const rise = Math.sin(Math.min(1, atkProgress / 0.85) * Math.PI);
+        pelvisY = basePelvisY + rise * 0.12;
+        torsoRotY = -0.68 * rise;
+        torsoRotX = -0.22 * rise;
+        rShX = -2.42 * rise - 0.2;
+        rShZ = 0.28 * (1 - rise);
+        rElbX = -0.22 * rise - 0.75 * (1 - rise);
+        lShX = 0.25 * rise - 0.45;
+        lElbX = -1.35;
+      } else {
+        torsoRotY = -0.42 * snap;
+        torsoRotX = 0.14 * snap;
+        rShX = -1.55 * snap - 0.3;
+        rElbX = -0.1 * snap - 0.3 * (1 - snap);
+        lShX = -0.65;
+        lElbX = -1.45;
+      }
       break;
     }
     case 'kick': {
-      // High arcade kick
+      // 3-Hit Kick Combo: Snap Kick (0) -> Mid Thrust (1) -> Heavy Spinning/High Finisher (2)
       const snap = Math.sin(atkProgress * Math.PI);
-      torsoRotX = -0.28 * snap;
-      torsoRotY = 0.35 * snap;
-      rHipX = -1.55 * snap;
-      rKneeX = 0.12 * snap;
-      lHipX = 0.18 * snap;
-      lShX = -0.9;
+      if (state.comboStep >= 2) {
+        pelvisY = basePelvisY + 0.08 * snap;
+        torsoRotX = -0.42 * snap;
+        torsoRotY = 0.72 * snap;
+        rHipX = -1.92 * snap;
+        rKneeX = 0.06 * snap;
+        lHipX = 0.28 * snap;
+        lShX = -1.05;
+        lShZ = -0.58 * snap - 0.2;
+        rShX = 0.65 * snap;
+      } else {
+        torsoRotX = -0.28 * snap;
+        torsoRotY = 0.35 * snap;
+        rHipX = -1.55 * snap;
+        rKneeX = 0.12 * snap;
+        lHipX = 0.18 * snap;
+        lShX = -0.9;
+        rShX = 0.45 * snap;
+      }
+      break;
+    }
+    case 'sweep': {
+      // Low crouched leg sweep close to the floor
+      const snap = Math.sin(atkProgress * Math.PI);
+      pelvisY = basePelvisY - 0.42 * snap - 0.08;
+      pelvisRotX = -0.16 * snap;
+      torsoRotX = 0.36 * snap;
+      torsoRotY = 0.58 * snap;
+      rHipX = -1.38 * snap;
+      rKneeX = 0.08;
+      lHipX = -0.95 * snap;
+      lKneeX = 1.55 * snap;
+      lShX = -0.85;
+      lShZ = -0.55 * snap - 0.25;
       rShX = 0.45 * snap;
+      rShZ = 0.48 * snap + 0.2;
       break;
     }
     case 'grab': {
@@ -405,6 +462,119 @@ export function animateFighterRig(
       rShZ = -0.25;
       lElbX = -0.35;
       rElbX = -0.35;
+      break;
+    }
+    case 'grab_hold': {
+      // Twin-arm lift up (0..0.44), then explosive forward throw slam (0.44..1.0)
+      if (atkProgress < 0.44) {
+        const lift = atkProgress / 0.44;
+        pelvisY = basePelvisY - 0.08 + lift * 0.12;
+        torsoRotX = -0.22 * lift;
+        torsoRotY = Math.sin(lift * Math.PI * 1.5) * 0.35;
+        lShX = -1.35 - lift * 0.95;
+        rShX = -1.35 - lift * 0.95;
+        lShZ = 0.22;
+        rShZ = -0.22;
+        lElbX = -0.65;
+        rElbX = -0.65;
+      } else {
+        const slam = Math.min(1, (atkProgress - 0.44) / 0.32);
+        pelvisY = basePelvisY - 0.05 * slam;
+        torsoRotX = -0.18 + slam * 0.56;
+        torsoRotY = -0.45 * slam;
+        lShX = -2.2 + slam * 1.45;
+        rShX = -2.2 + slam * 1.45;
+        lShZ = -0.22 * slam;
+        rShZ = 0.22 * slam;
+        lElbX = -0.25;
+        rElbX = -0.25;
+      }
+      break;
+    }
+    case 'grabbed': {
+      // Lifted off feet and spinning/flailing helplessly
+      const flail = Math.sin(elapsed * 22);
+      pelvisY = basePelvisY + 0.05;
+      pelvisRotX = -0.35 + flail * 0.12;
+      pelvisRotZ = flail * 0.26;
+      torsoRotX = -0.35;
+      headRotX = -0.3;
+      lShX = -1.9 + flail * 0.45;
+      rShX = -1.9 - flail * 0.45;
+      lShZ = -0.75;
+      rShZ = 0.75;
+      lHipX = -0.45 + flail * 0.35;
+      rHipX = -0.45 - flail * 0.35;
+      lKneeX = 0.85;
+      rKneeX = 0.85;
+      break;
+    }
+    case 'knockdown': {
+      // Launched airborne tumble -> flat on back on arena floor
+      const airborne = state.y > 0.08;
+      if (airborne) {
+        pelvisY = basePelvisY * 0.85;
+        pelvisRotX = -Math.PI * 0.38 - Math.min(0.4, state.actionTimer * 1.2);
+        pelvisRotZ = 0.16 * Math.sin(state.actionTimer * 10);
+        torsoRotX = -0.32;
+        lShX = -1.95;
+        rShX = -1.75;
+        lShZ = -0.72;
+        rShZ = 0.72;
+        lHipX = -0.55;
+        rHipX = -0.32;
+        lKneeX = 0.72;
+        rKneeX = 0.52;
+      } else {
+        pelvisY = rig.isEggBody ? 0.46 : state.id === 'mausi' ? 0.44 : 0.30;
+        pelvisRotX = -Math.PI * 0.47;
+        pelvisRotZ = 0.12;
+        torsoRotX = -0.06;
+        lShX = -1.75;
+        lShZ = -0.78;
+        rShX = -1.55;
+        rShZ = 0.78;
+        lElbX = -0.3;
+        rElbX = -0.3;
+        lHipX = 0.14;
+        rHipX = -0.1;
+        lKneeX = 0.25;
+        rKneeX = 0.2;
+      }
+      break;
+    }
+    case 'getup': {
+      // Smooth kip-up / roll-up from flat on back to fighting stance
+      const flatPelvisY = rig.isEggBody ? 0.46 : state.id === 'mausi' ? 0.44 : 0.30;
+      const p = atkProgress;
+      if (p < 0.45) {
+        const t = p / 0.45;
+        pelvisY = flatPelvisY + (basePelvisY - flatPelvisY) * t * 0.4;
+        pelvisRotX = -Math.PI * 0.47 * (1 - t * 0.65);
+        torsoRotX = 0.58 * t;
+        lHipX = -0.95 * t;
+        rHipX = -0.85 * t;
+        lKneeX = 1.4 * t;
+        rKneeX = 1.3 * t;
+        lShX = -1.4 * (1 - t) - 0.85 * t;
+        rShX = -1.3 * (1 - t) - 0.85 * t;
+        lShZ = -0.55 * (1 - t) - 0.25 * t;
+        rShZ = 0.55 * (1 - t) + 0.25 * t;
+      } else {
+        const t = (p - 0.45) / 0.55;
+        const ease = 1 - (1 - t) * (1 - t);
+        pelvisY = flatPelvisY + (basePelvisY - flatPelvisY) * (0.4 + 0.6 * ease);
+        pelvisRotX = -Math.PI * 0.47 * 0.35 * (1 - ease);
+        torsoRotX = 0.58 * (1 - ease) + 0.08 * ease;
+        lHipX = -0.95 * (1 - ease) + 0.12 * ease;
+        rHipX = -0.85 * (1 - ease) - 0.14 * ease;
+        lKneeX = 1.4 * (1 - ease) + 0.15 * ease;
+        rKneeX = 1.3 * (1 - ease) + 0.18 * ease;
+        lShX = -0.85 * (1 - ease) - 0.55 * ease;
+        rShX = -0.85 * (1 - ease) - 0.75 * ease;
+        lElbX = -1.15;
+        rElbX = -1.25;
+      }
       break;
     }
     case 'special': {
@@ -539,16 +709,38 @@ export function animateFighterRig(
       lElbX = -0.85;
       rElbX = -0.95;
     } else if (state.action === 'punch') {
-      // Heavy sweeping lion paw hook
+      // Sheru 3-hit combo: Right Lion Hook (0) -> Left Cross (1) -> Paisa Uppercut (2)
       const snap = Math.sin(atkProgress * Math.PI);
-      torsoRotY = -0.58 * snap;
-      torsoRotX = 0.1 * snap;
-      rShX = -1.48 * snap - 0.25;
-      rShZ = 0.55 * (1 - snap) + 0.15;
-      rElbX = -0.45 * snap - 0.55 * (1 - snap);
-      lShX = -0.55;
-      lShZ = -0.34;
-      lElbX = -1.35;
+      if (state.comboStep === 1) {
+        torsoRotY = 0.58 * snap;
+        torsoRotX = 0.12 * snap;
+        lShX = -1.56 * snap - 0.25;
+        lShZ = -0.48 * (1 - snap) - 0.15;
+        lElbX = -0.22 * snap - 0.55 * (1 - snap);
+        rShX = -0.5;
+        rShZ = 0.32;
+        rElbX = -1.35;
+      } else if (state.comboStep >= 2) {
+        const rise = Math.sin(Math.min(1, atkProgress / 0.85) * Math.PI);
+        pelvisY = basePelvisY + rise * 0.14;
+        torsoRotY = -0.68 * rise;
+        torsoRotX = -0.26 * rise;
+        rShX = -2.45 * rise - 0.2;
+        rShZ = 0.35 * (1 - rise);
+        rElbX = -0.2 * rise - 0.72 * (1 - rise);
+        lShX = 0.28 * rise - 0.4;
+        lShZ = -0.4;
+        lElbX = -1.3;
+      } else {
+        torsoRotY = -0.58 * snap;
+        torsoRotX = 0.1 * snap;
+        rShX = -1.48 * snap - 0.25;
+        rShZ = 0.55 * (1 - snap) + 0.15;
+        rElbX = -0.45 * snap - 0.55 * (1 - snap);
+        lShX = -0.55;
+        lShZ = -0.34;
+        lElbX = -1.35;
+      }
     } else if (state.action === 'kick') {
       // Stylish tailored suit high-kick with swagger counter-balance
       const snap = Math.sin(atkProgress * Math.PI);
@@ -1185,20 +1377,20 @@ export function animateFighterRig(
     // Playful Tilted Top Hat springy bob & tip!
     if (rig.hatPivot) {
       const hatBob =
-        state.action === 'hit' || state.action === 'ko'
+        state.action === 'hit' || state.action === 'ko' || state.action === 'knockdown' || state.action === 'grabbed'
           ? 0.26
           : state.action === 'special'
             ? 0.16 * Math.sin(atkProgress * Math.PI)
             : Math.sin(elapsed * 4.4 + state.slot - 0.5) * 0.065;
       const hatLift =
-        state.action === 'hit'
+        state.action === 'hit' || state.action === 'knockdown'
           ? 0.09
           : state.action === 'special' && state.y > 0.15
             ? 0.075
             : Math.max(0, Math.sin(elapsed * 4.4 + state.slot - 0.6)) * 0.028;
       rig.hatPivot.position.y = 1.215 + hatLift;
       rig.hatPivot.rotation.x = -0.24 - hatBob * 0.85;
-      rig.hatPivot.rotation.z = 0.26 + Math.sin(elapsed * 3.8 + state.slot - 0.4) * 0.06 + (state.action === 'hit' ? 0.18 : 0);
+      rig.hatPivot.rotation.z = 0.26 + Math.sin(elapsed * 3.8 + state.slot - 0.4) * 0.06 + (state.action === 'hit' || state.action === 'knockdown' ? 0.18 : 0);
     }
   } else if (state.id === 'mausi') {
     // Laddoo Mausi (Heavyweight Sweet-Shop Boss): grounded sturdy bounce, determined brisk march,

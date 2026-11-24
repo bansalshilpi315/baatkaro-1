@@ -5,6 +5,9 @@ import {
   CAMERA_PAN_MAX_X,
   CAMERA_PAN_MIN_X,
   computeFixedZoomCameraTarget,
+  computeIntroCameraTarget,
+  computeKoWinnerCameraTarget,
+  computeSuperCameraTarget,
 } from './camera';
 import { animateFighterRig, buildFighterRig, FIGHTER_CONFIGS, type FighterRig } from './characters';
 import {
@@ -19,6 +22,7 @@ import { SheruSuperVfx } from './sheruSuperVfx';
 import { buildStage, type StageInstance } from './stages';
 import type {
   CombatEvent,
+  ComicSpeechBubble,
   Difficulty,
   FighterId,
   FighterInput,
@@ -29,6 +33,7 @@ import type {
   MatchResultSnapshot,
   MatchState,
   StageId,
+  SuperBannerInfo,
 } from './types';
 
 export interface EngineCallbacks {
@@ -61,6 +66,50 @@ const _projVec = new THREE.Vector3();
 const _stageBgColor = new THREE.Color();
 const _stageFogColor = new THREE.Color();
 const _superDimColor = new THREE.Color(0x0b0805);
+
+const INTRO_TAUNTS: Record<FighterId, string[]> = {
+  sheru: [
+    'Tera budget khatam, meri entry shuru!',
+    'Aaj Sensex bhi neeche, tu bhi neeche!',
+    'Suit dekh, attitude dekh — ab pitai dekh!',
+  ],
+  billa: [
+    'Aaj teri chhutti, swatter tayyar hai!',
+    'Machhar samjha kya? Phatak se uda dunga!',
+    'Chai garam, swatter kadak — aaja bhid le!',
+  ],
+  neta: [
+    'Aam aadmi ka gussa mat jaga beta!',
+    'Jhola halka hai, par jhatka bhari padega!',
+    'Seedha dharna aur full hisaab hoga aaj!',
+  ],
+  anda: [
+    'Crack mat bolna, hard-boiled hoon main!',
+    'Deewar se gira par akad nahi tooti!',
+    'Omelette tera banega, mera nahi!',
+  ],
+  mausi: [
+    'Laddoo khayega ya belan khayega beta?',
+    'Aaj full desi ghee wali sutai hogi!',
+    'Dukaan band karwaunga? Pehle belan jhel!',
+  ],
+};
+
+const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
+  sheru: ['Arre mera Armani suit!', 'Audit karwaunga iska!'],
+  billa: ['Meow!! Yeh cheating hai!', 'Mera swatter kidhar gaya?!'],
+  neta: ['Yeh janta pe atyachaar hai!', 'Chashma bach gaya!'],
+  anda: ['Arre shell bachao!', 'Kisi ne farsh pe tel giraya!'],
+  mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
+};
+
+const VICTORY_QUIPS: Record<FighterId, string[]> = {
+  sheru: ['Full paisa vasool, bhai!', 'Market closed — Sheru on top!'],
+  billa: ['Swatter supremacy! Meow!', 'Clean sweep — ekdum jhakaas!'],
+  neta: ['Janta ki jeet! Cutting chai lao!', 'Jhola-chaap power zindabad!'],
+  anda: ['Hard-boiled champion, boss!', 'Shell intact, opposition cracked!'],
+  mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai kya?'],
+};
 
 function detectSoftwareWebGL(): boolean {
   try {
@@ -151,6 +200,13 @@ export class DesiShowdownEngine {
   private resultDispatched = false;
   private disposed = false;
   private resizeObserver: ResizeObserver;
+
+  // Dynamic fight callouts & comic speech bubble state
+  private moveCalloutText: string | null = null;
+  private moveCalloutTimer = 0;
+  private midFightBubble: { slot: 0 | 1; text: string; timer: number } | null = null;
+  private midFightBubbleCooldown = 0;
+  private introTauntSeed = 0;
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -426,8 +482,6 @@ export class DesiShowdownEngine {
     }
   }
 
-  private introTagline = 'DESH JAANNA CHAHTA HAI!';
-
   public setGraphicsQuality(quality: GraphicsQuality): void {
     this.graphics = quality;
     this.stage?.setLowGraphics(quality === 'low');
@@ -440,8 +494,8 @@ export class DesiShowdownEngine {
   }
 
   public skipPreFightIntro(): void {
-    if (this.matchState.phase === 'intro' && this.matchState.phaseTimer > 0.45) {
-      this.matchState.phaseTimer = 0.42;
+    if (this.matchState.phase === 'intro' && this.matchState.phaseTimer > 0.65) {
+      this.matchState.phaseTimer = 0.62;
       this.emitHud(true);
     }
   }
@@ -510,16 +564,25 @@ export class DesiShowdownEngine {
         );
       }
     }
-    const taglines = [
-      'DESH JAANNA CHAHTA HAI!',
-      '9 PM MAHA-SHOWDOWN · FULL PAISA VASOOL!',
-      'CHAI THANDI HO JAYEGI, LADAI SHURU KARO!',
-      'EXIT POLLS CONFUSED · PUBLIC EXCITED!',
-    ];
-    this.introTagline = taglines[Math.floor(Math.random() * taglines.length)];
+    this.introTauntSeed = Math.floor(Math.random() * 100);
+    this.moveCalloutText = null;
+    this.moveCalloutTimer = 0;
+    this.midFightBubble = null;
+    this.midFightBubbleCooldown = 0;
     this.resultDispatched = false;
     this.trauma = 0;
     this.currentScreen = 'playing';
+
+    // Snap camera immediately to either the Round 1 over-the-shoulder opening or standard 2.5D fight frame
+    const [f1, f2] = this.matchState.fighters;
+    const initialCam = skipIntro
+      ? computeFixedZoomCameraTarget(f1.x, f2.x)
+      : computeIntroCameraTarget(1, 0, this.matchState.introDuration, f1.x, f2.x);
+    this.camPos.set(initialCam.x, initialCam.y, initialCam.z);
+    this.camLook.set(initialCam.lookX, initialCam.lookY, initialCam.lookZ);
+    this.camera.position.copy(this.camPos);
+    this.camera.lookAt(this.camLook);
+
     this.clearInputs();
     this.emitHud(true);
   }
@@ -732,7 +795,12 @@ export class DesiShowdownEngine {
           this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.2);
         }
         this.trauma = Math.min(1, this.trauma + 0.28);
-      } else if (ev.type === 'heavy_hit' || ev.type === 'grab' || ev.type === 'dharna_counter') {
+      } else if (
+        ev.type === 'heavy_hit' ||
+        ev.type === 'grab' ||
+        ev.type === 'grab_throw' ||
+        ev.type === 'dharna_counter'
+      ) {
         const attacker = this.matchState.fighters[ev.attackerSlot];
         if (ev.type === 'heavy_hit' && attacker?.id === 'mausi' && ev.headline?.includes('BELAN THROW')) {
           audioEngine.playBelanBonk();
@@ -742,7 +810,7 @@ export class DesiShowdownEngine {
           audioEngine.playHeavyHit();
           this.spawnParticles(ev.x, ev.y, 18, 0xfb7185, 6.8);
         }
-        this.trauma = Math.min(1, this.trauma + 0.52);
+        this.trauma = Math.min(1, this.trauma + (ev.type === 'grab_throw' ? 0.58 : 0.52));
         this.stage?.triggerExcitement(1.5);
       } else if (ev.type === 'block') {
         audioEngine.playBlock();
@@ -782,13 +850,33 @@ export class DesiShowdownEngine {
           audioEngine.playSuper();
           this.trauma = Math.min(1, this.trauma + 0.65);
         }
+        this.midFightBubble = null;
         this.stage?.triggerExcitement(1.8);
         this.spawnParticles(ev.x, ev.y, 24, 0xfde047, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
         this.trauma = 1.0;
+        this.midFightBubble = null;
         this.stage?.triggerExcitement(1.5);
         this.spawnParticles(ev.x, ev.y, 28, 0xfacc15, 8.8);
+      } else if (ev.type === 'knockdown_land') {
+        // Dust puff + subtle thud micro-shake when knocked-down fighter hits the arena floor
+        this.trauma = Math.min(1, this.trauma + 0.24);
+        this.spawnParticles(ev.x, 0.14, 14, 0xe7ddd0, 4.4);
+        this.spawnParticles(ev.x, 0.18, 8, 0xd6cbb8, 3.2);
+        if (
+          this.matchState.phase === 'fighting' &&
+          this.matchState.activeSuperSlot === null &&
+          this.midFightBubbleCooldown <= 0
+        ) {
+          const fallen = this.matchState.fighters[ev.attackerSlot];
+          if (fallen && fallen.hp > 0) {
+            const quips = KNOCKDOWN_QUIPS[fallen.id];
+            const text = quips[(this.introTauntSeed + Math.floor(this.elapsed * 3)) % quips.length];
+            this.midFightBubble = { slot: fallen.slot, text, timer: 1.15 };
+            this.midFightBubbleCooldown = 4.2;
+          }
+        }
       } else if (ev.type === 'jump') {
         audioEngine.playJump();
         this.spawnParticles(ev.x, 0.12, 5, 0xe7e5e4, 2.5);
@@ -809,6 +897,11 @@ export class DesiShowdownEngine {
         }
       } else if (ev.type === 'whiff') {
         audioEngine.playWhiff();
+      }
+
+      if (ev.moveCallout) {
+        this.moveCalloutText = ev.moveCallout;
+        this.moveCalloutTimer = 1.05;
       }
 
       if (ev.word) {
@@ -854,38 +947,122 @@ export class DesiShowdownEngine {
     return input;
   }
 
+  private buildSpeechBubble(slot: 0 | 1, text: string): ComicSpeechBubble | null {
+    const f = this.matchState.fighters[slot];
+    const headHeight = f.action === 'knockdown' ? 1.15 : f.id === 'billa' ? 2.15 : 2.38;
+    const pt = this.projectToScreen(f.x, f.y + headHeight);
+    const w = Math.max(this.container.clientWidth, 320);
+    const h = Math.max(this.container.clientHeight, 240);
+    const halfBubbleW = Math.min(165, Math.round(w * 0.22));
+    const minTopY = Math.min(205, Math.max(152, Math.round(h * 0.34)));
+    const fallbackX = slot === 0 ? w * 0.3 : w * 0.7;
+    const fallbackY = minTopY + 12;
+    const sx = THREE.MathUtils.clamp(pt ? pt.sx : fallbackX, halfBubbleW, w - halfBubbleW);
+    const sy = THREE.MathUtils.clamp(pt ? pt.sy : fallbackY, minTopY, h - 96);
+    return {
+      slot,
+      speakerName: FIGHTER_CONFIGS[f.id].name,
+      text,
+      screenX: Math.round(sx),
+      screenY: Math.round(sy),
+    };
+  }
+
   private emitHud(force = false): void {
     const [p1, p2] = this.matchState.fighters;
+    const introElapsed = Math.max(0, this.matchState.introDuration - this.matchState.phaseTimer);
+
     let bannerText: string | null = null;
-    let showBroadcastIntro = false;
+    let bannerTone: 'round' | 'ko' | 'winner' = 'round';
+    let speechBubble: ComicSpeechBubble | null = null;
+    let canSkipIntro = false;
+
     if (this.matchState.phase === 'intro') {
-      if (this.matchState.phaseTimer > 0.55) {
-        if (this.matchState.roundNumber === 1) {
-          showBroadcastIntro = true;
+      if (this.matchState.roundNumber === 1) {
+        if (introElapsed < 1.82) {
+          canSkipIntro = true;
+          if (introElapsed >= 0.06 && introElapsed < 0.94) {
+            const taunts = INTRO_TAUNTS[p1.id];
+            speechBubble = this.buildSpeechBubble(0, taunts[this.introTauntSeed % taunts.length]);
+          } else if (introElapsed >= 0.98 && introElapsed < 1.82) {
+            const taunts = INTRO_TAUNTS[p2.id];
+            speechBubble = this.buildSpeechBubble(
+              1,
+              taunts[(this.introTauntSeed + 1) % taunts.length],
+            );
+          }
         } else {
-          bannerText =
-            this.matchState.roundNumber >= 3
-              ? 'FINAL ROUND!'
-              : `ROUND ${this.matchState.roundNumber}`;
+          bannerText = 'ROUND 1';
+          bannerTone = 'round';
         }
       } else {
-        bannerText = 'FIGHT KARO!';
+        if (introElapsed < 1.1) {
+          bannerText =
+            this.matchState.roundNumber >= 3
+              ? 'FINAL ROUND'
+              : `ROUND ${this.matchState.roundNumber}`;
+          bannerTone = 'round';
+        } else {
+          bannerText = 'FIGHT!';
+          bannerTone = 'round';
+        }
       }
     } else if (this.matchState.phase === 'ko_freeze') {
-      bannerText = this.matchState.finishReason === 'timeout' ? 'TIME UP!' : 'K.O.!';
+      if (this.matchState.koSubPhase === 'winner_celebration') {
+        bannerTone = 'winner';
+        if (this.matchState.roundWinnerSlot === 0 || this.matchState.roundWinnerSlot === 1) {
+          const winFighter = this.matchState.fighters[this.matchState.roundWinnerSlot];
+          const winCfg = FIGHTER_CONFIGS[winFighter.id];
+          bannerText = `${winCfg.name.toUpperCase()} WINS`;
+          const quips = VICTORY_QUIPS[winFighter.id];
+          speechBubble = this.buildSpeechBubble(
+            winFighter.slot,
+            quips[(this.introTauntSeed + this.matchState.roundNumber) % quips.length],
+          );
+        } else {
+          bannerText = 'DRAW ROUND';
+        }
+      } else {
+        bannerTone = 'ko';
+        bannerText =
+          this.matchState.finishReason === 'timeout'
+            ? 'TIME UP!'
+            : this.matchState.koCalloutText || 'GHEE KHATAM!';
+      }
+    } else if (
+      this.matchState.phase === 'fighting' &&
+      this.matchState.activeSuperSlot === null &&
+      this.midFightBubble
+    ) {
+      speechBubble = this.buildSpeechBubble(this.midFightBubble.slot, this.midFightBubble.text);
     }
 
     const isSuperCinematic = Boolean(
-      this.matchState.sheruSuper?.active || p1.action === 'super' || p2.action === 'super',
+      this.matchState.activeSuperSlot !== null ||
+        this.matchState.sheruSuper?.active ||
+        p1.action === 'super' ||
+        p2.action === 'super',
     );
 
-    const superBannerText =
-      this.matchState.sheruSuper?.active && this.matchState.sheruSuper.elapsed < 1.35
-        ? SHERU_SUPER_BANNER
-        : null;
+    let superBanner: SuperBannerInfo | null = null;
+    if (this.matchState.activeSuperSlot !== null) {
+      const caster = this.matchState.fighters[this.matchState.activeSuperSlot];
+      const isSheru = caster.id === 'sheru';
+      const bannerWindow = isSheru ? 1.85 : 1.15;
+      if (this.matchState.activeSuperElapsed < bannerWindow) {
+        const cfg = FIGHTER_CONFIGS[caster.id];
+        superBanner = {
+          fighterId: caster.id,
+          fighterName: cfg.name,
+          superName: isSheru ? SHERU_SUPER_BANNER : cfg.superName,
+          slot: caster.slot,
+        };
+      }
+    }
 
+    const throttleInterval = speechBubble ? 0.033 : 0.08;
     if (force || this.hudThrottleTimer <= 0) {
-      this.hudThrottleTimer = 0.08;
+      this.hudThrottleTimer = throttleInterval;
       this.callbacks.onHudUpdate({
         p1Hp: Math.round(p1.hp),
         p1MaxHp: p1.maxHp,
@@ -906,9 +1083,11 @@ export class DesiShowdownEngine {
         phase: this.matchState.phase,
         isSuperCinematic,
         bannerText,
-        superBannerText,
-        showBroadcastIntro,
-        introTagline: this.introTagline,
+        bannerTone,
+        superBanner,
+        moveCallout: this.moveCalloutTimer > 0 ? this.moveCalloutText : null,
+        speechBubble,
+        canSkipIntro,
       });
     }
   }
@@ -967,24 +1146,68 @@ export class DesiShowdownEngine {
       return;
     }
 
-    // Active 2.5D arcade fighting camera: STRICTLY FIXED ZOOM (constant Z & Y),
-    // smooth horizontal left/right panning tracking fighter midpoint within [-6.5, +6.5]
-    const target = computeFixedZoomCameraTarget(p1.x, p2.x);
+    // Choose target camera pose based on phase:
+    // 1. Pre-Fight Intro Sweep (3/4 over-the-shoulder P1 -> CPU -> standard fighting angle)
+    // 2. Super Power Cutscene Camera (dramatic low-angle close-up -> dynamic high-angle 3D orbit -> smooth return)
+    // 3. KO Winner Celebration (gentle zoom-in on winner)
+    // 4. Active Fight & KO Impact Slow-Mo (strictly fixed zoom horizontal panning)
+    let target = computeFixedZoomCameraTarget(p1.x, p2.x);
+    let posLambda = 6.2;
+    let zLambda = 10.0;
+    let lookLambda = 6.2;
 
-    this.camPos.x = THREE.MathUtils.damp(this.camPos.x, target.x, 6.2, dt);
-    this.camPos.y = THREE.MathUtils.damp(this.camPos.y, target.y, 10.0, dt);
-    this.camPos.z = THREE.MathUtils.damp(this.camPos.z, target.z, 10.0, dt);
+    if (this.matchState.phase === 'intro') {
+      const introElapsed = Math.max(0, this.matchState.introDuration - this.matchState.phaseTimer);
+      target = computeIntroCameraTarget(
+        this.matchState.roundNumber,
+        introElapsed,
+        this.matchState.introDuration,
+        p1.x,
+        p2.x,
+      );
+      posLambda = 6.4;
+      zLambda = 6.4;
+      lookLambda = 7.2;
+    } else if (this.matchState.activeSuperSlot !== null) {
+      const attacker = this.matchState.fighters[this.matchState.activeSuperSlot];
+      const defender = this.matchState.fighters[1 - this.matchState.activeSuperSlot];
+      target = computeSuperCameraTarget(
+        this.matchState.activeSuperElapsed,
+        this.matchState.activeSuperDuration,
+        attacker.x,
+        attacker.facing,
+        defender.x,
+        attacker.id === 'sheru',
+      );
+      posLambda = 7.2;
+      zLambda = 7.2;
+      lookLambda = 8.4;
+    } else if (
+      this.matchState.phase === 'ko_freeze' &&
+      this.matchState.koSubPhase === 'winner_celebration' &&
+      (this.matchState.roundWinnerSlot === 0 || this.matchState.roundWinnerSlot === 1)
+    ) {
+      const winner = this.matchState.fighters[this.matchState.roundWinnerSlot];
+      target = computeKoWinnerCameraTarget(winner.x, winner.facing);
+      posLambda = 4.5;
+      zLambda = 4.5;
+      lookLambda = 5.2;
+    }
 
-    this.camLook.x = THREE.MathUtils.damp(this.camLook.x, target.lookX, 6.2, dt);
-    this.camLook.y = THREE.MathUtils.damp(this.camLook.y, target.lookY, 10.0, dt);
-    this.camLook.z = THREE.MathUtils.damp(this.camLook.z, target.lookZ, 10.0, dt);
+    this.camPos.x = THREE.MathUtils.damp(this.camPos.x, target.x, posLambda, dt);
+    this.camPos.y = THREE.MathUtils.damp(this.camPos.y, target.y, zLambda, dt);
+    this.camPos.z = THREE.MathUtils.damp(this.camPos.z, target.z, zLambda, dt);
+
+    this.camLook.x = THREE.MathUtils.damp(this.camLook.x, target.lookX, lookLambda, dt);
+    this.camLook.y = THREE.MathUtils.damp(this.camLook.y, target.lookY, zLambda, dt);
+    this.camLook.z = THREE.MathUtils.damp(this.camLook.z, target.lookZ, zLambda, dt);
 
     // Keep key directional light & shadow frustum centered on horizontal pan
     this.keyLight.position.x = this.camPos.x + 6;
     this.keyLight.target.position.x = this.camPos.x;
     this.keyLight.target.updateMatrixWorld();
 
-    // Trauma camera shake layered cleanly on top of fixed-zoom horizontal pan
+    // Trauma camera shake layered cleanly on top
     let shakeX = 0;
     let shakeY = 0;
     if (this.trauma > 0) {
@@ -1068,6 +1291,20 @@ export class DesiShowdownEngine {
               // Never cut off active Super MP3 early — let source.onended restore BGM naturally
               audioEngine.notifySuperAnimationEnd();
             }
+          }
+        }
+
+        if (this.moveCalloutTimer > 0) {
+          this.moveCalloutTimer = Math.max(0, this.moveCalloutTimer - dt);
+          if (this.moveCalloutTimer <= 0) this.moveCalloutText = null;
+        }
+        if (this.midFightBubbleCooldown > 0) {
+          this.midFightBubbleCooldown = Math.max(0, this.midFightBubbleCooldown - dt);
+        }
+        if (this.midFightBubble) {
+          this.midFightBubble.timer -= dt;
+          if (this.midFightBubble.timer <= 0) {
+            this.midFightBubble = null;
           }
         }
 
