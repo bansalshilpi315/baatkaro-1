@@ -69,7 +69,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       stunDuration: 0.42,
       accentColor: '#4ADE80',
     },
-    superName: 'KEEDA TORNADO',
+    superName: 'CHIRKUT CHAOS',
     victoryQuotes: [
       'SWATTER SE SEEDHA KEEDA SAFAAT!',
       'MEOW-MEOW KARKE SABKO UDA DIYA!',
@@ -106,7 +106,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       stunDuration: 0.45,
       accentColor: '#F97316',
     },
-    superName: 'SANSAD WALKOUT',
+    superName: 'VANS, ATTACK!',
     victoryQuotes: [
       'HUM JEET GAYE — AB CHAI SAMOSA FREE!',
       'OPPOSITION KO 100% REJECT KIYA GAYA!',
@@ -143,7 +143,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       stunDuration: 0.48,
       accentColor: '#FFD426',
     },
-    superName: 'OMELETTE METEOR',
+    superName: 'THE GREAT WALL DROP',
     victoryQuotes: [
       'SHELL CRACKED, CONFIDENCE UNBREAKABLE!',
       'DEEWAR SE GIRA, PAR JEET KE UTHA!',
@@ -180,7 +180,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       stunDuration: 0.40,
       accentColor: '#F0C420',
     },
-    superName: 'JALEBI CYCLONE',
+    superName: 'GOL-GOL LADDOO BARRAGE',
     victoryQuotes: [
       'BELAN SE BACHNA MUSHKIL HI NAHI, NAMUMKIN HAI!',
       'JEET KE BAAD GARMA-GARAM LADDOO MUFT!',

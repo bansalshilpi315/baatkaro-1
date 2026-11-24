@@ -1,6 +1,26 @@
 import { FIGHTER_CONFIGS, STAGE_CONFIGS } from './characters/configs';
 import { ROUND1_INTRO_TOTAL_SECONDS } from './dialogue';
 import {
+  ANDA_SUPER_DURATION,
+  createAndaSuperState,
+  stepAndaSuper,
+} from './andaSuper';
+import {
+  BILLA_SUPER_DURATION,
+  createBillaSuperState,
+  stepBillaSuper,
+} from './billaSuper';
+import {
+  MAUSI_SUPER_DURATION,
+  createMausiSuperState,
+  stepMausiSuper,
+} from './mausiSuper';
+import {
+  NETA_SUPER_DURATION,
+  createNetaSuperState,
+  stepNetaSuper,
+} from './netaSuper';
+import {
   SHERU_SUPER_DURATION,
   createSheruSuperState,
   stepSheruSuper,
@@ -148,6 +168,14 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     aiIntentTimer: 0.4,
     sheruSuper: null,
     sheruSuperSignals: [],
+    billaSuper: null,
+    billaSuperSignals: [],
+    netaSuper: null,
+    netaSuperSignals: [],
+    andaSuper: null,
+    andaSuperSignals: [],
+    mausiSuper: null,
+    mausiSuperSignals: [],
   };
 }
 
@@ -628,6 +656,82 @@ function startAction(
         color: '#FDE047',
         headline: `TRILLION DOLLAR BEATDOWN! ${cfg.name.toUpperCase()} DROPS THE GOLDEN SPOTLIGHT!`,
       });
+    } else if (fighter.id === 'billa') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = BILLA_SUPER_DURATION;
+      state.billaSuper = createBillaSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = BILLA_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.65,
+        damage: 0,
+        color: '#4ADE80',
+        headline: `CHIRKUT CHAOS! ${cfg.name.toUpperCase()} UNLEASHES THE 3 COCKROACHES!`,
+      });
+    } else if (fighter.id === 'neta') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = NETA_SUPER_DURATION;
+      state.netaSuper = createNetaSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = NETA_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.6,
+        damage: 0,
+        color: '#F97316',
+        headline: `VANS, ATTACK! ${cfg.name.toUpperCase()} LEVITATES AND SUMMONS THE GARIB SENA CONVOY!`,
+      });
+    } else if (fighter.id === 'anda') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = ANDA_SUPER_DURATION;
+      state.andaSuper = createAndaSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = ANDA_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.6,
+        damage: 0,
+        color: '#38BDF8',
+        headline: `THE GREAT WALL DROP! ${cfg.name.toUpperCase()} TIPS HIS HAT AND SUMMONS THE RED BRICK WALL!`,
+      });
+    } else if (fighter.id === 'mausi') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = MAUSI_SUPER_DURATION;
+      state.mausiSuper = createMausiSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = MAUSI_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.65,
+        damage: 0,
+        color: '#FBBF24',
+        headline: `GOL-GOL LADDOO BARRAGE! ${cfg.name.toUpperCase()} POWERS UP WITH THE GOLDEN LADDOO!`,
+      });
     } else {
       fighter.invulnTimer = 0.65;
       fighter.vx = 0;
@@ -1090,6 +1194,14 @@ export function stepMatch(
         state.hitstopTimer = 0;
         state.sheruSuper = null;
         state.sheruSuperSignals = [];
+        state.billaSuper = null;
+        state.billaSuperSignals = [];
+        state.netaSuper = null;
+        state.netaSuperSignals = [];
+        state.andaSuper = null;
+        state.andaSuperSignals = [];
+        state.mausiSuper = null;
+        state.mausiSuperSignals = [];
         state.activeSuperSlot = null;
         state.activeSuperElapsed = 0;
         state.activeSuperDuration = 0;
@@ -1103,8 +1215,12 @@ export function stepMatch(
     return events;
   }
 
-  // Clear per-tick Sheru Super beat signals
+  // Clear per-tick choreographed Super beat signals
   state.sheruSuperSignals = [];
+  state.billaSuperSignals = [];
+  state.netaSuperSignals = [];
+  state.andaSuperSignals = [];
+  state.mausiSuperSignals = [];
 
   // Hit-stop freezes simulation physics while camera shake / flashes still tick
   if (state.hitstopTimer > 0) {
@@ -1128,6 +1244,78 @@ export function stepMatch(
       return events;
     }
     state.sheruSuper = null;
+  }
+
+  // Choreographed 4.5s Blue Billa "CHIRKUT CHAOS" Super sequence locks both fighters & pauses round clock
+  if (state.billaSuper) {
+    if (state.billaSuper.active) {
+      state.billaSuperSignals = stepBillaSuper(state, state.billaSuper, dt, events);
+      state.activeSuperSlot = state.billaSuper.attackerSlot;
+      state.activeSuperElapsed = state.billaSuper.elapsed;
+      state.activeSuperDuration = state.billaSuper.duration;
+      if (!state.billaSuper.active) {
+        state.billaSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.billaSuper = null;
+  }
+
+  // Choreographed 4.8s Garib Sena Neta "VANS, ATTACK!" Super sequence locks both fighters & pauses round clock
+  if (state.netaSuper) {
+    if (state.netaSuper.active) {
+      state.netaSuperSignals = stepNetaSuper(state, state.netaSuper, dt, events);
+      state.activeSuperSlot = state.netaSuper.attackerSlot;
+      state.activeSuperElapsed = state.netaSuper.elapsed;
+      state.activeSuperDuration = state.netaSuper.duration;
+      if (!state.netaSuper.active) {
+        state.netaSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.netaSuper = null;
+  }
+
+  // Choreographed 4.5s Anda Bhai "THE GREAT WALL DROP!" Super sequence locks both fighters & pauses round clock
+  if (state.andaSuper) {
+    if (state.andaSuper.active) {
+      state.andaSuperSignals = stepAndaSuper(state, state.andaSuper, dt, events);
+      state.activeSuperSlot = state.andaSuper.attackerSlot;
+      state.activeSuperElapsed = state.andaSuper.elapsed;
+      state.activeSuperDuration = state.andaSuper.duration;
+      if (!state.andaSuper.active) {
+        state.andaSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.andaSuper = null;
+  }
+
+  // Choreographed 5.0s Laddoo Mausi "GOL-GOL LADDOO BARRAGE!" Super sequence locks both fighters & pauses round clock
+  if (state.mausiSuper) {
+    if (state.mausiSuper.active) {
+      state.mausiSuperSignals = stepMausiSuper(state, state.mausiSuper, dt, events);
+      state.activeSuperSlot = state.mausiSuper.attackerSlot;
+      state.activeSuperElapsed = state.mausiSuper.elapsed;
+      state.activeSuperDuration = state.mausiSuper.duration;
+      if (!state.mausiSuper.active) {
+        state.mausiSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.mausiSuper = null;
   }
 
   // Track active non-Sheru Super cutscene timer

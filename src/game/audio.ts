@@ -1,7 +1,25 @@
 // Zero-dependency procedural Web Audio API sound effects + upbeat Desi arcade music synthesizer
 // + Web Audio API AudioBuffer Super Power MP3 player (zero-stutter RAM playback)
 
+import type { FighterId } from './types';
+
 export const SHERU_SUPER_AUDIO_URL = '/audio/supers/sheru.mp3';
+export const BILLA_SUPER_AUDIO_URL = '/audio/supers/billa.mp3';
+export const NETA_SUPER_AUDIO_URL = '/audio/supers/neta.mp3';
+export const ANDA_SUPER_AUDIO_URL = '/audio/supers/anda.mp3';
+export const MAUSI_SUPER_AUDIO_URL = '/audio/supers/mausi.mp3';
+
+export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
+  sheru: SHERU_SUPER_AUDIO_URL,
+  billa: BILLA_SUPER_AUDIO_URL,
+  neta: NETA_SUPER_AUDIO_URL,
+  anda: ANDA_SUPER_AUDIO_URL,
+  mausi: MAUSI_SUPER_AUDIO_URL,
+};
+
+export function getSuperAudioUrl(fighterId: FighterId): string | null {
+  return SUPER_AUDIO_URLS[fighterId] ?? null;
+}
 
 // Persistent module-level caches for decoded Super Power AudioBuffers & fetched bytes
 const superAudioBuffers = new Map<string, AudioBuffer>();
@@ -119,9 +137,19 @@ export class DesiAudioEngine {
     return loadTask;
   }
 
+  public preloadAllSuperAudios(): Promise<Array<AudioBuffer | null>> {
+    return Promise.all([
+      this.preloadSuperAudio(SHERU_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(BILLA_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(NETA_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(ANDA_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(MAUSI_SUPER_AUDIO_URL),
+    ]);
+  }
+
   public unlock(): void {
     this.ensureContext();
-    void this.preloadSuperAudio(SHERU_SUPER_AUDIO_URL);
+    void this.preloadAllSuperAudios();
     if (!this.musicMuted && !this.musicPlaying) {
       this.startMusic();
     }
@@ -230,6 +258,31 @@ export class DesiAudioEngine {
 
   public playSheruSuperAudio(): void {
     this.playSuperAudio(SHERU_SUPER_AUDIO_URL);
+  }
+
+  public playBillaSuperAudio(): void {
+    this.playSuperAudio(BILLA_SUPER_AUDIO_URL);
+  }
+
+  public playNetaSuperAudio(): void {
+    this.playSuperAudio(NETA_SUPER_AUDIO_URL);
+  }
+
+  public playAndaSuperAudio(): void {
+    this.playSuperAudio(ANDA_SUPER_AUDIO_URL);
+  }
+
+  public playMausiSuperAudio(): void {
+    this.playSuperAudio(MAUSI_SUPER_AUDIO_URL);
+  }
+
+  public playFighterSuperAudio(fighterId: FighterId): void {
+    const url = getSuperAudioUrl(fighterId);
+    if (url) {
+      this.playSuperAudio(url);
+    } else {
+      this.playSuper();
+    }
   }
 
   /**

@@ -30,10 +30,14 @@ export interface FighterRig {
   shadesLensMat: THREE.MeshStandardMaterial | null;
   billaEyesGroup: THREE.Group | null;
   billaPupils: THREE.Object3D[];
+  billaEyeGlowMats: THREE.MeshStandardMaterial[];
   jholaPivot: THREE.Group | null;
   jholaPapersGroup: THREE.Group | null;
+  gamchaFront: THREE.Mesh | null;
+  gamchaBack: THREE.Mesh | null;
   dharnaRing: THREE.Object3D | null;
   hatPivot: THREE.Group | null;
+  mausiPalluGroup: THREE.Group | null;
   shieldAura: THREE.Mesh;
   superAura: THREE.Mesh;
   face: DynamicFace;
@@ -211,10 +215,14 @@ export function createBaseRigSkeleton(
     shadesLensMat: null,
     billaEyesGroup: null,
     billaPupils: [],
+    billaEyeGlowMats: [],
     jholaPivot: null,
     jholaPapersGroup: null,
+    gamchaFront: null,
+    gamchaBack: null,
     dharnaRing: null,
     hatPivot: null,
+    mausiPalluGroup: null,
     shieldAura,
     superAura,
     face,
@@ -310,7 +318,12 @@ export function animateFighterRig(
   }
   const isSheruPaisaFlex = state.id === 'sheru' && state.action === 'special';
   rig.superAura.visible =
-    (state.action === 'super' && state.id !== 'sheru') ||
+    (state.action === 'super' &&
+      state.id !== 'sheru' &&
+      state.id !== 'billa' &&
+      state.id !== 'neta' &&
+      state.id !== 'anda' &&
+      state.id !== 'mausi') ||
     state.shakti >= 100 ||
     isSheruPaisaFlex;
   if (rig.superAura.visible) {
@@ -328,7 +341,7 @@ export function animateFighterRig(
     if (state.id === 'billa') {
       rig.handProp.visible = state.action === 'special' && !hideHandProp;
     } else if (state.id === 'mausi') {
-      rig.handProp.visible = !hideHandProp;
+      rig.handProp.visible = !hideHandProp && state.action !== 'super';
     } else if (state.id === 'sheru') {
       rig.handProp.visible = state.action === 'special' || state.action === 'victory';
     }
@@ -605,6 +618,67 @@ export function animateFighterRig(
       lShX = -0.85;
       lShZ = -0.58;
       lElbX = -0.95;
+    } else if (state.action === 'super') {
+      // CHIRKUT CHAOS (4.5s): Wide glowing eyes -> launch snap -> mischievous cackling watch!
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+      if (t < 1.2) {
+        // Phase 1: Tense hunch forward toward camera/opponent while eyes enlarge & glow neon green-yellow
+        const charge = Math.min(1, t / 0.9);
+        const tremble = Math.sin(elapsed * 42) * 0.04 * charge;
+        pelvisY = basePelvisY - 0.08 * charge;
+        torsoRotX = 0.24 * charge;
+        torsoRotY = -0.18 * state.facing;
+        headRotX = -0.14 * charge;
+        headRotY = 0.16 * state.facing;
+        headRotZ = tremble;
+        lShX = -1.15 - 0.35 * charge;
+        lShZ = -0.65 - 0.2 * charge;
+        lElbX = -1.45;
+        rShX = -1.15 - 0.35 * charge;
+        rShZ = 0.65 + 0.2 * charge;
+        rElbX = -1.45;
+        lHipX = -0.35;
+        lKneeX = 0.55;
+        rHipX = 0.35;
+        rKneeX = 0.45;
+      } else if (t < 2.1) {
+        // Phase 2: Head snaps forward launching the 3 cockroaches out of his eyes!
+        const snap = Math.sin(Math.min(1, (t - 1.2) / 0.35) * Math.PI);
+        pelvisY = basePelvisY + 0.04 * snap;
+        torsoRotX = 0.38 * snap + 0.12;
+        headRotX = 0.22 * snap;
+        lShX = -0.85;
+        lShZ = -0.95;
+        lElbX = -0.55;
+        rShX = -0.85;
+        rShZ = 0.95;
+        rElbX = -0.55;
+      } else {
+        // Phase 3-4: Gleeful laughing/pointing cat stance watching the smoke-cloud beatdown!
+        const laugh = Math.sin(elapsed * 14);
+        pelvisY = basePelvisY + Math.abs(laugh) * 0.08;
+        torsoRotX = -0.14 + laugh * 0.06;
+        torsoRotY = Math.sin(elapsed * 5) * 0.14;
+        headRotX = -0.08 + laugh * 0.08;
+        rShX = -1.58 + laugh * 0.14;
+        rShZ = 0.18;
+        rElbX = -0.22;
+        lShX = -0.72;
+        lShZ = -0.45;
+        lElbX = -1.35 + laugh * 0.18;
+      }
     } else if (state.action === 'victory') {
       const hop = Math.sin(elapsed * 8.5);
       pelvisY = basePelvisY + Math.abs(hop) * 0.2;
@@ -621,7 +695,7 @@ export function animateFighterRig(
     // Energetic curved sky-blue cat tail wag!
     if (rig.tailPivot) {
       const tailSpeed =
-        state.action === 'victory' || state.action === 'special'
+        state.action === 'victory' || state.action === 'special' || state.action === 'super'
           ? 12.5
           : state.action === 'walk' || state.action === 'punch'
             ? 10.0
@@ -637,16 +711,46 @@ export function animateFighterRig(
           : -0.12 + Math.sin(elapsed * tailSpeed * 0.5) * 0.12;
     }
 
-    // Comedic 3D Vertical Eye Bulge & Pinpoint/Dizzy Pupils on Hit & KO!
+    // Comedic 3D Vertical Eye Bulge + CHIRKUT CHAOS Wide Neon Green-Yellow Glowing Eyes!
+    const billaSuperGlowPhase = state.action === 'super' && state.actionTimer < 1.65;
     if (rig.billaEyesGroup) {
       const shocked = state.action === 'hit' || state.action === 'grabbed';
       const down = state.action === 'ko' || state.action === 'knockdown';
-      const targetEx = shocked ? 1.24 : down ? 1.12 : 1.0;
-      const targetEy = shocked ? 1.28 : down ? 0.92 : 1.0;
-      const targetEz = shocked ? 1.45 : 1.0;
+      let targetEx = shocked ? 1.24 : down ? 1.12 : 1.0;
+      let targetEy = shocked ? 1.28 : down ? 0.92 : 1.0;
+      let targetEz = shocked ? 1.45 : 1.0;
+      if (billaSuperGlowPhase) {
+        const popPulse =
+          state.actionTimer < 1.2
+            ? Math.min(1, state.actionTimer / 0.45)
+            : Math.max(0, 1 - (state.actionTimer - 1.2) / 0.45);
+        const throb = Math.sin(elapsed * 26) * 0.09 * popPulse;
+        targetEx = 1.0 + 0.54 * popPulse + throb;
+        targetEy = 1.0 + 0.58 * popPulse + throb;
+        targetEz = 1.0 + 0.72 * popPulse;
+      }
       rig.billaEyesGroup.scale.x = lerpAngle(rig.billaEyesGroup.scale.x, targetEx, alpha);
       rig.billaEyesGroup.scale.y = lerpAngle(rig.billaEyesGroup.scale.y, targetEy, alpha);
       rig.billaEyesGroup.scale.z = lerpAngle(rig.billaEyesGroup.scale.z, targetEz, alpha);
+    }
+    if (rig.billaEyeGlowMats.length > 0) {
+      if (billaSuperGlowPhase) {
+        const glowRamp =
+          state.actionTimer < 1.2
+            ? Math.min(1, state.actionTimer / 0.35)
+            : Math.max(0, 1 - (state.actionTimer - 1.2) / 0.45);
+        const glowIntensity = glowRamp * (1.85 + Math.sin(elapsed * 24) * 0.65);
+        rig.billaEyeGlowMats[0].emissive.setHex(0xbef264);
+        rig.billaEyeGlowMats[0].emissiveIntensity = glowIntensity * 0.85;
+        if (rig.billaEyeGlowMats[1]) {
+          rig.billaEyeGlowMats[1].emissive.setHex(0x84cc16);
+          rig.billaEyeGlowMats[1].emissiveIntensity = glowIntensity * 1.45;
+        }
+      } else {
+        for (const mat of rig.billaEyeGlowMats) {
+          mat.emissiveIntensity = 0;
+        }
+      }
     }
     if (rig.billaPupils.length === 2) {
       const [leftPupil, rightPupil] = rig.billaPupils;
@@ -656,7 +760,13 @@ export function animateFighterRig(
         state.action === 'sweep' ||
         state.action === 'special' ||
         state.action === 'super';
-      const pScale = state.action === 'hit' || state.action === 'grabbed' ? 0.52 : isAttacking ? 1.12 : 1.0;
+      const pScale = billaSuperGlowPhase
+        ? 1.32 + Math.sin(elapsed * 24) * 0.14
+        : state.action === 'hit' || state.action === 'grabbed'
+          ? 0.52
+          : isAttacking
+            ? 1.12
+            : 1.0;
       leftPupil.scale.set(pScale, pScale, 1);
       rightPupil.scale.set(pScale, pScale, 1);
       if (state.action === 'ko' || state.action === 'knockdown') {
@@ -687,6 +797,40 @@ export function animateFighterRig(
       rShZ = -0.52;
       lElbX = -1.45;
       rElbX = -1.45;
+    } else if (state.action === 'super') {
+      // VANS, ATTACK! (4.8s): Heroic mystical levitation -> dramatic forward arm point -> smooth touchdown!
+      const t = state.actionTimer;
+      const isPointing = t >= 0.85 && t < 4.25;
+      const pointBlend = isPointing ? Math.min(1, (t - 0.85) / 0.25) : 0;
+      const touchDownT = t > 4.15 ? Math.min(1, (t - 4.15) / 0.65) : 0;
+      const airBlend = 1 - touchDownT;
+
+      pelvisX = 0;
+      pelvisY = basePelvisY + 0.06 * airBlend;
+      pelvisRotX = -0.06 * airBlend;
+      pelvisRotY = 0;
+      torsoRotX = -0.14 * airBlend + 0.1 * pointBlend;
+      torsoRotY = -0.22 * pointBlend;
+      headRotX = 0.06 * airBlend;
+      headRotY = 0.14 * pointBlend;
+
+      // Legs suspended heroically in levitation pose while airborne, smoothly returning to guard on touchdown
+      lHipX = (-0.55 + Math.sin(elapsed * 4.2) * 0.08) * airBlend + pose.lHipX * touchDownT;
+      lKneeX = 0.82 * airBlend + pose.lKneeX * touchDownT;
+      rHipX = (-0.18 - Math.sin(elapsed * 4.2) * 0.06) * airBlend + pose.rHipX * touchDownT;
+      rKneeX = 0.42 * airBlend + pose.rKneeX * touchDownT;
+
+      // Right arm rises while ascending, then snaps out straight forward pointing dramatically at opponent!
+      rShX =
+        (-1.15 * (1 - pointBlend) + -1.62 * pointBlend) * airBlend +
+        pose.rShX * touchDownT;
+      rShZ = (0.45 * (1 - pointBlend) + 0.08 * pointBlend) * airBlend + pose.rShZ * touchDownT;
+      rElbX = (-0.75 * (1 - pointBlend) + -0.04 * pointBlend) * airBlend + pose.rElbX * touchDownT;
+
+      // Left arm braced heroically low at hip/jhola strap so the pointing right arm silhouette pops clearly
+      lShX = (0.28 * pointBlend - 0.35 * (1 - pointBlend)) * airBlend + pose.lShX * touchDownT;
+      lShZ = -0.34 * airBlend + pose.lShZ * touchDownT;
+      lElbX = -0.82 * airBlend + pose.lElbX * touchDownT;
     } else if (state.action === 'victory') {
       const wave = Math.sin(elapsed * 6.5);
       pelvisY = basePelvisY + Math.abs(wave) * 0.08;
@@ -699,12 +843,29 @@ export function animateFighterRig(
       lElbX = -1.25;
     }
 
+    // Gamcha dramatic wind flutter while levitating during VANS, ATTACK! Super (restored cleanly otherwise)
+    if (rig.gamchaFront && rig.gamchaBack) {
+      if (state.action === 'super' && state.y > 0.05) {
+        const windAmp = Math.min(1, state.y / 1.4);
+        rig.gamchaFront.rotation.x = Math.sin(elapsed * 18) * 0.24 * windAmp - 0.18 * windAmp;
+        rig.gamchaFront.rotation.z = -0.1 + Math.cos(elapsed * 15) * 0.16 * windAmp;
+        rig.gamchaBack.rotation.x = Math.cos(elapsed * 19) * 0.28 * windAmp + 0.26 * windAmp;
+        rig.gamchaBack.rotation.z = -0.08 + Math.sin(elapsed * 16) * 0.18 * windAmp;
+      } else {
+        rig.gamchaFront.rotation.x = 0;
+        rig.gamchaFront.rotation.z = -0.1;
+        rig.gamchaBack.rotation.x = 0;
+        rig.gamchaBack.rotation.z = -0.08;
+      }
+    }
+
     // Stuffed Jhola Bag sway & bobbing colorful pamphlets/notebooks!
     const motionEnergy =
       state.action === 'walk' ||
       state.action === 'punch' ||
       state.action === 'kick' ||
-      state.action === 'sweep'
+      state.action === 'sweep' ||
+      state.action === 'super'
         ? 1.0
         : state.action === 'ko' || state.action === 'knockdown'
           ? 0.0
@@ -780,6 +941,103 @@ export function animateFighterRig(
         lKneeX = 0.42;
         rKneeX = 0.38;
       }
+    } else if (state.action === 'super') {
+      // THE GREAT WALL DROP! (4.5s):
+      // 0.00-0.38s: Reach up with right striped arm to grasp tilted blue top hat
+      // 0.38-1.40s: Sweep blue top hat gracefully outward & bow politely forward (~35° / 0.62 rad)
+      // 1.40-3.54s: Theatrical conductor pose holding hat out while lightning & giant brick wall crush opponent
+      // 3.54-4.50s: Lift hat smoothly back onto head & settle into kung-fu guard stance
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 0.38) {
+        const reach = Math.min(1, t / 0.36);
+        pelvisY = basePelvisY + 0.02 * reach;
+        torsoRotX = -0.06 * reach;
+        torsoRotY = -0.1 * reach;
+        rShX = -0.65 - 2.15 * reach;
+        rShZ = 0.25 + 0.1 * reach;
+        rElbX = -0.75 - 0.95 * reach;
+        lShX = -0.35;
+        lShZ = -0.45;
+        lElbX = -1.1;
+      } else if (t < 1.45) {
+        const bowT = Math.min(1, (t - 0.38) / 0.48);
+        const smoothBow = bowT * bowT * (3 - 2 * bowT);
+        pelvisY = basePelvisY - 0.04 * smoothBow;
+        pelvisRotX = 0.08 * smoothBow;
+        torsoRotX = 0.58 * smoothBow; // Polite ~33-35° forward bow!
+        torsoRotY = 0.22 * smoothBow;
+        headRotX = -0.16 * smoothBow; // Cheeky grin angled up toward opponent/camera
+        // Graceful outward & elevated sweep holding blue top hat proudly in camera view!
+        rShX = -2.45 + 0.92 * smoothBow;
+        rShZ = 0.35 + 1.18 * smoothBow;
+        rElbX = -1.55 + 1.28 * smoothBow;
+        // Left arm tucked politely behind waist/hip
+        lShX = 0.42 * smoothBow - 0.35 * (1 - smoothBow);
+        lShZ = -0.45;
+        lElbX = -1.35;
+        lHipX = -0.22;
+        lKneeX = 0.28;
+        rHipX = 0.26;
+        rKneeX = 0.22;
+      } else if (t < 3.54) {
+        const standT = Math.min(1, (t - 1.45) / 0.35);
+        const snapGesture = t >= 2.45 && t < 2.95 ? Math.sin(Math.min(1, (t - 2.45) / 0.35) * Math.PI) : 0;
+        pelvisY = basePelvisY + 0.03 * standT;
+        pelvisRotX = 0.12 * (1 - standT);
+        torsoRotX = 0.62 * (1 - standT) - 0.08 * standT;
+        torsoRotY = 0.12 - 0.24 * snapGesture;
+        headRotX = -0.06;
+        // Right arm proudly holds the hat out to his side
+        rShX = -0.82;
+        rShZ = 1.25;
+        rElbX = -0.32;
+        // Left arm gestures skyward for the lightning & wall drop!
+        lShX = -1.65 - 0.65 * snapGesture;
+        lShZ = -0.62;
+        lElbX = -0.42 + 0.25 * snapGesture;
+        lHipX = -0.24;
+        lKneeX = 0.3;
+        rHipX = 0.28;
+        rKneeX = 0.24;
+      } else if (t < 3.92) {
+        // Lift blue top hat smoothly back up to place on top of his head
+        const liftT = Math.min(1, (t - 3.54) / 0.3);
+        const smoothLift = liftT * liftT * (3 - 2 * liftT);
+        pelvisY = basePelvisY + 0.04 * smoothLift;
+        torsoRotX = -0.05;
+        torsoRotY = -0.08 * smoothLift;
+        rShX = -0.82 - 1.98 * smoothLift;
+        rShZ = 1.25 - 0.92 * smoothLift;
+        rElbX = -0.32 - 1.38 * smoothLift;
+        lShX = -0.55;
+        lShZ = -0.45;
+        lElbX = -1.15;
+      } else {
+        // Smooth settle back into kung-fu guard stance
+        const settleT = Math.min(1, (t - 3.92) / 0.52);
+        pelvisY = basePelvisY + (pose.pelvisY - basePelvisY) * settleT;
+        torsoRotX = pose.torsoRotX * settleT;
+        torsoRotY = pose.torsoRotY * settleT;
+        rShX = -2.4 * (1 - settleT) + pose.rShX * settleT;
+        rShZ = 0.34 * (1 - settleT) + pose.rShZ * settleT;
+        rElbX = -1.4 * (1 - settleT) + pose.rElbX * settleT;
+        lShX = -0.55 * (1 - settleT) + pose.lShX * settleT;
+        lShZ = -0.45 * (1 - settleT) + pose.lShZ * settleT;
+        lElbX = -1.15 * (1 - settleT) + pose.lElbX * settleT;
+      }
     } else if (state.action === 'victory') {
       const hop = Math.abs(Math.sin(elapsed * 6.8));
       pelvisY = basePelvisY + hop * 0.16;
@@ -792,29 +1050,44 @@ export function animateFighterRig(
       rElbX = -0.35;
     }
 
-    // Playful Tilted Top Hat springy bob & tip!
+    // Playful Tilted Top Hat: temporarily re-parent to right hand during THE GREAT WALL DROP! bow,
+    // and ALWAYS guarantee clean restoration to rig.torso outside that window.
     if (rig.hatPivot) {
-      const hatBob =
-        state.action === 'hit' ||
-        state.action === 'ko' ||
-        state.action === 'knockdown' ||
-        state.action === 'grabbed'
-          ? 0.26
-          : state.action === 'special'
-            ? 0.16 * Math.sin(atkProgress * Math.PI)
-            : Math.sin(elapsed * 4.4 + state.slot - 0.5) * 0.065;
-      const hatLift =
-        state.action === 'hit' || state.action === 'knockdown'
-          ? 0.09
-          : state.action === 'special' && state.y > 0.15
-            ? 0.075
-            : Math.max(0, Math.sin(elapsed * 4.4 + state.slot - 0.6)) * 0.028;
-      rig.hatPivot.position.y = 1.215 + hatLift;
-      rig.hatPivot.rotation.x = -0.24 - hatBob * 0.85;
-      rig.hatPivot.rotation.z =
-        0.26 +
-        Math.sin(elapsed * 3.8 + state.slot - 0.4) * 0.06 +
-        (state.action === 'hit' || state.action === 'knockdown' ? 0.18 : 0);
+      const holdingHatInHand =
+        state.action === 'super' && state.actionTimer >= 0.38 && state.actionTimer < 3.78;
+      if (holdingHatInHand) {
+        if (rig.hatPivot.parent !== rig.rightElbow) {
+          rig.rightElbow.add(rig.hatPivot);
+        }
+        rig.hatPivot.position.set(0.02, -0.36, 0.16);
+        rig.hatPivot.rotation.set(0.55, 0.18, -0.25);
+      } else {
+        if (rig.hatPivot.parent !== rig.torso) {
+          rig.torso.add(rig.hatPivot);
+        }
+        const hatBob =
+          state.action === 'hit' ||
+          state.action === 'ko' ||
+          state.action === 'knockdown' ||
+          state.action === 'grabbed'
+            ? 0.26
+            : state.action === 'special'
+              ? 0.16 * Math.sin(atkProgress * Math.PI)
+              : Math.sin(elapsed * 4.4 + state.slot - 0.5) * 0.065;
+        const hatLift =
+          state.action === 'hit' || state.action === 'knockdown'
+            ? 0.09
+            : state.action === 'special' && state.y > 0.15
+              ? 0.075
+              : Math.max(0, Math.sin(elapsed * 4.4 + state.slot - 0.6)) * 0.028;
+        rig.hatPivot.position.set(-0.065, 1.215 + hatLift, -0.045);
+        rig.hatPivot.rotation.x = -0.24 - hatBob * 0.85;
+        rig.hatPivot.rotation.y = 0;
+        rig.hatPivot.rotation.z =
+          0.26 +
+          Math.sin(elapsed * 3.8 + state.slot - 0.4) * 0.06 +
+          (state.action === 'hit' || state.action === 'knockdown' ? 0.18 : 0);
+      }
     }
   } else if (state.id === 'mausi') {
     if (state.action === 'special') {
@@ -835,6 +1108,127 @@ export function animateFighterRig(
       lShX = isWindup ? -0.95 * wind - 0.3 : -0.25 + 0.35 * throwArc;
       lShZ = -0.46;
       lElbX = -0.85;
+    } else if (state.action === 'super') {
+      // GOL-GOL LADDOO BARRAGE! (5.0s):
+      // 0.00-0.72s: Proudly hold up glowing golden Power Laddoo in right hand
+      // 0.72-1.60s: Pop laddoo into mouth -> joyful chew bob -> fiery power-up flex!
+      // 1.60-2.50s: Smooth heroic levitation upward to y=2.0 with golden aura rings & fluttering saree pallu
+      // 2.50-4.35s: Rapid alternating two-hand palm thrusts firing 14 laddoos -> double-palm Mega Laddoo thrust!
+      // 4.35-5.00s: Smooth float down into heavyweight kung-fu stance
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 0.72) {
+        // Hold glowing Power Laddoo proudly upward in right palm
+        const raise = Math.min(1, t / 0.28);
+        pelvisY = basePelvisY + 0.02 * raise;
+        torsoRotX = -0.08 * raise;
+        torsoRotY = -0.16 * raise;
+        headRotX = -0.12 * raise;
+        rShX = -0.85 - 1.25 * raise;
+        rShZ = 0.45 + 0.15 * raise;
+        rElbX = -0.78;
+        lShX = -0.35;
+        lShZ = -0.58;
+        lElbX = -1.35;
+      } else if (t < 1.15) {
+        // Bring Power Laddoo straight to mouth and tilt head back to gulp!
+        const gulp = Math.min(1, (t - 0.72) / 0.34);
+        pelvisY = basePelvisY + 0.03;
+        torsoRotX = -0.16 * gulp;
+        headRotX = -0.28 * gulp;
+        rShX = -1.65;
+        rShZ = 0.25 - 0.18 * gulp;
+        rElbX = -1.1 - 0.92 * gulp;
+        lShX = -0.3;
+        lShZ = -0.58;
+        lElbX = -1.35;
+      } else if (t < 1.6) {
+        // Chew with fierce power-up grin & ignite fiery golden-orange aura!
+        const chew = Math.sin((t - 1.15) * 32);
+        const flex = Math.min(1, (t - 1.2) / 0.3);
+        pelvisY = basePelvisY - 0.05 * flex;
+        torsoRotX = -0.18 * flex;
+        headRotX = chew * 0.1 - 0.08 * flex;
+        lShX = -0.75 - 0.52 * flex;
+        lShZ = -0.82 - 0.22 * flex;
+        lElbX = -1.52;
+        rShX = -0.75 - 0.52 * flex;
+        rShZ = 0.82 + 0.22 * flex;
+        rElbX = -1.52;
+        lHipX = -0.32;
+        lKneeX = 0.42;
+        rHipX = 0.34;
+        rKneeX = 0.36;
+      } else if (t < 2.5) {
+        // Heroic levitation rise to y=2.0 with arms charging golden laddoo energy!
+        const rise = Math.min(1, (t - 1.6) / 0.75);
+        pelvisY = basePelvisY + 0.05;
+        pelvisRotX = -0.06;
+        torsoRotX = -0.14 + 0.1 * rise;
+        headRotX = 0.06;
+        lShX = -1.05 - 0.35 * rise;
+        lShZ = -0.68;
+        lElbX = -1.05;
+        rShX = -1.05 - 0.35 * rise;
+        rShZ = 0.68;
+        rElbX = -1.05;
+        lHipX = -0.48 + Math.sin(elapsed * 4.5) * 0.07;
+        lKneeX = 0.72;
+        rHipX = -0.16 - Math.sin(elapsed * 4.5) * 0.06;
+        rKneeX = 0.42;
+      } else if (t < 4.35) {
+        // Rapid alternating two-hand forward thrusts firing 14 golden laddoos -> double-palm Mega Laddoo launch!
+        jointAlpha = 1 - Math.exp(-30 * Math.max(dt, 0.008));
+        const isMegaPush = t >= 3.98;
+        const volleyOsc = Math.sin((t - 2.5) * 28);
+        const rightThrust = isMegaPush ? 1 : Math.max(0, volleyOsc);
+        const leftThrust = isMegaPush ? 1 : Math.max(0, -volleyOsc);
+        pelvisY = basePelvisY + 0.04;
+        pelvisRotX = 0.08;
+        torsoRotX = isMegaPush ? 0.28 : 0.18;
+        torsoRotY = isMegaPush ? 0 : volleyOsc * 0.28;
+        headRotX = -0.06;
+        rShX = -1.25 - rightThrust * 0.55;
+        rShZ = isMegaPush ? 0.12 : 0.24 * (1 - rightThrust) + 0.08;
+        rElbX = -1.35 + rightThrust * 1.28;
+        lShX = -1.25 - leftThrust * 0.55;
+        lShZ = isMegaPush ? -0.12 : -0.24 * (1 - leftThrust) - 0.08;
+        lElbX = -1.35 + leftThrust * 1.28;
+        lHipX = -0.42 + Math.sin(elapsed * 5.2) * 0.06;
+        lKneeX = 0.68;
+        rHipX = -0.18 - Math.sin(elapsed * 5.2) * 0.06;
+        rKneeX = 0.44;
+      } else {
+        // Smooth touchdown back into heavyweight kung-fu guard stance
+        const landT = Math.min(1, (t - 4.35) / 0.6);
+        const air = 1 - landT;
+        pelvisY = (basePelvisY + 0.04) * air + pose.pelvisY * landT;
+        pelvisRotX = 0.04 * air + pose.pelvisRotX * landT;
+        torsoRotX = 0.12 * air + pose.torsoRotX * landT;
+        torsoRotY = pose.torsoRotY * landT;
+        rShX = -1.45 * air + pose.rShX * landT;
+        rShZ = 0.22 * air + pose.rShZ * landT;
+        rElbX = -0.45 * air + pose.rElbX * landT;
+        lShX = -1.45 * air + pose.lShX * landT;
+        lShZ = -0.22 * air + pose.lShZ * landT;
+        lElbX = -0.45 * air + pose.lElbX * landT;
+        lHipX = -0.38 * air + pose.lHipX * landT;
+        lKneeX = 0.62 * air + pose.lKneeX * landT;
+        rHipX = -0.16 * air + pose.rHipX * landT;
+        rKneeX = 0.42 * air + pose.rKneeX * landT;
+      }
     } else if (state.action === 'victory') {
       const hop = Math.abs(Math.sin(elapsed * 5.8));
       pelvisY = basePelvisY + hop * 0.11;
@@ -846,6 +1240,18 @@ export function animateFighterRig(
       lShX = -0.22;
       lShZ = -0.58;
       lElbX = -1.45;
+    }
+
+    // Dramatic saree pallu wind flutter while Mausi levitates during GOL-GOL LADDOO BARRAGE!
+    if (rig.mausiPalluGroup) {
+      if (state.action === 'super' && state.y > 0.05) {
+        const windAmp = Math.min(1, state.y / 1.4);
+        rig.mausiPalluGroup.rotation.x = Math.sin(elapsed * 18) * 0.18 * windAmp - 0.12 * windAmp;
+        rig.mausiPalluGroup.rotation.z = Math.cos(elapsed * 15) * 0.16 * windAmp + 0.08 * windAmp;
+      } else {
+        rig.mausiPalluGroup.rotation.x = 0;
+        rig.mausiPalluGroup.rotation.z = 0;
+      }
     }
   }
 

@@ -1,3 +1,7 @@
+import type { AndaSuperBeatSignal, AndaSuperState } from './andaSuper';
+import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
+import type { MausiSuperBeatSignal, MausiSuperState } from './mausiSuper';
+import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
 
 export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi';
@@ -235,6 +239,14 @@ export interface MatchState {
   aiIntentTimer: number;
   sheruSuper: SheruSuperState | null;
   sheruSuperSignals: SheruSuperBeatSignal[];
+  billaSuper: BillaSuperState | null;
+  billaSuperSignals: BillaSuperBeatSignal[];
+  netaSuper: NetaSuperState | null;
+  netaSuperSignals: NetaSuperBeatSignal[];
+  andaSuper: AndaSuperState | null;
+  andaSuperSignals: AndaSuperBeatSignal[];
+  mausiSuper: MausiSuperState | null;
+  mausiSuperSignals: MausiSuperBeatSignal[];
 }
 
 export interface FloatingCallout {

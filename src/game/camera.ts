@@ -136,6 +136,8 @@ export function computeIntroCameraTarget(
   };
 }
 
+export type SuperCameraKind = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'generic';
+
 /**
  * Super Power Cutscene Camera:
  * - Startup phase: Dramatic low-angle close-up on the attacker
@@ -149,8 +151,278 @@ export function computeSuperCameraTarget(
   attackerFacing: 1 | -1,
   defenderX: number,
   isSheruSuper: boolean,
+  superKind?: SuperCameraKind,
+  attackerY = 0,
 ): FixedZoomCameraTarget {
+  const kind: SuperCameraKind = superKind ?? (isSheruSuper ? 'sheru' : 'generic');
   const fightTarget = computeFixedZoomCameraTarget(attackerX, defenderX);
+
+  // BLUE BILLA ("CHIRKUT CHAOS", 4.5s):
+  // 0.0-1.2s: Dramatic low-angle close-up on Blue Billa's glowing enlarging eyes
+  // 1.2-2.1s: Smooth tracking pan following the 3 cockroaches across the arena
+  // 2.1-4.1s: Dynamic 3D orbit framing the churning smoke-cloud beatdown around defender
+  // 4.1-4.5s: Smooth restore to 2.5D fighting camera
+  if (kind === 'billa') {
+    const eyeCloseUp: FixedZoomCameraTarget = {
+      x: clampCameraPanX(attackerX + attackerFacing * 0.72),
+      y: 1.42,
+      z: 3.4,
+      lookX: attackerX + attackerFacing * 0.08,
+      lookY: 1.78,
+      lookZ: 0.1,
+    };
+
+    if (elapsed < 1.2) {
+      const push = smoothstep(elapsed / 1.2);
+      return {
+        x: eyeCloseUp.x - attackerFacing * 0.16 * push,
+        y: eyeCloseUp.y + 0.08 * push,
+        z: eyeCloseUp.z - 0.35 * push,
+        lookX: eyeCloseUp.lookX,
+        lookY: eyeCloseUp.lookY,
+        lookZ: eyeCloseUp.lookZ,
+      };
+    }
+
+    if (elapsed < 2.1) {
+      const trackT = smoothstep((elapsed - 1.2) / 0.9);
+      const midX = clampCameraPanX(lerp(attackerX, defenderX, trackT));
+      return {
+        x: lerp(eyeCloseUp.x - attackerFacing * 0.16, clampCameraPanX(defenderX - attackerFacing * 1.15), trackT),
+        y: lerp(1.5, 2.95, trackT),
+        z: lerp(3.05, 6.2, trackT),
+        lookX: midX,
+        lookY: lerp(1.78, 1.32, trackT),
+        lookZ: 0,
+      };
+    }
+
+    const cloudCenterX = clampCameraPanX(defenderX);
+    const orbitNorm = Math.max(0, Math.min(1, (elapsed - 2.1) / 2.0));
+    const orbitAngle = lerp(-0.5, 0.55, orbitNorm) * attackerFacing;
+    const cloudOrbit: FixedZoomCameraTarget = {
+      x: clampCameraPanX(cloudCenterX + Math.sin(orbitAngle) * 2.55),
+      y: 3.35,
+      z: Math.cos(orbitAngle * 0.6) * 6.05,
+      lookX: cloudCenterX,
+      lookY: 1.22,
+      lookZ: 0,
+    };
+
+    if (elapsed < 4.1) {
+      return cloudOrbit;
+    }
+
+    const returnT = smoothstep((elapsed - 4.1) / Math.max(0.15, duration - 4.1));
+    return {
+      x: lerp(cloudOrbit.x, fightTarget.x, returnT),
+      y: lerp(cloudOrbit.y, fightTarget.y, returnT),
+      z: lerp(cloudOrbit.z, fightTarget.z, returnT),
+      lookX: lerp(cloudOrbit.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(cloudOrbit.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // GARIB SENA NETA ("VANS, ATTACK!", 4.8s):
+  // 0.0-1.5s: Dramatic low-angle upward close-up tracking Neta levitating to y=2.2
+  // 1.5-4.15s: Dynamic wide-arena 3D orbit showcasing the full mini-van convoy on the floor
+  // 4.15-4.8s: Smooth restore to 2.5D fighting camera as Neta touches down
+  if (kind === 'neta') {
+    const levCloseUp: FixedZoomCameraTarget = {
+      x: clampCameraPanX(attackerX + attackerFacing * 1.1),
+      y: 1.18 + attackerY * 0.25,
+      z: 4.35,
+      lookX: attackerX,
+      lookY: 1.48 + attackerY * 0.88,
+      lookZ: 0,
+    };
+
+    if (elapsed < 1.5) {
+      const push = smoothstep(elapsed / 1.5);
+      return {
+        x: levCloseUp.x - attackerFacing * 0.22 * push,
+        y: levCloseUp.y + 0.14 * push,
+        z: levCloseUp.z + 0.35 * push,
+        lookX: levCloseUp.lookX,
+        lookY: levCloseUp.lookY,
+        lookZ: 0,
+      };
+    }
+
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+    const orbitNorm = Math.max(0, Math.min(1, (elapsed - 1.5) / 2.65));
+    const orbitAngle = lerp(-0.38, 0.44, orbitNorm) * attackerFacing;
+    const wideConvoy: FixedZoomCameraTarget = {
+      x: clampCameraPanX(midX + Math.sin(orbitAngle) * 2.4),
+      y: 3.65,
+      z: 8.65,
+      lookX: clampCameraPanX(lerp(midX, defenderX, 0.28)),
+      lookY: 1.42,
+      lookZ: 0,
+    };
+
+    if (elapsed < 4.15) {
+      const blendFromLev = smoothstep((elapsed - 1.5) / 0.45);
+      return {
+        x: lerp(levCloseUp.x, wideConvoy.x, blendFromLev),
+        y: lerp(levCloseUp.y, wideConvoy.y, blendFromLev),
+        z: lerp(levCloseUp.z, wideConvoy.z, blendFromLev),
+        lookX: lerp(levCloseUp.lookX, wideConvoy.lookX, blendFromLev),
+        lookY: lerp(levCloseUp.lookY, wideConvoy.lookY, blendFromLev),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 4.15) / Math.max(0.15, duration - 4.15));
+    return {
+      x: lerp(wideConvoy.x, fightTarget.x, returnT),
+      y: lerp(wideConvoy.y, fightTarget.y, returnT),
+      z: lerp(wideConvoy.z, fightTarget.z, returnT),
+      lookX: lerp(wideConvoy.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(wideConvoy.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // ANDA BHAI ("THE GREAT WALL DROP!", 4.5s):
+  // 0.0-1.4s: Low-angle close-up on Anda Bhai taking off his blue top hat & bowing politely
+  // 1.4-3.9s: Wide dramatic 3D orbit framing both fighters, sky lightning bolts, and giant red-brick wall crash
+  // 3.9-4.5s: Smooth restore to 2.5D fighting camera as Anda puts his hat back on
+  if (kind === 'anda') {
+    const bowCloseUp: FixedZoomCameraTarget = {
+      x: clampCameraPanX(attackerX + attackerFacing * 0.96),
+      y: 1.48,
+      z: 4.35,
+      lookX: attackerX + attackerFacing * 0.12,
+      lookY: 1.24,
+      lookZ: 0.05,
+    };
+
+    if (elapsed < 1.4) {
+      const push = smoothstep(elapsed / 1.4);
+      return {
+        x: bowCloseUp.x - attackerFacing * 0.18 * push,
+        y: bowCloseUp.y + 0.04 * push,
+        z: bowCloseUp.z - 0.25 * push,
+        lookX: bowCloseUp.lookX,
+        lookY: bowCloseUp.lookY - 0.05 * push,
+        lookZ: bowCloseUp.lookZ,
+      };
+    }
+
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+    const orbitNorm = Math.max(0, Math.min(1, (elapsed - 1.4) / 2.5));
+    const orbitAngle = lerp(-0.36, 0.44, orbitNorm) * attackerFacing;
+    const isWallDrop = elapsed >= 2.45;
+    const wideWallTarget: FixedZoomCameraTarget = {
+      x: clampCameraPanX(midX + Math.sin(orbitAngle) * 2.5),
+      y: isWallDrop ? 3.55 : 3.25,
+      z: isWallDrop ? 9.1 : 8.4,
+      lookX: clampCameraPanX(lerp(midX, defenderX, 0.34)),
+      lookY: isWallDrop ? 1.85 : 1.7,
+      lookZ: 0,
+    };
+
+    if (elapsed < 3.9) {
+      const blendFromBow = smoothstep((elapsed - 1.4) / 0.45);
+      return {
+        x: lerp(bowCloseUp.x - attackerFacing * 0.18, wideWallTarget.x, blendFromBow),
+        y: lerp(bowCloseUp.y + 0.04, wideWallTarget.y, blendFromBow),
+        z: lerp(bowCloseUp.z - 0.25, wideWallTarget.z, blendFromBow),
+        lookX: lerp(bowCloseUp.lookX, wideWallTarget.lookX, blendFromBow),
+        lookY: lerp(bowCloseUp.lookY - 0.05, wideWallTarget.lookY, blendFromBow),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 3.9) / Math.max(0.15, duration - 3.9));
+    return {
+      x: lerp(wideWallTarget.x, fightTarget.x, returnT),
+      y: lerp(wideWallTarget.y, fightTarget.y, returnT),
+      z: lerp(wideWallTarget.z, fightTarget.z, returnT),
+      lookX: lerp(wideWallTarget.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(wideWallTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // LADDOO MAUSI ("GOL-GOL LADDOO BARRAGE!", 5.0s):
+  // 0.0-1.6s: Low-angle festive close-up on Mausi holding up & gulping her glowing golden Power Laddoo
+  // 1.6-2.45s: Dramatic upward tracking sweep as Mausi levitates to y=2.0 with golden aura rings
+  // 2.45-4.45s: Wide dynamic 3D orbit framing levitating Mausi + 14-laddoo storm + Mega Laddoo finisher
+  // 4.45-5.0s: Smooth restore to 2.5D fighting camera as Mausi touches down
+  if (kind === 'mausi') {
+    const gulpCloseUp: FixedZoomCameraTarget = {
+      x: clampCameraPanX(attackerX + attackerFacing * 0.96),
+      y: 1.46,
+      z: 3.95,
+      lookX: attackerX + attackerFacing * 0.08,
+      lookY: 1.68,
+      lookZ: 0.05,
+    };
+
+    if (elapsed < 1.6) {
+      const push = smoothstep(elapsed / 1.6);
+      return {
+        x: gulpCloseUp.x - attackerFacing * 0.16 * push,
+        y: gulpCloseUp.y + 0.08 * push,
+        z: gulpCloseUp.z - 0.22 * push,
+        lookX: gulpCloseUp.lookX,
+        lookY: gulpCloseUp.lookY + 0.04 * push,
+        lookZ: gulpCloseUp.lookZ,
+      };
+    }
+
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+    const orbitNorm = Math.max(0, Math.min(1, (elapsed - 2.45) / 2.0));
+    const orbitAngle = lerp(-0.32, 0.4, orbitNorm) * attackerFacing;
+    const wideBarrageTarget: FixedZoomCameraTarget = {
+      x: clampCameraPanX(midX + Math.sin(orbitAngle) * 2.3),
+      y: 3.75,
+      z: 9.5,
+      lookX: clampCameraPanX(lerp(midX, defenderX, 0.2)),
+      lookY: 2.05,
+      lookZ: 0,
+    };
+
+    if (elapsed < 2.45) {
+      const liftT = smoothstep((elapsed - 1.6) / 0.85);
+      const liftCamX = clampCameraPanX(lerp(attackerX + attackerFacing * 1.1, wideBarrageTarget.x, 0.65));
+      return {
+        x: lerp(gulpCloseUp.x - attackerFacing * 0.16, liftCamX, liftT),
+        y: lerp(gulpCloseUp.y + 0.08, 2.55 + attackerY * 0.45, liftT),
+        z: lerp(gulpCloseUp.z - 0.22, 8.6, liftT),
+        lookX: lerp(gulpCloseUp.lookX, lerp(attackerX, wideBarrageTarget.lookX, 0.55), liftT),
+        lookY: lerp(gulpCloseUp.lookY + 0.04, 1.55 + attackerY * 0.45, liftT),
+        lookZ: 0,
+      };
+    }
+
+    if (elapsed < 4.45) {
+      const blendT = smoothstep((elapsed - 2.45) / 0.35);
+      const prevX = clampCameraPanX(lerp(attackerX + attackerFacing * 1.1, wideBarrageTarget.x, 0.65));
+      return {
+        x: lerp(prevX, wideBarrageTarget.x, blendT),
+        y: lerp(2.55 + attackerY * 0.45, wideBarrageTarget.y, blendT),
+        z: lerp(8.6, wideBarrageTarget.z, blendT),
+        lookX: lerp(lerp(attackerX, wideBarrageTarget.lookX, 0.55), wideBarrageTarget.lookX, blendT),
+        lookY: lerp(1.55 + attackerY * 0.45, wideBarrageTarget.lookY, blendT),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 4.45) / Math.max(0.15, duration - 4.45));
+    return {
+      x: lerp(wideBarrageTarget.x, fightTarget.x, returnT),
+      y: lerp(wideBarrageTarget.y, fightTarget.y, returnT),
+      z: lerp(wideBarrageTarget.z, fightTarget.z, returnT),
+      lookX: lerp(wideBarrageTarget.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(wideBarrageTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
   const startupEnd = isSheruSuper ? 1.0 : Math.min(0.56, duration * 0.36);
   const returnStart = isSheruSuper ? Math.max(startupEnd + 0.5, duration - 0.75) : Math.max(startupEnd + 0.4, duration - 0.32);
 

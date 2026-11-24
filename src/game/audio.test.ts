@@ -213,3 +213,71 @@ test('Explicit stopSuperAudio stops active source cleanly; missing MP3 fails sil
     clearSuperAudioCacheForTests();
   }
 });
+
+test('All 5 Super MP3s (sheru, billa, neta, anda, mausi) share Web Audio AudioBuffer cache & ducking', async () => {
+  clearSuperAudioCacheForTests();
+  const fetchedUrls: string[] = [];
+
+  const env = createMockAudioEnv((async (url: string | URL | Request) => {
+    fetchedUrls.push(String(url));
+    const bytes = new Uint8Array(256);
+    return {
+      ok: true,
+      headers: { get: () => 'audio/mpeg' },
+      arrayBuffer: async () => bytes.buffer,
+    } as unknown as Response;
+  }) as typeof fetch);
+
+  try {
+    const engine = new DesiAudioEngine();
+    await engine.preloadAllSuperAudios();
+
+    assert.ok(fetchedUrls.includes('/audio/supers/sheru.mp3'));
+    assert.ok(fetchedUrls.includes('/audio/supers/billa.mp3'));
+    assert.ok(fetchedUrls.includes('/audio/supers/neta.mp3'));
+    assert.ok(fetchedUrls.includes('/audio/supers/anda.mp3'));
+    assert.ok(fetchedUrls.includes('/audio/supers/mausi.mp3'));
+
+    // Blue Billa Super audio plays from RAM cache without refetching and ends cleanly on onended
+    engine.playFighterSuperAudio('billa');
+    assert.equal(engine.isSuperAudioPlaying(), true);
+    assert.equal(env.sources.length, 1);
+    assert.deepEqual(env.sources[0].startedAt, [0]);
+    env.sources[0].onended?.();
+    assert.equal(engine.isSuperAudioPlaying(), false);
+
+    // Garib Sena Neta Super audio plays from RAM cache without refetching
+    engine.playFighterSuperAudio('neta');
+    assert.equal(engine.isSuperAudioPlaying(), true);
+    assert.equal(env.sources.length, 2);
+    assert.deepEqual(env.sources[1].startedAt, [0]);
+    env.sources[1].onended?.();
+    assert.equal(engine.isSuperAudioPlaying(), false);
+
+    // Anda Bhai Super audio (/audio/supers/anda.mp3) plays from RAM cache and finishes naturally
+    engine.playFighterSuperAudio('anda');
+    assert.equal(engine.isSuperAudioPlaying(), true);
+    assert.equal(env.sources.length, 3);
+    assert.deepEqual(env.sources[2].startedAt, [0]);
+    engine.notifySuperAnimationEnd();
+    assert.equal(env.sources[2].stoppedCount, 0, 'Anda Super MP3 must never be cut off early');
+    env.sources[2].onended?.();
+    assert.equal(engine.isSuperAudioPlaying(), false);
+
+    // Laddoo Mausi Super audio (/audio/supers/mausi.mp3) plays from RAM cache and finishes naturally
+    engine.playFighterSuperAudio('mausi');
+    assert.equal(engine.isSuperAudioPlaying(), true);
+    assert.equal(env.sources.length, 4);
+    assert.deepEqual(env.sources[3].startedAt, [0]);
+    engine.notifySuperAnimationEnd();
+    assert.equal(env.sources[3].stoppedCount, 0, 'Mausi Super MP3 must never be cut off early');
+    env.sources[3].onended?.();
+    assert.equal(engine.isSuperAudioPlaying(), false);
+
+    assert.equal(fetchedUrls.length, 5, 'Preloaded buffers must never trigger duplicate fetches');
+  } finally {
+    env.restore();
+    clearSuperAudioCacheForTests();
+  }
+});
+

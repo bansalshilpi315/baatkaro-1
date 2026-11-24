@@ -32,6 +32,14 @@ import {
   type ActiveFighterDialogue,
   type DialogueTracker,
 } from './dialogue';
+import { ANDA_SUPER_BANNER } from './andaSuper';
+import { AndaSuperVfx } from './andaSuperVfx';
+import { BILLA_SUPER_BANNER } from './billaSuper';
+import { BillaSuperVfx } from './billaSuperVfx';
+import { MAUSI_SUPER_BANNER } from './mausiSuper';
+import { MausiSuperVfx } from './mausiSuperVfx';
+import { NETA_SUPER_BANNER } from './netaSuper';
+import { NetaSuperVfx } from './netaSuperVfx';
 import { SHERU_SUPER_BANNER } from './sheruSuper';
 import { SheruSuperVfx } from './sheruSuperVfx';
 import { buildStage, type StageInstance } from './stages';
@@ -92,6 +100,9 @@ const _projVec = new THREE.Vector3();
 const _stageBgColor = new THREE.Color();
 const _stageFogColor = new THREE.Color();
 const _superDimColor = new THREE.Color(0x0b0805);
+const _andaStormDimColor = new THREE.Color(0x09162e);
+const _andaFlashColor = new THREE.Color(0xdbeafe);
+const _mausiFestiveDimColor = new THREE.Color(0x2d1404);
 
 const INTRO_TAUNTS: Record<FighterId, string[]> = {
   sheru: [
@@ -236,8 +247,12 @@ export class DesiShowdownEngine {
   private impactInnerGeo: THREE.RingGeometry;
   private impactOuterGeo: THREE.RingGeometry;
 
-  // Sheru Bhai's "Trillion Dollar Beatdown" Super VFX manager
+  // Pre-pooled 3D Super Power VFX managers (all 5 fighters)
   private sheruSuperVfx: SheruSuperVfx;
+  private billaSuperVfx: BillaSuperVfx;
+  private netaSuperVfx: NetaSuperVfx;
+  private andaSuperVfx: AndaSuperVfx;
+  private mausiSuperVfx: MausiSuperVfx;
 
   // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
   private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
@@ -418,6 +433,10 @@ export class DesiShowdownEngine {
     }
 
     this.sheruSuperVfx = new SheruSuperVfx(this.scene);
+    this.billaSuperVfx = new BillaSuperVfx(this.scene);
+    this.netaSuperVfx = new NetaSuperVfx(this.scene);
+    this.andaSuperVfx = new AndaSuperVfx(this.scene);
+    this.mausiSuperVfx = new MausiSuperVfx(this.scene);
 
     this.strikeTrails = [new StrikeTrailRibbon(), new StrikeTrailRibbon()];
     this.scene.add(this.strikeTrails[0].mesh);
@@ -469,16 +488,24 @@ export class DesiShowdownEngine {
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
 
-    // Preload Super Power MP3 bytes early so Web Audio decode is instant when unlocked
-    void audioEngine.preloadSuperAudio();
+    // Preload all Super Power MP3 bytes early (Sheru, Blue Billa, Garib Sena Neta)
+    void audioEngine.preloadAllSuperAudios();
 
     if (!this.isSoftwareGl) {
       // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes
       this.sheruSuperVfx.setPrewarmVisible(true);
+      this.billaSuperVfx.setPrewarmVisible(true);
+      this.netaSuperVfx.setPrewarmVisible(true);
+      this.andaSuperVfx.setPrewarmVisible(true);
+      this.mausiSuperVfx.setPrewarmVisible(true);
       this.shockwaveRing.visible = true;
       this.strikeTrails[0].mesh.visible = true;
       this.renderer.compile(this.scene, this.camera);
       this.sheruSuperVfx.setPrewarmVisible(false);
+      this.billaSuperVfx.setPrewarmVisible(false);
+      this.netaSuperVfx.setPrewarmVisible(false);
+      this.andaSuperVfx.setPrewarmVisible(false);
+      this.mausiSuperVfx.setPrewarmVisible(false);
       this.shockwaveRing.visible = false;
       this.strikeTrails[0].mesh.visible = false;
     }
@@ -610,6 +637,10 @@ export class DesiShowdownEngine {
       // Explicitly exited to menu: reset Super VFX, mid-fight dialogues, and stop active Super audio
       clearAllMidFightDialogues(this.dialogueTracker);
       this.sheruSuperVfx.reset();
+      this.billaSuperVfx.reset();
+      this.netaSuperVfx.reset();
+      this.andaSuperVfx.reset();
+      this.mausiSuperVfx.reset();
       audioEngine.stopSuperAudio();
     }
   }
@@ -669,11 +700,15 @@ export class DesiShowdownEngine {
     this.loadFighters(p1, p2);
     this.clearProjectiles();
     this.sheruSuperVfx.reset();
+    this.billaSuperVfx.reset();
+    this.netaSuperVfx.reset();
+    this.andaSuperVfx.reset();
+    this.mausiSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
-    // Explicit match start/restart: stop any prior Super audio and ensure buffer is preloaded
+    // Explicit match start/restart: stop any prior Super audio and ensure buffers are preloaded
     audioEngine.stopSuperAudio();
-    void audioEngine.preloadSuperAudio();
+    void audioEngine.preloadAllSuperAudios();
     this.matchState = createMatchState(p1, p2, skipIntro);
     if (initialP1Shakti > 0) {
       this.matchState.fighters[0].shakti = Math.min(100, initialP1Shakti);
@@ -1108,8 +1143,14 @@ export class DesiShowdownEngine {
         }
       } else if (ev.type === 'super') {
         const caster = this.matchState.fighters[ev.attackerSlot];
-        if (caster?.id === 'sheru') {
-          audioEngine.playSheruSuperAudio();
+        if (
+          caster?.id === 'sheru' ||
+          caster?.id === 'billa' ||
+          caster?.id === 'neta' ||
+          caster?.id === 'anda' ||
+          caster?.id === 'mausi'
+        ) {
+          audioEngine.playFighterSuperAudio(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
         } else {
           audioEngine.playSuper();
@@ -1118,7 +1159,17 @@ export class DesiShowdownEngine {
         // Only clear mid-fight bubbles early when a cinematic Super Power cutscene starts
         clearAllMidFightDialogues(this.dialogueTracker);
         this.stage?.triggerExcitement(1.8);
-        this.spawnParticles(ev.x, ev.y, 24, 0xfde047, 8.0);
+        const superBurstColor =
+          caster?.id === 'billa'
+            ? 0x4ade80
+            : caster?.id === 'neta'
+              ? 0xf97316
+              : caster?.id === 'anda'
+                ? 0x38bdf8
+                : caster?.id === 'mausi'
+                  ? 0xfbbf24
+                  : 0xfde047;
+        this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
         this.trauma = 1.0;
@@ -1286,6 +1337,10 @@ export class DesiShowdownEngine {
     const isSuperCinematic = Boolean(
       this.matchState.activeSuperSlot !== null ||
         this.matchState.sheruSuper?.active ||
+        this.matchState.billaSuper?.active ||
+        this.matchState.netaSuper?.active ||
+        this.matchState.andaSuper?.active ||
+        this.matchState.mausiSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -1376,13 +1431,37 @@ export class DesiShowdownEngine {
     if (this.matchState.activeSuperSlot !== null) {
       const caster = this.matchState.fighters[this.matchState.activeSuperSlot];
       const isSheru = caster.id === 'sheru';
-      const bannerWindow = isSheru ? 1.85 : 1.15;
+      const isBilla = caster.id === 'billa';
+      const isNeta = caster.id === 'neta';
+      const isAnda = caster.id === 'anda';
+      const isMausi = caster.id === 'mausi';
+      const bannerWindow = isSheru
+        ? 1.85
+        : isMausi
+          ? 1.6
+          : isNeta
+            ? 1.55
+            : isAnda
+              ? 1.45
+              : isBilla
+                ? 1.4
+                : 1.15;
       if (this.matchState.activeSuperElapsed < bannerWindow) {
         const cfg = FIGHTER_CONFIGS[caster.id];
         superBanner = {
           fighterId: caster.id,
           fighterName: cfg.name,
-          superName: isSheru ? SHERU_SUPER_BANNER : cfg.superName,
+          superName: isSheru
+            ? SHERU_SUPER_BANNER
+            : isBilla
+              ? BILLA_SUPER_BANNER
+              : isNeta
+                ? NETA_SUPER_BANNER
+                : isAnda
+                  ? ANDA_SUPER_BANNER
+                  : isMausi
+                    ? MAUSI_SUPER_BANNER
+                    : cfg.superName,
           slot: caster.slot,
         };
       }
@@ -1499,6 +1578,18 @@ export class DesiShowdownEngine {
     } else if (this.matchState.activeSuperSlot !== null) {
       const attacker = this.matchState.fighters[this.matchState.activeSuperSlot];
       const defender = this.matchState.fighters[1 - this.matchState.activeSuperSlot];
+      const superKind =
+        attacker.id === 'sheru'
+          ? 'sheru'
+          : attacker.id === 'billa'
+            ? 'billa'
+            : attacker.id === 'neta'
+              ? 'neta'
+              : attacker.id === 'anda'
+                ? 'anda'
+                : attacker.id === 'mausi'
+                  ? 'mausi'
+                  : 'generic';
       target = computeSuperCameraTarget(
         this.matchState.activeSuperElapsed,
         this.matchState.activeSuperDuration,
@@ -1506,6 +1597,8 @@ export class DesiShowdownEngine {
         attacker.facing,
         defender.x,
         attacker.id === 'sheru',
+        superKind,
+        attacker.y,
       );
       posLambda = 7.2;
       zLambda = 7.2;
@@ -1622,6 +1715,128 @@ export class DesiShowdownEngine {
           }
         }
 
+        // Process Blue Billa "CHIRKUT CHAOS" Super beat signals
+        const billaSignals = this.matchState.billaSuperSignals;
+        if (billaSignals.length > 0) {
+          this.billaSuperVfx.handleBeatSignals(billaSignals, this.graphics === 'low');
+          for (const sig of billaSignals) {
+            if (sig.kind === 'eye_glow_start') {
+              this.trauma = Math.min(1, this.trauma + 0.28);
+              this.stage?.triggerExcitement(1.6);
+            } else if (sig.kind === 'roach_launch') {
+              this.trauma = Math.min(1, this.trauma + 0.32);
+              this.spawnParticles(sig.x, sig.y, 12, 0xa3e635, 6.4);
+            } else if (sig.kind === 'smoke_start') {
+              this.trauma = Math.min(1, this.trauma + 0.42);
+              this.stage?.triggerExcitement(1.8);
+            } else if (sig.kind === 'smoke_hit') {
+              this.trauma = Math.min(1, this.trauma + 0.34);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnStarburstSparks(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 10, 0xfde047, 6.2);
+            } else if (sig.kind === 'pop_finisher') {
+              this.trauma = 0.96;
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, true);
+              this.spawnParticles(sig.x, sig.y, 26, 0x4ade80, 9.0);
+              this.stage?.triggerExcitement(2.4);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.notifySuperAnimationEnd();
+            }
+          }
+        }
+
+        // Process Garib Sena Neta "VANS, ATTACK!" Super beat signals
+        const netaSignals = this.matchState.netaSuperSignals;
+        if (netaSignals.length > 0) {
+          this.netaSuperVfx.handleBeatSignals(netaSignals, this.graphics === 'low');
+          for (const sig of netaSignals) {
+            if (sig.kind === 'levitate_start') {
+              this.trauma = Math.min(1, this.trauma + 0.28);
+              this.stage?.triggerExcitement(1.6);
+            } else if (sig.kind === 'command_point') {
+              this.trauma = Math.min(1, this.trauma + 0.3);
+              this.spawnParticles(sig.x, sig.y, 14, 0xf97316, 5.8);
+            } else if (sig.kind === 'stampede_start') {
+              this.stage?.triggerExcitement(2.0);
+            } else if (sig.kind === 'van_hit') {
+              this.trauma = Math.min(1, this.trauma + 0.52);
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 16, 0xfb923c, 7.6);
+            } else if (sig.kind === 'van_finisher') {
+              this.trauma = 1.0;
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, true);
+              this.spawnParticles(sig.x, sig.y, 28, 0xfacc15, 9.4);
+              this.stage?.triggerExcitement(2.5);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.notifySuperAnimationEnd();
+            }
+          }
+        }
+
+        // Process Anda Bhai "THE GREAT WALL DROP!" Super beat signals
+        const andaSignals = this.matchState.andaSuperSignals;
+        if (andaSignals.length > 0) {
+          this.andaSuperVfx.handleBeatSignals(andaSignals, this.graphics === 'low');
+          for (const sig of andaSignals) {
+            if (sig.kind === 'hat_bow_start') {
+              this.trauma = Math.min(1, this.trauma + 0.22);
+              this.stage?.triggerExcitement(1.6);
+            } else if (sig.kind === 'lightning_strike') {
+              this.trauma = Math.min(1, this.trauma + 0.42);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnStarburstSparks(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 14, 0x38bdf8, 7.0);
+            } else if (sig.kind === 'wall_impact') {
+              this.trauma = 1.0;
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, true);
+              this.spawnParticles(sig.x, sig.y, 28, 0xc8452e, 9.2);
+              this.stage?.triggerExcitement(2.5);
+            } else if (sig.kind === 'wall_shatter') {
+              this.trauma = Math.min(1, this.trauma + 0.52);
+              this.spawnParticles(sig.x, sig.y, 22, 0xd97706, 8.2);
+              this.stage?.triggerExcitement(2.0);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.notifySuperAnimationEnd();
+            }
+          }
+        }
+
+        // Process Laddoo Mausi "GOL-GOL LADDOO BARRAGE!" Super beat signals
+        const mausiSignals = this.matchState.mausiSuperSignals;
+        if (mausiSignals.length > 0) {
+          this.mausiSuperVfx.handleBeatSignals(mausiSignals, this.graphics === 'low');
+          for (const sig of mausiSignals) {
+            if (sig.kind === 'gulp_start') {
+              this.trauma = Math.min(1, this.trauma + 0.22);
+              this.stage?.triggerExcitement(1.5);
+            } else if (sig.kind === 'aura_ignite') {
+              this.trauma = Math.min(1, this.trauma + 0.36);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 16, 0xfbbf24, 6.8);
+              this.stage?.triggerExcitement(1.8);
+            } else if (sig.kind === 'levitate_start') {
+              this.stage?.triggerExcitement(1.9);
+            } else if (sig.kind === 'laddoo_hit') {
+              this.trauma = Math.min(1, this.trauma + 0.28);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnStarburstSparks(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 10, 0xfbbf24, 6.4);
+            } else if (sig.kind === 'mega_impact') {
+              this.trauma = 1.0;
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, true);
+              this.spawnParticles(sig.x, sig.y, 30, 0xf97316, 9.5);
+              this.stage?.triggerExcitement(2.6);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.notifySuperAnimationEnd();
+            }
+          }
+        }
+
         if (this.moveCalloutTimer > 0) {
           this.moveCalloutTimer = Math.max(0, this.moveCalloutTimer - dt);
           if (this.moveCalloutTimer <= 0) this.moveCalloutText = null;
@@ -1630,14 +1845,29 @@ export class DesiShowdownEngine {
           this.lastTrackedRound = this.matchState.roundNumber;
           clearAllMidFightDialogues(this.dialogueTracker);
         }
-        if (this.matchState.activeSuperSlot !== null || this.matchState.sheruSuper?.active) {
+        if (
+          this.matchState.activeSuperSlot !== null ||
+          this.matchState.sheruSuper?.active ||
+          this.matchState.billaSuper?.active ||
+          this.matchState.netaSuper?.active ||
+          this.matchState.andaSuper?.active ||
+          this.matchState.mausiSuper?.active
+        ) {
           clearAllMidFightDialogues(this.dialogueTracker);
         } else {
           pruneExpiredDialogues(this.dialogueTracker, performance.now());
         }
 
         this.hudThrottleTimer -= dt;
-        this.emitHud(events.length > 0 || signals.length > 0, dt);
+        this.emitHud(
+          events.length > 0 ||
+            signals.length > 0 ||
+            billaSignals.length > 0 ||
+            netaSignals.length > 0 ||
+            andaSignals.length > 0 ||
+            mausiSignals.length > 0,
+          dt,
+        );
 
         if (this.matchState.phase === 'finished' && !this.resultDispatched) {
           this.resultDispatched = true;
@@ -1676,33 +1906,120 @@ export class DesiShowdownEngine {
         }
       }
 
-      // Update Sheru Bhai Super 3D VFX & smooth arena spotlight dimming/restoration
+      // Update Sheru, Blue Billa, and Garib Sena Neta Super 3D VFX & smooth arena spotlight dimming/restoration
       const sheruSuper = this.matchState.sheruSuper;
-      const attackerSlot = sheruSuper?.attackerSlot ?? 0;
-      const attackerRig = sheruSuper?.active ? this.rigs[attackerSlot] : null;
-      const attackerX = sheruSuper?.active ? this.matchState.fighters[attackerSlot].x : 0;
-      if (attackerRig) {
-        attackerRig.root.updateMatrixWorld(true);
+      const sheruSlot = sheruSuper?.attackerSlot ?? 0;
+      const sheruRig = sheruSuper?.active ? this.rigs[sheruSlot] : null;
+      const sheruX = sheruSuper?.active ? this.matchState.fighters[sheruSlot].x : 0;
+      if (sheruRig) {
+        sheruRig.root.updateMatrixWorld(true);
       }
-      const dimFactor = this.sheruSuperVfx.update(
+      const sheruDim = this.sheruSuperVfx.update(
         dt,
         this.elapsed,
         sheruSuper,
-        attackerRig,
-        attackerX,
+        sheruRig,
+        sheruX,
       );
+
+      const billaSuper = this.matchState.billaSuper;
+      const billaSlot = billaSuper?.attackerSlot ?? 0;
+      const billaDefSlot = billaSuper?.defenderSlot ?? 1;
+      const billaRig = billaSuper?.active ? this.rigs[billaSlot] : null;
+      const billaFighter = this.matchState.fighters[billaSlot];
+      const billaDef = this.matchState.fighters[billaDefSlot];
+      if (billaRig) {
+        billaRig.root.updateMatrixWorld(true);
+      }
+      const billaDim = this.billaSuperVfx.update(
+        dt,
+        this.elapsed,
+        billaSuper,
+        billaRig,
+        billaFighter?.x ?? 0,
+        billaFighter?.facing ?? 1,
+        billaDef?.x ?? 2,
+      );
+
+      const netaSuper = this.matchState.netaSuper;
+      const netaSlot = netaSuper?.attackerSlot ?? 0;
+      const netaDefSlot = netaSuper?.defenderSlot ?? 1;
+      const netaFighter = this.matchState.fighters[netaSlot];
+      const netaDef = this.matchState.fighters[netaDefSlot];
+      const netaDim = this.netaSuperVfx.update(
+        dt,
+        this.elapsed,
+        netaSuper,
+        netaFighter?.x ?? 0,
+        netaFighter?.y ?? 0,
+        netaFighter?.facing ?? 1,
+        netaDef?.x ?? 2,
+        this.graphics === 'low',
+      );
+
+      const andaSuper = this.matchState.andaSuper;
+      const andaSlot = andaSuper?.attackerSlot ?? 0;
+      const andaDefSlot = andaSuper?.defenderSlot ?? 1;
+      const andaFighter = this.matchState.fighters[andaSlot];
+      const andaDef = this.matchState.fighters[andaDefSlot];
+      const andaVfxResult = this.andaSuperVfx.update(
+        dt,
+        this.elapsed,
+        andaSuper,
+        andaFighter?.x ?? 0,
+        andaDef?.x ?? 2,
+      );
+
+      const mausiSuper = this.matchState.mausiSuper;
+      const mausiSlot = mausiSuper?.attackerSlot ?? 0;
+      const mausiDefSlot = mausiSuper?.defenderSlot ?? 1;
+      const mausiRig = mausiSuper?.active ? this.rigs[mausiSlot] : null;
+      const mausiFighter = this.matchState.fighters[mausiSlot];
+      const mausiDef = this.matchState.fighters[mausiDefSlot];
+      if (mausiRig) {
+        mausiRig.root.updateMatrixWorld(true);
+      }
+      const mausiDim = this.mausiSuperVfx.update(
+        dt,
+        this.elapsed,
+        mausiSuper,
+        mausiRig,
+        mausiFighter?.x ?? 0,
+        mausiFighter?.y ?? 0,
+        mausiFighter?.facing ?? 1,
+        mausiDef?.x ?? 2,
+      );
+
+      const dimFactor = Math.max(sheruDim, billaDim, netaDim, andaVfxResult.dimFactor, mausiDim);
       if (this.stage) {
-        this.keyLight.intensity = this.stage.keyLightIntensity * (1 - dimFactor * 0.82);
-        this.hemiLight.intensity = this.stage.hemiIntensity * (1 - dimFactor * 0.78);
+        const lightningFlash = andaVfxResult.skyFlash;
+        const dimTargetColor =
+          andaVfxResult.dimFactor > 0.01
+            ? _andaStormDimColor
+            : mausiDim > 0.01
+              ? _mausiFestiveDimColor
+              : _superDimColor;
+
+        this.keyLight.intensity =
+          this.stage.keyLightIntensity * (1 - dimFactor * 0.82) + lightningFlash * 2.4;
+        this.hemiLight.intensity =
+          this.stage.hemiIntensity * (1 - dimFactor * 0.78) + lightningFlash * 1.1;
         this.rimLight.intensity = this.stage.rimLightIntensity * (1 - dimFactor * 0.65);
         this.scene.environmentIntensity = 1 - dimFactor * 0.78;
-        this.renderer.toneMappingExposure = 1.08 * (1 - dimFactor * 0.18);
-        _stageBgColor.setHex(this.stage.backgroundColor).lerp(_superDimColor, dimFactor * 0.82);
+        this.renderer.toneMappingExposure = 1.08 * (1 - dimFactor * 0.18 + lightningFlash * 0.25);
+
+        _stageBgColor.setHex(this.stage.backgroundColor).lerp(dimTargetColor, dimFactor * 0.84);
+        if (lightningFlash > 0.01) {
+          _stageBgColor.lerp(_andaFlashColor, Math.min(0.76, lightningFlash * 0.76));
+        }
         if (this.scene.background instanceof THREE.Color) {
           this.scene.background.copy(_stageBgColor);
         }
         if (this.scene.fog instanceof THREE.Fog) {
-          _stageFogColor.setHex(this.stage.fogColor).lerp(_superDimColor, dimFactor * 0.82);
+          _stageFogColor.setHex(this.stage.fogColor).lerp(dimTargetColor, dimFactor * 0.84);
+          if (lightningFlash > 0.01) {
+            _stageFogColor.lerp(_andaFlashColor, Math.min(0.68, lightningFlash * 0.68));
+          }
           this.scene.fog.color.copy(_stageFogColor);
         }
       }
@@ -1744,6 +2061,10 @@ export class DesiShowdownEngine {
 
     audioEngine.stopSuperAudio();
     this.sheruSuperVfx.dispose(this.scene);
+    this.billaSuperVfx.dispose(this.scene);
+    this.netaSuperVfx.dispose(this.scene);
+    this.andaSuperVfx.dispose(this.scene);
+    this.mausiSuperVfx.dispose(this.scene);
     for (const trail of this.strikeTrails) {
       this.scene.remove(trail.mesh);
       trail.dispose();

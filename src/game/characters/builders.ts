@@ -968,6 +968,7 @@ function buildBlueBilla(rig: FighterRig): void {
     metalness: 0.06,
     envMapIntensity: 0.55,
   });
+  rig.billaEyeGlowMats = [eyeWhiteMat, emeraldIrisMat];
 
   // === PLUMP PEAR-SHAPED SKY-BLUE TORSO (#55BCE8) ===
   const pearProfile = [
@@ -1676,6 +1677,7 @@ function buildGaribSenaNeta(rig: FighterRig): void {
   gamchaFrontStrip.rotation.y = -0.24;
   gamchaFrontStrip.castShadow = true;
   rig.torso.add(gamchaFrontStrip);
+  rig.gamchaFront = gamchaFrontStrip;
 
   // Tiny cotton fringe tassels along the bottom edge of the front hanging gamcha strip
   const fringeGeo = new THREE.CylinderGeometry(0.009, 0.006, 0.08, 5);
@@ -1691,6 +1693,7 @@ function buildGaribSenaNeta(rig: FighterRig): void {
   gamchaBackStrip.position.set(-0.17, 0.45, -0.31);
   gamchaBackStrip.rotation.z = -0.08;
   rig.torso.add(gamchaBackStrip);
+  rig.gamchaBack = gamchaBackStrip;
 
   for (let i = -2; i <= 2; i++) {
     const backTassel = new THREE.Mesh(fringeGeo, i % 2 === 0 ? fringeCreamMat : fringeRedMat);
@@ -2549,6 +2552,10 @@ function buildLaddooMausi(rig: FighterRig): void {
   rig.torso.add(neck);
 
   // Sculpted Diagonal Teal Saree Pallu draped snugly from right hip across chest over LEFT shoulder (-X) and down back
+  const mausiPalluGroup = new THREE.Group();
+  rig.torso.add(mausiPalluGroup);
+  rig.mausiPalluGroup = mausiPalluGroup;
+
   const palluCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0.41, 0.05, 0.34),
     new THREE.Vector3(0.14, 0.25, 0.48),
@@ -2561,7 +2568,7 @@ function buildLaddooMausi(rig: FighterRig): void {
   const palluMain = new THREE.Mesh(new THREE.TubeGeometry(palluCurve, 26, 0.095, 10, false), sareeMat);
   palluMain.scale.set(1.12, 1.0, 0.94);
   palluMain.castShadow = true;
-  rig.torso.add(palluMain);
+  mausiPalluGroup.add(palluMain);
 
   // Second adjacent folded pleat band for a wider, flatter cloth-drape feel (not a round tube)
   const palluFold2Curve = new THREE.CatmullRomCurve3([
@@ -2577,7 +2584,7 @@ function buildLaddooMausi(rig: FighterRig): void {
     sareeSolidMat,
   );
   palluFold2.scale.set(1.06, 1.0, 0.94);
-  rig.torso.add(palluFold2);
+  mausiPalluGroup.add(palluFold2);
 
   // Subtle dark-teal folded pallu edge trim running parallel along the inner edge
   const palluEdge = new THREE.Mesh(
@@ -2585,7 +2592,7 @@ function buildLaddooMausi(rig: FighterRig): void {
     sareeDeepMat,
   );
   palluEdge.position.set(0.03, 0.02, 0.03);
-  rig.torso.add(palluEdge);
+  mausiPalluGroup.add(palluEdge);
 
   // --- 3. SIGNATURE THICK V-SHAPED METALLIC GOLD NECKLACE (#F0C420) ---
   const necklaceCurve = new THREE.CatmullRomCurve3([

@@ -72,12 +72,23 @@ function getInitialShaktiParam(): number {
   return raw !== undefined ? Math.max(0, Math.min(100, raw)) : 0;
 }
 
+function getFighterQueryParam(key: string, fallback: FighterId): FighterId {
+  if (typeof window === 'undefined') return fallback;
+  const raw = new URLSearchParams(window.location.search).get(key);
+  if (raw === 'sheru' || raw === 'billa' || raw === 'neta' || raw === 'anda' || raw === 'mausi') {
+    return raw;
+  }
+  return fallback;
+}
+
 export default function App() {
   const autostart = isAutostartRequested();
+  const initialP1 = autostart ? getFighterQueryParam('p1', 'sheru') : 'sheru';
+  const initialP2 = autostart ? getFighterQueryParam('p2', 'billa') : 'billa';
 
   const [screen, setScreen] = useState<GameScreen>(autostart ? 'playing' : 'notice');
-  const [p1Id, setP1Id] = useState<FighterId>('sheru');
-  const [p2Id, setP2Id] = useState<FighterId>('billa');
+  const [p1Id, setP1Id] = useState<FighterId>(initialP1);
+  const [p2Id, setP2Id] = useState<FighterId>(initialP2);
   const [stageId, setStageId] = useState<StageId>('mohalla');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [muted, setMuted] = useState(false);
@@ -138,7 +149,7 @@ export default function App() {
     });
     engineRef.current = engine;
 
-    void audioEngine.preloadSuperAudio();
+    void audioEngine.preloadAllSuperAudios();
 
     if (isAutostartRequested()) {
       const p1RoundsWon = getNumericQueryParam('p1rounds');
@@ -146,7 +157,9 @@ export default function App() {
       const p1Hp = getNumericQueryParam('p1hp');
       const p2Hp = getNumericQueryParam('p2hp');
       const skipIntro = !isAutostartIntroRequested();
-      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', skipIntro, getInitialShaktiParam(), {
+      const startP1 = getFighterQueryParam('p1', 'sheru');
+      const startP2 = getFighterQueryParam('p2', 'billa');
+      engine.startMatch(startP1, startP2, 'mohalla', 'normal', skipIntro, getInitialShaktiParam(), {
         p1RoundsWon,
         p2RoundsWon,
         p1Hp,

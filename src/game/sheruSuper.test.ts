@@ -149,7 +149,7 @@ test('Sheru Super cleanly KOs opponent at <= 33% HP on final snap and leaves 34%
   assert.equal(surviveState.phase, 'fighting');
 });
 
-test('All other fighters Supers are globally capped at exactly 33% of opponent maxHp', () => {
+test('All other fighters are globally capped at exactly 33% of opponent maxHp', () => {
   const casters: FighterId[] = ['billa', 'neta', 'anda', 'mausi'];
   for (const casterId of casters) {
     const state = createMatchState(casterId, 'neta', true); // Neta maxHp = 120 -> 33% = 40
@@ -167,7 +167,7 @@ test('All other fighters Supers are globally capped at exactly 33% of opponent m
     assert.equal(caster.action, 'super');
     assert.equal(state.sheruSuper, null, 'Non-Sheru fighters must not trigger Sheru Super state');
 
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 320; i++) {
       stepMatch(state, [idle, idle], 1 / 60);
     }
 
