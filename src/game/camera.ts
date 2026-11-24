@@ -49,10 +49,10 @@ export function computeFixedZoomCameraTarget(
 }
 
 /**
- * Pre-Fight Round 1 Intro Sweep (~2.65s):
- * - 0.00s..0.95s: 3/4 over-the-shoulder view near P1 looking across at CPU
- * - 0.95s..1.85s: Smooth swing to 3/4 over-the-shoulder view near CPU looking back at P1
- * - 1.85s..2.65s: Smooth glide back to standard elevated 2.5D fighting angle as "ROUND 1" slams in
+ * Pre-Fight Round 1 Intro Sweep (8.85s: 4.0s P1 + 4.0s CPU + 0.85s ROUND 1):
+ * - 0.00s..4.00s: 3/4 over-the-shoulder view near P1 looking across at CPU
+ * - 4.00s..8.00s: Smooth swing to 3/4 over-the-shoulder view near CPU looking back at P1
+ * - 8.00s..8.85s: Smooth glide back to standard elevated 2.5D fighting angle as "ROUND 1" slams in
  * For Round 2 / Final Round, smoothly holds the standard fighting angle with a crisp intro glide.
  */
 export function computeIntroCameraTarget(
@@ -76,7 +76,11 @@ export function computeIntroCameraTarget(
     };
   }
 
-  // Phase 1 (0.0s - 0.95s): 3/4 over-the-shoulder behind/beside P1 looking across at CPU
+  const p1End = introDuration >= 6.0 ? 4.0 : 0.95;
+  const p2End = introDuration >= 6.0 ? 8.0 : 1.85;
+  const panDuration = introDuration >= 6.0 ? 0.55 : 0.42;
+
+  // Phase 1 (0.0s - 4.0s): 3/4 over-the-shoulder behind/beside P1 looking across at CPU
   const p1Shoulder: FixedZoomCameraTarget = {
     x: p1X - 1.85,
     y: 2.02,
@@ -86,7 +90,7 @@ export function computeIntroCameraTarget(
     lookZ: -0.25,
   };
 
-  // Phase 2 (0.95s - 1.85s): 3/4 over-the-shoulder behind/beside CPU looking across at P1
+  // Phase 2 (4.0s - 8.0s): 3/4 over-the-shoulder behind/beside CPU looking across at P1
   const p2Shoulder: FixedZoomCameraTarget = {
     x: p2X + 1.85,
     y: 2.02,
@@ -96,9 +100,9 @@ export function computeIntroCameraTarget(
     lookZ: -0.25,
   };
 
-  if (introElapsed < 0.95) {
-    // Subtle push-in drift during P1 taunt
-    const drift = smoothstep(introElapsed / 0.95);
+  if (introElapsed < p1End) {
+    // Subtle push-in drift during P1 4.0s taunt
+    const drift = smoothstep(introElapsed / p1End);
     return {
       x: p1Shoulder.x + drift * 0.22,
       y: p1Shoulder.y,
@@ -109,8 +113,8 @@ export function computeIntroCameraTarget(
     };
   }
 
-  if (introElapsed < 1.85) {
-    const t = smoothstep((introElapsed - 0.95) / 0.42);
+  if (introElapsed < p2End) {
+    const t = smoothstep((introElapsed - p1End) / panDuration);
     return {
       x: lerp(p1Shoulder.x + 0.22, p2Shoulder.x, t),
       y: lerp(p1Shoulder.y, p2Shoulder.y, t),
@@ -121,7 +125,7 @@ export function computeIntroCameraTarget(
     };
   }
 
-  const returnT = smoothstep((introElapsed - 1.85) / Math.max(0.35, introDuration - 1.85));
+  const returnT = smoothstep((introElapsed - p2End) / Math.max(0.35, introDuration - p2End));
   return {
     x: lerp(p2Shoulder.x, fightTarget.x, returnT),
     y: lerp(p2Shoulder.y, fightTarget.y, returnT),

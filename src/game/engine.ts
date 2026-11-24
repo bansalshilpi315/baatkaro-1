@@ -19,6 +19,19 @@ import {
   createMatchState,
   stepMatch,
 } from './combat';
+import {
+  INTRO_ROUND1_CALLOUT_SECONDS,
+  clampDialogueScreenPosition,
+  clearAllMidFightDialogues,
+  createDialogueTracker,
+  getIntroDialoguePhase,
+  pauseDialogueTimers,
+  pruneExpiredDialogues,
+  resumeDialogueTimers,
+  triggerMidFightDialogue,
+  type ActiveFighterDialogue,
+  type DialogueTracker,
+} from './dialogue';
 import { SHERU_SUPER_BANNER } from './sheruSuper';
 import { SheruSuperVfx } from './sheruSuperVfx';
 import { buildStage, type StageInstance } from './stages';
@@ -114,6 +127,34 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   neta: ['Yeh janta pe atyachaar hai!', 'Chashma bach gaya!'],
   anda: ['Arre shell bachao!', 'Kisi ne farsh pe tel giraya!'],
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
+};
+
+const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
+  sheru: [
+    'Ye le 18% GST ke saath pitai!',
+    'Tera portfolio laal kar diya bhai!',
+    'Bill tera, swag mera — paisa vasool!',
+  ],
+  billa: [
+    'Phatak! Machhar jaise uda diya!',
+    'Meow! Swatter ka swaad kaisa laga?',
+    'Aaj chai thandi, par thappad garam!',
+  ],
+  neta: [
+    'Janta ka faisla seedha mukke se!',
+    'Dharna mode ON — ab bhaag mat!',
+    'Chanda nahi, seedha danda milega!',
+  ],
+  anda: [
+    'Hard-boiled Power! Crack nahi hone dunga!',
+    'Omelette banne se pehle hi flat kar diya!',
+    'Protein punch seedha muh pe!',
+  ],
+  mausi: [
+    'Aaj belan ka VIP treatment milega!',
+    'Meetha kam, sutai zyada — shabaash!',
+    'Aunty se panga? Seedha chappal-belan combo!',
+  ],
 };
 
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
@@ -230,11 +271,11 @@ export class DesiShowdownEngine {
   private disposed = false;
   private resizeObserver: ResizeObserver;
 
-  // Dynamic fight callouts & comic speech bubble state
+  // Dynamic fight callouts & decoupled per-fighter 4.0s comic speech bubble tracker
   private moveCalloutText: string | null = null;
   private moveCalloutTimer = 0;
-  private midFightBubble: { slot: 0 | 1; text: string; timer: number } | null = null;
-  private midFightBubbleCooldown = 0;
+  private dialogueTracker: DialogueTracker = createDialogueTracker();
+  private lastTrackedRound = 1;
   private introTauntSeed = 0;
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
@@ -562,8 +603,12 @@ export class DesiShowdownEngine {
     this.currentScreen = screen;
     if (screen === 'playing') {
       this.clearInputs();
+      resumeDialogueTimers(this.dialogueTracker, performance.now());
+    } else if (screen === 'paused') {
+      pauseDialogueTimers(this.dialogueTracker, performance.now());
     } else if (screen === 'select' || screen === 'title' || screen === 'notice') {
-      // Explicitly exited to menu: reset Super VFX and stop active Super audio
+      // Explicitly exited to menu: reset Super VFX, mid-fight dialogues, and stop active Super audio
+      clearAllMidFightDialogues(this.dialogueTracker);
       this.sheruSuperVfx.reset();
       audioEngine.stopSuperAudio();
     }
@@ -581,8 +626,12 @@ export class DesiShowdownEngine {
   }
 
   public skipPreFightIntro(): void {
-    if (this.matchState.phase === 'intro' && this.matchState.phaseTimer > 0.65) {
-      this.matchState.phaseTimer = 0.62;
+    if (
+      this.matchState.phase === 'intro' &&
+      this.matchState.roundNumber === 1 &&
+      this.matchState.phaseTimer > INTRO_ROUND1_CALLOUT_SECONDS
+    ) {
+      this.matchState.phaseTimer = INTRO_ROUND1_CALLOUT_SECONDS;
       this.emitHud(true);
     }
   }
@@ -656,8 +705,8 @@ export class DesiShowdownEngine {
     this.introTauntSeed = Math.floor(Math.random() * 100);
     this.moveCalloutText = null;
     this.moveCalloutTimer = 0;
-    this.midFightBubble = null;
-    this.midFightBubbleCooldown = 0;
+    clearAllMidFightDialogues(this.dialogueTracker);
+    this.lastTrackedRound = this.matchState.roundNumber;
     this.resultDispatched = false;
     this.trauma = 0;
     this.currentScreen = 'playing';
@@ -1006,6 +1055,17 @@ export class DesiShowdownEngine {
         this.spawnStarburstSparks(ev.x, ev.y, true);
         this.trauma = Math.min(1, this.trauma + (ev.type === 'grab_throw' ? 0.58 : 0.52));
         this.stage?.triggerExcitement(1.5);
+        if (
+          (ev.type === 'heavy_hit' || ev.type === 'grab_throw' || ev.type === 'dharna_counter') &&
+          this.matchState.phase === 'fighting' &&
+          this.matchState.activeSuperSlot === null &&
+          attacker &&
+          attacker.hp > 0
+        ) {
+          const roasts = MID_FIGHT_ROASTS[attacker.id];
+          const text = roasts[(this.introTauntSeed + Math.floor(this.elapsed * 5)) % roasts.length];
+          triggerMidFightDialogue(this.dialogueTracker, attacker.slot, text, performance.now());
+        }
       } else if (ev.type === 'block') {
         audioEngine.playBlock();
         this.trauma = Math.min(1, this.trauma + 0.14);
@@ -1020,6 +1080,16 @@ export class DesiShowdownEngine {
           audioEngine.playSpecial();
         }
         this.stage?.triggerExcitement(1.5);
+        if (
+          this.matchState.phase === 'fighting' &&
+          this.matchState.activeSuperSlot === null &&
+          caster &&
+          caster.hp > 0
+        ) {
+          const roasts = MID_FIGHT_ROASTS[caster.id];
+          const text = roasts[(this.introTauntSeed + Math.floor(this.elapsed * 3) + 1) % roasts.length];
+          triggerMidFightDialogue(this.dialogueTracker, caster.slot, text, performance.now());
+        }
         if (caster?.id === 'sheru') {
           // Golden aura shockwave burst + emerald cash glint for PAISA FLEX!
           this.spawnImpactRing(ev.x, ev.y, true);
@@ -1045,13 +1115,13 @@ export class DesiShowdownEngine {
           audioEngine.playSuper();
           this.trauma = Math.min(1, this.trauma + 0.65);
         }
-        this.midFightBubble = null;
+        // Only clear mid-fight bubbles early when a cinematic Super Power cutscene starts
+        clearAllMidFightDialogues(this.dialogueTracker);
         this.stage?.triggerExcitement(1.8);
         this.spawnParticles(ev.x, ev.y, 24, 0xfde047, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
         this.trauma = 1.0;
-        this.midFightBubble = null;
         this.stage?.triggerExcitement(1.5);
         this.spawnImpactRing(ev.x, ev.y, true);
         this.spawnStarburstSparks(ev.x, ev.y, true);
@@ -1063,15 +1133,13 @@ export class DesiShowdownEngine {
         this.spawnParticles(ev.x, 0.18, 8, 0xd6cbb8, 3.2);
         if (
           this.matchState.phase === 'fighting' &&
-          this.matchState.activeSuperSlot === null &&
-          this.midFightBubbleCooldown <= 0
+          this.matchState.activeSuperSlot === null
         ) {
           const fallen = this.matchState.fighters[ev.attackerSlot];
           if (fallen && fallen.hp > 0) {
             const quips = KNOCKDOWN_QUIPS[fallen.id];
             const text = quips[(this.introTauntSeed + Math.floor(this.elapsed * 3)) % quips.length];
-            this.midFightBubble = { slot: fallen.slot, text, timer: 1.15 };
-            this.midFightBubbleCooldown = 4.2;
+            triggerMidFightDialogue(this.dialogueTracker, fallen.slot, text, performance.now());
           }
         }
       } else if (ev.type === 'jump') {
@@ -1145,51 +1213,104 @@ export class DesiShowdownEngine {
     return input;
   }
 
-  private buildSpeechBubble(slot: 0 | 1, text: string): ComicSpeechBubble | null {
+  private buildSpeechBubble(
+    slot: 0 | 1,
+    text: string,
+    id: number,
+    trackedEntry?: ActiveFighterDialogue,
+    dt = 0.016,
+  ): ComicSpeechBubble {
     const f = this.matchState.fighters[slot];
-    const headHeight = f.action === 'knockdown' ? 1.15 : f.id === 'billa' ? 2.15 : 2.38;
+    const headHeight = f.action === 'knockdown' ? 1.18 : f.id === 'billa' ? 2.15 : 2.38;
     const pt = this.projectToScreen(f.x, f.y + headHeight);
     const w = Math.max(this.container.clientWidth, 320);
     const h = Math.max(this.container.clientHeight, 240);
-    const halfBubbleW = Math.min(165, Math.round(w * 0.22));
-    const minTopY = Math.min(205, Math.max(152, Math.round(h * 0.34)));
+    const bubbleW = w < 640 ? 224 : 268;
+    const bubbleH = w < 640 ? 78 : 88;
+    const topSafeY = Math.min(200, Math.max(176, Math.round(h * 0.45)));
     const fallbackX = slot === 0 ? w * 0.3 : w * 0.7;
-    const fallbackY = minTopY + 12;
-    const sx = THREE.MathUtils.clamp(pt ? pt.sx : fallbackX, halfBubbleW, w - halfBubbleW);
-    const sy = THREE.MathUtils.clamp(pt ? pt.sy : fallbackY, minTopY, h - 96);
+    const fallbackY = topSafeY + 12;
+
+    const clamped = clampDialogueScreenPosition(
+      pt ? pt.sx : fallbackX,
+      pt ? pt.sy : fallbackY,
+      w,
+      h,
+      bubbleW,
+      bubbleH,
+      topSafeY,
+    );
+
+    let finalX = clamped.x;
+    let finalY = clamped.y;
+    if (trackedEntry) {
+      if (trackedEntry.smoothX === null || trackedEntry.smoothY === null) {
+        trackedEntry.smoothX = clamped.x;
+        trackedEntry.smoothY = clamped.y;
+      } else {
+        trackedEntry.smoothX = THREE.MathUtils.damp(trackedEntry.smoothX, clamped.x, 14, dt);
+        trackedEntry.smoothY = THREE.MathUtils.damp(trackedEntry.smoothY, clamped.y, 14, dt);
+      }
+      const reClamped = clampDialogueScreenPosition(
+        trackedEntry.smoothX,
+        trackedEntry.smoothY,
+        w,
+        h,
+        bubbleW,
+        bubbleH,
+        topSafeY,
+      );
+      finalX = reClamped.x;
+      finalY = reClamped.y;
+    }
+
     return {
+      id,
       slot,
       speakerName: FIGHTER_CONFIGS[f.id].name,
       text,
-      screenX: Math.round(sx),
-      screenY: Math.round(sy),
+      screenX: finalX,
+      screenY: finalY,
     };
   }
 
-  private emitHud(force = false): void {
+  private emitHud(force = false, dt = 0.016): void {
     const [p1, p2] = this.matchState.fighters;
     const introElapsed = Math.max(0, this.matchState.introDuration - this.matchState.phaseTimer);
 
     let bannerText: string | null = null;
     let bannerTone: 'round' | 'ko' | 'winner' = 'round';
-    let speechBubble: ComicSpeechBubble | null = null;
+    const speechBubbles: ComicSpeechBubble[] = [];
     let canSkipIntro = false;
+
+    const isSuperCinematic = Boolean(
+      this.matchState.activeSuperSlot !== null ||
+        this.matchState.sheruSuper?.active ||
+        p1.action === 'super' ||
+        p2.action === 'super',
+    );
 
     if (this.matchState.phase === 'intro') {
       if (this.matchState.roundNumber === 1) {
-        if (introElapsed < 1.82) {
-          canSkipIntro = true;
-          if (introElapsed >= 0.06 && introElapsed < 0.94) {
-            const taunts = INTRO_TAUNTS[p1.id];
-            speechBubble = this.buildSpeechBubble(0, taunts[this.introTauntSeed % taunts.length]);
-          } else if (introElapsed >= 0.98 && introElapsed < 1.82) {
-            const taunts = INTRO_TAUNTS[p2.id];
-            speechBubble = this.buildSpeechBubble(
+        const introPhase = getIntroDialoguePhase(1, introElapsed);
+        canSkipIntro = introPhase.canSkipIntro;
+        if (introPhase.activeSlot === 0) {
+          const taunts = INTRO_TAUNTS[p1.id];
+          speechBubbles.push(
+            this.buildSpeechBubble(0, taunts[this.introTauntSeed % taunts.length], -1, undefined, dt),
+          );
+        } else if (introPhase.activeSlot === 1) {
+          const taunts = INTRO_TAUNTS[p2.id];
+          speechBubbles.push(
+            this.buildSpeechBubble(
               1,
               taunts[(this.introTauntSeed + 1) % taunts.length],
-            );
-          }
-        } else {
+              -2,
+              undefined,
+              dt,
+            ),
+          );
+        } else if (introPhase.showRoundBanner) {
           bannerText = 'ROUND 1';
           bannerTone = 'round';
         }
@@ -1213,9 +1334,14 @@ export class DesiShowdownEngine {
           const winCfg = FIGHTER_CONFIGS[winFighter.id];
           bannerText = `${winCfg.name.toUpperCase()} WINS`;
           const quips = VICTORY_QUIPS[winFighter.id];
-          speechBubble = this.buildSpeechBubble(
-            winFighter.slot,
-            quips[(this.introTauntSeed + this.matchState.roundNumber) % quips.length],
+          speechBubbles.push(
+            this.buildSpeechBubble(
+              winFighter.slot,
+              quips[(this.introTauntSeed + this.matchState.roundNumber) % quips.length],
+              -(10 + this.matchState.roundNumber),
+              undefined,
+              dt,
+            ),
           );
         } else {
           bannerText = 'DRAW ROUND';
@@ -1226,21 +1352,25 @@ export class DesiShowdownEngine {
           this.matchState.finishReason === 'timeout'
             ? 'TIME UP!'
             : this.matchState.koCalloutText || 'GHEE KHATAM!';
+        if (!isSuperCinematic) {
+          for (const slotEntry of this.dialogueTracker.slots) {
+            if (slotEntry) {
+              speechBubbles.push(
+                this.buildSpeechBubble(slotEntry.slot, slotEntry.text, slotEntry.id, slotEntry, dt),
+              );
+            }
+          }
+        }
       }
-    } else if (
-      this.matchState.phase === 'fighting' &&
-      this.matchState.activeSuperSlot === null &&
-      this.midFightBubble
-    ) {
-      speechBubble = this.buildSpeechBubble(this.midFightBubble.slot, this.midFightBubble.text);
+    } else if (this.matchState.phase === 'fighting' && !isSuperCinematic) {
+      for (const slotEntry of this.dialogueTracker.slots) {
+        if (slotEntry) {
+          speechBubbles.push(
+            this.buildSpeechBubble(slotEntry.slot, slotEntry.text, slotEntry.id, slotEntry, dt),
+          );
+        }
+      }
     }
-
-    const isSuperCinematic = Boolean(
-      this.matchState.activeSuperSlot !== null ||
-        this.matchState.sheruSuper?.active ||
-        p1.action === 'super' ||
-        p2.action === 'super',
-    );
 
     let superBanner: SuperBannerInfo | null = null;
     if (this.matchState.activeSuperSlot !== null) {
@@ -1258,7 +1388,7 @@ export class DesiShowdownEngine {
       }
     }
 
-    const throttleInterval = speechBubble ? 0.033 : 0.08;
+    const throttleInterval = speechBubbles.length > 0 ? 0.016 : 0.08;
     if (force || this.hudThrottleTimer <= 0) {
       this.hudThrottleTimer = throttleInterval;
       this.callbacks.onHudUpdate({
@@ -1284,7 +1414,7 @@ export class DesiShowdownEngine {
         bannerTone,
         superBanner,
         moveCallout: this.moveCalloutTimer > 0 ? this.moveCalloutText : null,
-        speechBubble,
+        speechBubbles,
         canSkipIntro,
       });
     }
@@ -1496,18 +1626,18 @@ export class DesiShowdownEngine {
           this.moveCalloutTimer = Math.max(0, this.moveCalloutTimer - dt);
           if (this.moveCalloutTimer <= 0) this.moveCalloutText = null;
         }
-        if (this.midFightBubbleCooldown > 0) {
-          this.midFightBubbleCooldown = Math.max(0, this.midFightBubbleCooldown - dt);
+        if (this.matchState.roundNumber !== this.lastTrackedRound) {
+          this.lastTrackedRound = this.matchState.roundNumber;
+          clearAllMidFightDialogues(this.dialogueTracker);
         }
-        if (this.midFightBubble) {
-          this.midFightBubble.timer -= dt;
-          if (this.midFightBubble.timer <= 0) {
-            this.midFightBubble = null;
-          }
+        if (this.matchState.activeSuperSlot !== null || this.matchState.sheruSuper?.active) {
+          clearAllMidFightDialogues(this.dialogueTracker);
+        } else {
+          pruneExpiredDialogues(this.dialogueTracker, performance.now());
         }
 
         this.hudThrottleTimer -= dt;
-        this.emitHud(events.length > 0 || signals.length > 0);
+        this.emitHud(events.length > 0 || signals.length > 0, dt);
 
         if (this.matchState.phase === 'finished' && !this.resultDispatched) {
           this.resultDispatched = true;

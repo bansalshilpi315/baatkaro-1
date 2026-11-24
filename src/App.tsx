@@ -45,7 +45,7 @@ const INITIAL_HUD: HudSnapshot = {
   bannerTone: 'round',
   superBanner: null,
   moveCallout: null,
-  speechBubble: null,
+  speechBubbles: [],
   canSkipIntro: false,
 };
 

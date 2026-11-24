@@ -1,4 +1,5 @@
 import { FIGHTER_CONFIGS, STAGE_CONFIGS } from './characters/configs';
+import { ROUND1_INTRO_TOTAL_SECONDS } from './dialogue';
 import {
   SHERU_SUPER_DURATION,
   createSheruSuperState,
@@ -48,7 +49,7 @@ export function createEmptyInput(): FighterInput {
 }
 
 export const ROUNDS_TO_WIN = 2;
-export const ROUND1_INTRO_DURATION = 2.65;
+export const ROUND1_INTRO_DURATION = ROUND1_INTRO_TOTAL_SECONDS;
 export const NEXT_ROUND_INTRO_DURATION = 1.55;
 export const KO_SLOWMO_DURATION = 0.9;
 export const KO_CELEBRATION_DURATION = 1.45;

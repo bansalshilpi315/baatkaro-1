@@ -121,7 +121,7 @@ export function FightHud({
       {/* =================================================================
           TOP ARCADE HUD BAR (SPACIOUS, CLEAN, ZERO BOTTOM TICKER)
           ================================================================= */}
-      <header className="safe-pad-hud-top w-full">
+      <header className="safe-pad-hud-top relative z-20 w-full">
         <div className="mx-auto flex w-full max-w-6xl items-start gap-2 sm:gap-3">
           {/* ---------------- LEFT: P1 PORTRAIT + HP + ROUNDS + SHAKTI ---------------- */}
           <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-2.5">
@@ -406,24 +406,26 @@ export function FightHud({
       </div>
 
       {/* =================================================================
-          WHITE COMIC SPEECH BUBBLE (INTRO TAUNTS, KNOCKDOWNS & VICTORY)
+          WHITE COMIC SPEECH BUBBLES (NON-BLOCKING, STRICT 4.0s LOCK)
           ================================================================= */}
-      {hud.speechBubble && (
+      {hud.speechBubbles.map((bubble) => (
         <div
+          key={bubble.id}
           data-testid="comic-speech-bubble"
+          data-slot={bubble.slot}
           className="pointer-events-none fixed z-30"
           style={{
-            left: `${hud.speechBubble.screenX}px`,
-            top: `${hud.speechBubble.screenY}px`,
+            left: `${bubble.screenX}px`,
+            top: `${bubble.screenY}px`,
             transform: 'translate(-50%, -100%)',
           }}
         >
           <div className="comic-bubble-pop relative max-w-[14rem] rounded-xl border-[3px] border-[#110b08] bg-white px-3.5 py-2 text-[#110b08] shadow-[4px_4px_0_#110b08] sm:max-w-[17rem] sm:px-4 sm:py-2.5">
             <div className="font-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#b45309] sm:text-xs">
-              {hud.speechBubble.speakerName}
+              {bubble.speakerName}
             </div>
             <div className="font-display text-sm font-extrabold leading-tight tracking-wide text-[#110b08] sm:text-base">
-              &ldquo;{hud.speechBubble.text}&rdquo;
+              &ldquo;{bubble.text}&rdquo;
             </div>
             {/* Crisp comic speech tail */}
             <div
@@ -432,21 +434,30 @@ export function FightHud({
             />
           </div>
         </div>
-      )}
+      ))}
 
-      {/* Subtle Skip Intro button during Round 1 3D camera sweep */}
+      {/* Subtle Tap to Skip overlay & badge during Round 1 intro dialogues ONLY */}
       {hud.canSkipIntro && (
-        <div className="pointer-events-auto fixed right-5 bottom-4 z-30">
+        <>
           <button
             type="button"
-            data-testid="skip-intro-btn"
+            aria-label="Tap to Skip Intro"
+            data-testid="intro-tap-skip-overlay"
             onClick={onSkipIntro}
-            className="flex cursor-pointer items-center gap-1 border-2 border-[#facc15] bg-[#140e0b]/90 px-3 py-1 font-display text-xs font-extrabold uppercase tracking-widest text-[#facc15] shadow-[3px_3px_0_#110b08] transition hover:bg-[#facc15] hover:text-[#110b08] sm:text-sm"
-          >
-            <span>SKIP INTRO</span>
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        </div>
+            className="pointer-events-auto fixed inset-0 z-10 cursor-pointer bg-transparent"
+          />
+          <div className="pointer-events-auto fixed right-4 bottom-4 z-30">
+            <button
+              type="button"
+              data-testid="skip-intro-btn"
+              onClick={onSkipIntro}
+              className="flex cursor-pointer items-center gap-1 rounded-md border border-[#facc15]/70 bg-[#140e0b]/75 px-3 py-1 font-display text-[11px] font-bold uppercase tracking-[0.16em] text-[#fde68a] backdrop-blur-xs transition hover:border-[#facc15] hover:bg-[#facc15] hover:text-[#110b08] sm:text-xs"
+            >
+              <span>Tap to Skip</span>
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        </>
       )}
 
       {/* =================================================================

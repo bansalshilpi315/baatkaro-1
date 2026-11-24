@@ -194,6 +194,7 @@ export interface CombatEvent {
 }
 
 export interface ComicSpeechBubble {
+  id: number;
   slot: 0 | 1;
   speakerName: string;
   text: string;
@@ -290,6 +291,6 @@ export interface HudSnapshot {
   bannerTone: 'round' | 'ko' | 'winner';
   superBanner: SuperBannerInfo | null;
   moveCallout: string | null;
-  speechBubble: ComicSpeechBubble | null;
+  speechBubbles: ComicSpeechBubble[];
   canSkipIntro: boolean;
 }
