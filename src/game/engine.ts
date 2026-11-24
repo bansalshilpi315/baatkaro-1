@@ -57,7 +57,18 @@ interface ParticleSlot {
   color: THREE.Color;
 }
 
+interface ImpactRingSlot {
+  active: boolean;
+  group: THREE.Group;
+  innerMat: THREE.MeshBasicMaterial;
+  outerMat: THREE.MeshBasicMaterial;
+  life: number;
+  maxLife: number;
+  maxScale: number;
+}
+
 const PARTICLE_POOL_SIZE = 72;
+const IMPACT_RING_POOL_SIZE = 6;
 const _mat4 = new THREE.Matrix4();
 const _pos = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
@@ -175,6 +186,12 @@ export class DesiShowdownEngine {
   private shockwaveRing: THREE.Mesh;
   private shockwaveTimer = 0;
   private readonly shockwaveDuration = 0.42;
+
+  // Pooled white-and-gold circular contact shockwave rings for punches, kicks, and throws
+  private impactRings: ImpactRingSlot[] = [];
+  private impactRingCursor = 0;
+  private impactInnerGeo: THREE.RingGeometry;
+  private impactOuterGeo: THREE.RingGeometry;
 
   // Sheru Bhai's "Trillion Dollar Beatdown" Super VFX manager
   private sheruSuperVfx: SheruSuperVfx;
@@ -310,6 +327,42 @@ export class DesiShowdownEngine {
     this.shockwaveRing.position.set(0, 0.045, 0);
     this.shockwaveRing.visible = false;
     this.scene.add(this.shockwaveRing);
+
+    // Pooled expanding white-and-gold circular shockwave rings for exact fist/foot contact hits
+    this.impactInnerGeo = new THREE.RingGeometry(0.08, 0.24, 24);
+    this.impactOuterGeo = new THREE.RingGeometry(0.22, 0.36, 28);
+    for (let i = 0; i < IMPACT_RING_POOL_SIZE; i++) {
+      const grp = new THREE.Group();
+      const innerMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const outerMat = new THREE.MeshBasicMaterial({
+        color: 0xfacc15,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const innerRing = new THREE.Mesh(this.impactInnerGeo, innerMat);
+      const outerRing = new THREE.Mesh(this.impactOuterGeo, outerMat);
+      outerRing.position.z = -0.01;
+      grp.add(innerRing, outerRing);
+      grp.visible = false;
+      this.scene.add(grp);
+      this.impactRings.push({
+        active: false,
+        group: grp,
+        innerMat,
+        outerMat,
+        life: 0,
+        maxLife: 0.24,
+        maxScale: 2.2,
+      });
+    }
 
     this.sheruSuperVfx = new SheruSuperVfx(this.scene);
 
@@ -629,6 +682,42 @@ export class DesiShowdownEngine {
     this.projectileMeshes.clear();
   }
 
+  private spawnImpactRing(x: number, y: number, isHeavy: boolean): void {
+    const slot = this.impactRings[this.impactRingCursor];
+    this.impactRingCursor = (this.impactRingCursor + 1) % IMPACT_RING_POOL_SIZE;
+    slot.active = true;
+    slot.life = 0;
+    slot.maxLife = isHeavy ? 0.28 : 0.21;
+    slot.maxScale = isHeavy ? 2.85 : 1.95;
+    slot.group.position.set(x, y, 0.32);
+    slot.group.scale.set(0.35, 0.35, 1);
+    slot.group.visible = true;
+    slot.innerMat.opacity = 0.96;
+    slot.outerMat.opacity = 0.92;
+  }
+
+  private spawnStarburstSparks(x: number, y: number, isHeavy: boolean): void {
+    // Crisp white-and-gold starburst radiating cleanly from exact fist/foot contact
+    const rays = isHeavy ? 10 : 7;
+    const speed = isHeavy ? 7.6 : 5.8;
+    for (let i = 0; i < rays; i++) {
+      const slot = this.particles[this.particleCursor];
+      this.particleCursor = (this.particleCursor + 1) % PARTICLE_POOL_SIZE;
+      const angle = (i / rays) * Math.PI * 2 + Math.random() * 0.25;
+      slot.active = true;
+      slot.x = x;
+      slot.y = y;
+      slot.z = 0.28 + (Math.random() - 0.5) * 0.2;
+      slot.vx = Math.cos(angle) * speed * (0.75 + Math.random() * 0.45);
+      slot.vy = Math.sin(angle) * speed * (0.75 + Math.random() * 0.45);
+      slot.vz = (Math.random() - 0.5) * 1.4;
+      slot.life = 0;
+      slot.maxLife = isHeavy ? 0.26 : 0.19;
+      slot.scale = isHeavy ? 0.95 : 0.72;
+      slot.color.setHex(i % 2 === 0 ? 0xffffff : 0xfacc15);
+    }
+  }
+
   private spawnParticles(x: number, y: number, count: number, colorHex: number, speed = 5.2): void {
     const budget = this.graphics === 'low' ? Math.max(4, Math.floor(count * 0.5)) : count;
     for (let i = 0; i < budget; i++) {
@@ -692,6 +781,24 @@ export class DesiShowdownEngine {
       if (this.shockwaveTimer <= 0) {
         this.shockwaveRing.visible = false;
       }
+    }
+
+    for (let i = 0; i < IMPACT_RING_POOL_SIZE; i++) {
+      const r = this.impactRings[i];
+      if (!r.active) continue;
+      r.life += dt;
+      if (r.life >= r.maxLife) {
+        r.active = false;
+        r.group.visible = false;
+        continue;
+      }
+      const p = r.life / r.maxLife;
+      const easeOut = 1 - (1 - p) * (1 - p);
+      const sc = 0.35 + easeOut * r.maxScale;
+      r.group.scale.set(sc, sc, 1);
+      r.group.quaternion.copy(this.camera.quaternion);
+      r.innerMat.opacity = Math.max(0, (1 - p) * 0.95);
+      r.outerMat.opacity = Math.max(0, (1 - p * 0.92) * 0.92);
     }
   }
 
@@ -788,12 +895,12 @@ export class DesiShowdownEngine {
         const attacker = this.matchState.fighters[ev.attackerSlot];
         if (attacker?.id === 'mausi' && attacker.action === 'punch') {
           audioEngine.playBelanBonk();
-          this.spawnParticles(ev.x, ev.y, 8, 0xf0c420, 5.0);
-          this.spawnParticles(ev.x, ev.y, 5, 0xfff5d6, 4.0);
+          this.spawnParticles(ev.x, ev.y, 6, 0xf0c420, 5.0);
         } else {
           audioEngine.playPunchHit();
-          this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.2);
         }
+        this.spawnImpactRing(ev.x, ev.y, false);
+        this.spawnStarburstSparks(ev.x, ev.y, false);
         this.trauma = Math.min(1, this.trauma + 0.28);
       } else if (
         ev.type === 'heavy_hit' ||
@@ -804,12 +911,12 @@ export class DesiShowdownEngine {
         const attacker = this.matchState.fighters[ev.attackerSlot];
         if (ev.type === 'heavy_hit' && attacker?.id === 'mausi' && ev.headline?.includes('BELAN THROW')) {
           audioEngine.playBelanBonk();
-          this.spawnParticles(ev.x, ev.y, 14, 0xf0c420, 6.4);
-          this.spawnParticles(ev.x, ev.y + 0.08, 10, 0xfff5d6, 5.2);
+          this.spawnParticles(ev.x, ev.y, 10, 0xf0c420, 6.4);
         } else {
           audioEngine.playHeavyHit();
-          this.spawnParticles(ev.x, ev.y, 18, 0xfb7185, 6.8);
         }
+        this.spawnImpactRing(ev.x, ev.y, true);
+        this.spawnStarburstSparks(ev.x, ev.y, true);
         this.trauma = Math.min(1, this.trauma + (ev.type === 'grab_throw' ? 0.58 : 0.52));
         this.stage?.triggerExcitement(1.5);
       } else if (ev.type === 'block') {
@@ -858,7 +965,9 @@ export class DesiShowdownEngine {
         this.trauma = 1.0;
         this.midFightBubble = null;
         this.stage?.triggerExcitement(1.5);
-        this.spawnParticles(ev.x, ev.y, 28, 0xfacc15, 8.8);
+        this.spawnImpactRing(ev.x, ev.y, true);
+        this.spawnStarburstSparks(ev.x, ev.y, true);
+        this.spawnParticles(ev.x, ev.y, 20, 0xfacc15, 8.8);
       } else if (ev.type === 'knockdown_land') {
         // Dust puff + subtle thud micro-shake when knocked-down fighter hits the arena floor
         this.trauma = Math.min(1, this.trauma + 0.24);
@@ -1416,6 +1525,12 @@ export class DesiShowdownEngine {
     (this.particleMesh.material as THREE.Material).dispose();
     this.shockwaveRing.geometry.dispose();
     (this.shockwaveRing.material as THREE.Material).dispose();
+    this.impactInnerGeo.dispose();
+    this.impactOuterGeo.dispose();
+    for (const r of this.impactRings) {
+      r.innerMat.dispose();
+      r.outerMat.dispose();
+    }
     this.currencyNoteTex.dispose();
     this.currencyNoteGeo.dispose();
     this.currencyNoteMat.dispose();

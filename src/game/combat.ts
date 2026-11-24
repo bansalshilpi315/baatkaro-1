@@ -52,8 +52,8 @@ export const ROUND1_INTRO_DURATION = 2.65;
 export const NEXT_ROUND_INTRO_DURATION = 1.55;
 export const KO_SLOWMO_DURATION = 0.9;
 export const KO_CELEBRATION_DURATION = 1.45;
-export const KNOCKDOWN_GROUND_DURATION = 0.8;
-export const GETUP_DURATION = 0.44;
+export const KNOCKDOWN_GROUND_DURATION = 0.7;
+export const GETUP_DURATION = 0.56;
 export const WAKEUP_INVULN_DURATION = 0.5;
 export const NON_SHERU_SUPER_DURATION = 1.6;
 
@@ -340,22 +340,42 @@ export function getAttackTiming(fighter: FighterState): {
       };
     }
     case 'kick': {
+      if (fighter.comboStep === 1) {
+        // 2nd Kick Combo -> Low Sweep Kick!
+        return {
+          windup: 0.09,
+          active: 0.13,
+          recovery: 0.24,
+          range: 2.18,
+          damage: Math.round(cfg.kickDamage * 0.92),
+          knockbackX: 5.2,
+          knockbackY: 5.8,
+          hitstop: 0.054,
+          stun: 0.38,
+          isHeavy: true,
+          isGrab: false,
+          isSpecial: false,
+          isSuper: false,
+          causesKnockdown: true,
+          moveCallout: 'TANGDI SWEEP!',
+        };
+      }
       const isFinisher = fighter.comboStep === 2;
       return {
         windup: 0.11,
         active: 0.13,
-        recovery: isFinisher ? 0.25 : 0.22,
-        range: isFinisher ? 2.3 : 2.18,
+        recovery: isFinisher ? 0.26 : 0.20,
+        range: isFinisher ? 2.34 : 2.18,
         damage: isFinisher ? Math.round(cfg.kickDamage * 1.28) : cfg.kickDamage,
-        knockbackX: isFinisher ? 8.0 : 6.6,
-        knockbackY: isFinisher ? 6.4 : 5.6,
-        hitstop: isFinisher ? 0.06 : 0.052,
+        knockbackX: isFinisher ? 8.2 : 4.8,
+        knockbackY: isFinisher ? 6.5 : 1.6,
+        hitstop: isFinisher ? 0.06 : 0.048,
         stun: isFinisher ? 0.42 : 0.36,
         isHeavy: true,
         isGrab: false,
         isSpecial: false,
         isSuper: false,
-        causesKnockdown: true,
+        causesKnockdown: isFinisher,
         moveCallout: isFinisher ? COMBO_FINISHER_CALLOUTS[fighter.id] : undefined,
       };
     }
@@ -490,9 +510,13 @@ function startAction(
       fighter.comboStep = 0;
     }
     fighter.comboChainTimer = fighter.comboStep < 2 ? 0.52 : 0;
-    // Slight forward step-in momentum on combos so 3-hit chains connect crisply
+    // Slight forward step-in momentum on combos (+ brisk hop on 3rd-hit Jump-Kick Finisher)
     if (fighter.y <= GROUND_Y + 0.02) {
-      fighter.vx = fighter.facing * (fighter.comboStep === 2 ? 3.2 : fighter.comboStep === 1 ? 2.2 : 1.4);
+      fighter.vx = fighter.facing * (fighter.comboStep === 2 ? 3.4 : fighter.comboStep === 1 ? 2.2 : 1.4);
+      if (action === 'kick' && fighter.comboStep === 2) {
+        fighter.vy = 5.4;
+        fighter.y = 0.04;
+      }
     }
   } else {
     fighter.comboStep = 0;
@@ -727,9 +751,19 @@ function applyHit(
     return;
   }
 
+  // Detect COUNTER! interruption when attacker hits opponent during their attack startup
+  const isCounterHit =
+    !params.isSuper &&
+    !params.isGrab &&
+    isBusyAttacking(defender.action) &&
+    defender.action !== 'super' &&
+    defender.action !== 'grab_hold' &&
+    defender.actionTimer <= getAttackTiming(defender).windup + 0.04;
+
   // Clean Hit!
   const dir = attacker.x <= defender.x ? 1 : -1;
-  const actualDamage = Math.min(effectiveDamage, defender.hp);
+  const counterBonus = isCounterHit ? 2 : 0;
+  const actualDamage = Math.min(effectiveDamage + counterBonus, defender.hp);
   defender.hp = Math.max(0, defender.hp - actualDamage);
   defender.vx = dir * params.knockbackX;
   defender.vy = Math.max(defender.vy, params.knockbackY);
@@ -743,7 +777,7 @@ function applyHit(
     defender.y = Math.max(defender.y, 0.08);
     defender.vy = Math.max(defender.vy, 5.4);
   } else if (params.causesKnockdown) {
-    // True Launch -> Slam flat on back -> 0.8s grounded -> Get-up with 0.5s invincibility!
+    // True Launch -> Slam flat on back -> ~0.7s grounded -> 2-stage Get-up with 0.5s invincibility!
     defender.action = 'knockdown';
     defender.actionTimer = 0;
     defender.actionDuration = 0;
@@ -753,13 +787,13 @@ function applyHit(
     defender.vy = Math.max(defender.vy, 5.4);
     defender.expression = 'hit';
   } else {
-    defender.hitstunTimer = params.stun;
+    defender.hitstunTimer = params.stun + (isCounterHit ? 0.06 : 0);
     defender.action = 'hit';
     defender.actionTimer = 0;
     defender.expression = 'hit';
   }
 
-  defender.hitFlashTimer = params.isHeavy ? 0.14 : 0.09;
+  defender.hitFlashTimer = params.isHeavy || isCounterHit ? 0.14 : 0.09;
   defender.squashX = 1.22;
   defender.squashY = 0.8;
 
@@ -780,18 +814,20 @@ function applyHit(
   attacker.shakti = Math.min(100, attacker.shakti + (params.isSuper ? 0 : params.isHeavy ? 15 : 10));
   defender.shakti = Math.min(100, defender.shakti + (params.isHeavy ? 12 : 8));
 
-  state.hitstopTimer = Math.max(state.hitstopTimer, params.hitstop);
+  state.hitstopTimer = Math.max(state.hitstopTimer, params.hitstop + (isCounterHit ? 0.014 : 0));
 
   const seed = state.roundTime * 17 + attacker.damageDealt + defender.hp;
-  let word = params.isGrab
-    ? 'DHAKKA!'
-    : params.isSuper
-      ? 'SHAKTI BOOM!'
-      : params.isHeavy
-        ? pickWord(HIT_WORDS_HEAVY, seed)
-        : pickWord(HIT_WORDS_LIGHT, seed);
+  let word = isCounterHit
+    ? 'COUNTER!'
+    : params.isGrab
+      ? 'DHAKKA!'
+      : params.isSuper
+        ? 'SHAKTI BOOM!'
+        : params.isHeavy
+          ? pickWord(HIT_WORDS_HEAVY, seed)
+          : pickWord(HIT_WORDS_LIGHT, seed);
 
-  if (attacker.comboCount >= 3 && !params.isSuper) {
+  if (!isCounterHit && attacker.comboCount >= 3 && !params.isSuper) {
     word = `${attacker.comboCount} HITS!`;
   }
 
@@ -818,10 +854,10 @@ function applyHit(
     attackerSlot: attacker.slot,
     x: params.hitX,
     y: params.hitY,
-    damage: params.damage,
+    damage: actualDamage,
     word,
-    moveCallout: params.moveCallout,
-    color: params.isSuper ? '#FDE047' : params.isHeavy ? '#FB7185' : '#FBBF24',
+    moveCallout: params.moveCallout ?? (isCounterHit ? 'COUNTER HIT!' : undefined),
+    color: isCounterHit ? '#FEF08A' : params.isSuper ? '#FDE047' : params.isHeavy ? '#FB7185' : '#FBBF24',
     headline,
   });
 }
@@ -1263,6 +1299,18 @@ export function stepMatch(
               }
             } else {
               f.hasHitCurrentAttack = true;
+              const contactX = f.x + (opp.x - f.x) * 0.62;
+              const baseY = Math.max(f.y, opp.y);
+              const contactY =
+                f.action === 'sweep' || (f.action === 'kick' && f.comboStep === 1)
+                  ? baseY + 0.34
+                  : f.action === 'punch' && f.comboStep === 2
+                    ? baseY + 1.62
+                    : f.action === 'kick' && f.comboStep === 2
+                      ? baseY + 1.56
+                      : f.action === 'kick'
+                        ? baseY + 1.48
+                        : baseY + 1.42;
               applyHit(
                 state,
                 f,
@@ -1280,8 +1328,8 @@ export function stepMatch(
                   isSuper: timing.isSuper,
                   causesKnockdown: timing.causesKnockdown,
                   moveCallout: timing.moveCallout,
-                  hitX: (f.x + opp.x) * 0.5,
-                  hitY: Math.max(f.y, opp.y) + 1.25,
+                  hitX: contactX,
+                  hitY: contactY,
                 },
                 events,
               );

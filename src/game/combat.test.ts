@@ -288,3 +288,78 @@ test('Anda Bhai Deewar Drop launches airborne and lands with CRACK! shockwave ev
   );
 });
 
+test('interrupting opponent attack startup triggers COUNTER! callout and bonus damage', () => {
+  const normalState = createMatchState('sheru', 'billa', true);
+  normalState.fighters[0].x = -0.58;
+  normalState.fighters[1].x = 0.58;
+  stepMatch(normalState, [{ ...createEmptyInput(), punch: true }, createEmptyInput()], 1 / 60);
+  stepFrames(normalState, createEmptyInput(), createEmptyInput(), 12);
+  const normalDmg = normalState.fighters[1].maxHp - normalState.fighters[1].hp;
+
+  const counterState = createMatchState('sheru', 'billa', true);
+  counterState.fighters[0].x = -0.58;
+  counterState.fighters[1].x = 0.58;
+  // P1 throws fast jab (shorter windup) while P2 begins slower kick on the same frame -> COUNTER!
+  const events = [
+    ...stepMatch(
+      counterState,
+      [{ ...createEmptyInput(), punch: true }, { ...createEmptyInput(), kick: true }],
+      1 / 60,
+    ),
+    ...stepFrames(counterState, createEmptyInput(), createEmptyInput(), 12),
+  ];
+  const counterDmg = counterState.fighters[1].maxHp - counterState.fighters[1].hp;
+
+  assert.ok(
+    events.some((e) => e.word === 'COUNTER!' && e.moveCallout === 'COUNTER HIT!'),
+    'Interrupting attack startup should emit COUNTER! callout',
+  );
+  assert.ok(
+    counterDmg > normalDmg,
+    `Counter hit (${counterDmg}) should deal more damage than normal hit (${normalDmg})`,
+  );
+});
+
+test('Kick 3-hit combo executes High Snap Kick -> Low Sweep -> Jump-Kick Finisher', () => {
+  const state = createMatchState('sheru', 'billa', true);
+  state.fighters[0].x = -0.62;
+  state.fighters[1].x = 0.62;
+
+  const kickIn = { ...createEmptyInput(), kick: true };
+  const idleIn = createEmptyInput();
+
+  // Hit 1: High Snap Kick (comboStep 0)
+  stepMatch(state, [kickIn, idleIn], 1 / 60);
+  const h1 = stepFrames(state, idleIn, idleIn, 16);
+  assert.ok(
+    h1.some((e) => (e.type === 'hit' || e.type === 'heavy_hit') && e.y > 1.2),
+    '1st kick should connect at chest/head height',
+  );
+
+  // Hit 2: Low Sweep Kick (comboStep 1)
+  state.fighters[1].x = state.fighters[0].x + 1.15;
+  stepMatch(state, [kickIn, idleIn], 1 / 60);
+  const h2 = stepFrames(state, idleIn, idleIn, 18);
+  assert.ok(
+    h2.some((e) => e.moveCallout === 'TANGDI SWEEP!' && e.y < 0.6),
+    '2nd kick combo should execute low sweep at floor contact height',
+  );
+
+  // Hit 3: Jump-Kick Finisher (comboStep 2) - test fresh fighter in range with comboChainTimer active
+  const state3 = createMatchState('sheru', 'billa', true);
+  state3.fighters[0].x = -0.65;
+  state3.fighters[1].x = 0.65;
+  state3.fighters[0].comboStep = 1;
+  state3.fighters[0].comboChainTimer = 0.45;
+  stepMatch(state3, [kickIn, idleIn], 1 / 60);
+  assert.equal(state3.fighters[0].comboStep, 2, '3rd kick should advance to comboStep 2');
+  assert.ok(state3.fighters[0].vy > 4.0, '3rd kick jump-kick finisher should hop briskly off the ground');
+  const h3 = stepFrames(state3, idleIn, idleIn, 20);
+  assert.ok(
+    h3.some((e) => e.type === 'heavy_hit'),
+    '3rd kick jump-kick finisher should land as heavy knockdown hit',
+  );
+  assert.equal(state3.fighters[1].action, 'knockdown', '3rd kick finisher should launch opponent into knockdown');
+});
+
+
