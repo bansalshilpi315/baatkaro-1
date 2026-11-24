@@ -132,7 +132,8 @@ test('Sheru Super cleanly KOs opponent at <= 33% HP on final snap and leaves 34%
   }
   assert.equal(billaA.hp, 0, 'Opponent at <= 33% HP must be cleanly KOed by final finisher');
   assert.equal(koState.phase, 'ko_freeze');
-  assert.equal(koState.winnerSlot, 0);
+  assert.equal(koState.roundWinnerSlot, 0);
+  assert.equal(koState.p1RoundsWon, 1);
 
   // Case B: Opponent at 34/100 HP (1 HP above 33%) -> survives with exact 1 HP
   const surviveState = createMatchState('sheru', 'billa', true);

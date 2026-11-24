@@ -467,6 +467,7 @@ export class DesiShowdownEngine {
     difficulty: Difficulty,
     skipIntro = false,
     initialP1Shakti = 0,
+    testOverrides?: { p1RoundsWon?: number; p2RoundsWon?: number; p1Hp?: number; p2Hp?: number },
   ): void {
     this.p1Id = p1;
     this.p2Id = p2;
@@ -484,6 +485,30 @@ export class DesiShowdownEngine {
     this.matchState = createMatchState(p1, p2, skipIntro);
     if (initialP1Shakti > 0) {
       this.matchState.fighters[0].shakti = Math.min(100, initialP1Shakti);
+    }
+    if (testOverrides) {
+      if (typeof testOverrides.p1RoundsWon === 'number') {
+        this.matchState.p1RoundsWon = Math.max(0, Math.min(1, testOverrides.p1RoundsWon));
+        if (this.matchState.p1RoundsWon > 0) this.matchState.roundNumber = 2;
+      }
+      if (typeof testOverrides.p2RoundsWon === 'number') {
+        this.matchState.p2RoundsWon = Math.max(0, Math.min(1, testOverrides.p2RoundsWon));
+        if (this.matchState.p2RoundsWon > 0) {
+          this.matchState.roundNumber = Math.max(this.matchState.roundNumber, 2);
+        }
+      }
+      if (typeof testOverrides.p1Hp === 'number') {
+        this.matchState.fighters[0].hp = Math.max(
+          1,
+          Math.min(this.matchState.fighters[0].maxHp, testOverrides.p1Hp),
+        );
+      }
+      if (typeof testOverrides.p2Hp === 'number') {
+        this.matchState.fighters[1].hp = Math.max(
+          1,
+          Math.min(this.matchState.fighters[1].maxHp, testOverrides.p2Hp),
+        );
+      }
     }
     const taglines = [
       'DESH JAANNA CHAHTA HAI!',
@@ -835,13 +860,24 @@ export class DesiShowdownEngine {
     let showBroadcastIntro = false;
     if (this.matchState.phase === 'intro') {
       if (this.matchState.phaseTimer > 0.55) {
-        showBroadcastIntro = true;
+        if (this.matchState.roundNumber === 1) {
+          showBroadcastIntro = true;
+        } else {
+          bannerText =
+            this.matchState.roundNumber >= 3
+              ? 'FINAL ROUND!'
+              : `ROUND ${this.matchState.roundNumber}`;
+        }
       } else {
         bannerText = 'FIGHT KARO!';
       }
     } else if (this.matchState.phase === 'ko_freeze') {
       bannerText = this.matchState.finishReason === 'timeout' ? 'TIME UP!' : 'K.O.!';
     }
+
+    const isSuperCinematic = Boolean(
+      this.matchState.sheruSuper?.active || p1.action === 'super' || p2.action === 'super',
+    );
 
     const superBannerText =
       this.matchState.sheruSuper?.active && this.matchState.sheruSuper.elapsed < 1.35
@@ -863,8 +899,12 @@ export class DesiShowdownEngine {
         p2SpecialCd: Number(p2.specialCooldown.toFixed(1)),
         p2SpecialMaxCd: p2.specialMaxCooldown,
         p2Combo: p2.comboCount,
+        roundNumber: this.matchState.roundNumber,
+        p1RoundsWon: this.matchState.p1RoundsWon,
+        p2RoundsWon: this.matchState.p2RoundsWon,
         roundTime: Math.ceil(this.matchState.roundTime),
         phase: this.matchState.phase,
+        isSuperCinematic,
         bannerText,
         superBannerText,
         showBroadcastIntro,
@@ -908,18 +948,17 @@ export class DesiShowdownEngine {
     const [p1, p2] = this.matchState.fighters;
 
     if (this.currentScreen === 'victory') {
-      const winner = this.matchState.winnerSlot === 1 ? p2 : p1;
-      // Offset winner cleanly to the left-third of viewport so THE DAILY JUMLA newspaper sits on right!
-      const clampedWinnerX = THREE.MathUtils.clamp(winner.x, CAMERA_PAN_MIN_X - 0.8, CAMERA_PAN_MAX_X + 0.8);
-      const targetX = THREE.MathUtils.clamp(clampedWinnerX + 1.55, CAMERA_PAN_MIN_X, CAMERA_PAN_MAX_X + 1.5);
-      const targetY = 1.95;
-      const targetZ = 5.4;
-      this.camPos.x = THREE.MathUtils.damp(this.camPos.x, targetX, 4.2, dt);
-      this.camPos.y = THREE.MathUtils.damp(this.camPos.y, targetY, 4.2, dt);
-      this.camPos.z = THREE.MathUtils.damp(this.camPos.z, targetZ, 4.2, dt);
-      this.camLook.x = THREE.MathUtils.damp(this.camLook.x, clampedWinnerX + 1.0, 4.5, dt);
-      this.camLook.y = THREE.MathUtils.damp(this.camLook.y, 1.45, 4.5, dt);
-      this.camLook.z = THREE.MathUtils.damp(this.camLook.z, 0, 4.5, dt);
+      // Frame both the celebrating winner and the defeated fighter lying on the floor behind the darkened overlay
+      const midX = THREE.MathUtils.clamp((p1.x + p2.x) * 0.5, CAMERA_PAN_MIN_X, CAMERA_PAN_MAX_X);
+      const targetX = midX;
+      const targetY = 2.25;
+      const targetZ = 7.4;
+      this.camPos.x = THREE.MathUtils.damp(this.camPos.x, targetX, 3.8, dt);
+      this.camPos.y = THREE.MathUtils.damp(this.camPos.y, targetY, 3.8, dt);
+      this.camPos.z = THREE.MathUtils.damp(this.camPos.z, targetZ, 3.8, dt);
+      this.camLook.x = THREE.MathUtils.damp(this.camLook.x, midX, 4.2, dt);
+      this.camLook.y = THREE.MathUtils.damp(this.camLook.y, 1.2, 4.2, dt);
+      this.camLook.z = THREE.MathUtils.damp(this.camLook.z, 0, 4.2, dt);
       this.keyLight.position.x = this.camPos.x + 6;
       this.keyLight.target.position.x = this.camPos.x;
       this.keyLight.target.updateMatrixWorld();

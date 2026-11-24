@@ -1,16 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  Banknote,
-  ChevronRight,
-  Flame,
-  Hammer,
-  Pause,
-  Shield,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  Zap,
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
 import { FIGHTER_CONFIGS, getFighterPortraitDataUrl, STAGE_CONFIGS } from '../game/characters';
 import type { FighterId, FloatingCallout, HudSnapshot, StageId } from '../game/types';
 import { FullscreenButton } from './FullscreenButton';
@@ -21,7 +10,6 @@ interface FightHudProps {
   stageId: StageId;
   hud: HudSnapshot;
   callouts: FloatingCallout[];
-  headlines: string[];
   muted: boolean;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
@@ -33,30 +21,12 @@ interface FightHudProps {
   onTouchAction: (action: 'punch' | 'kick' | 'grab' | 'special' | 'superMove') => void;
 }
 
-function SpecialIcon({ iconKey }: { iconKey: string }) {
-  switch (iconKey) {
-    case 'notes':
-      return <Banknote className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />;
-    case 'swatter':
-      return <Zap className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />;
-    case 'shield':
-      return <Shield className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />;
-    case 'drop':
-      return <Flame className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />;
-    case 'belan':
-      return <Hammer className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />;
-    default:
-      return <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />;
-  }
-}
-
 export function FightHud({
   p1Id,
   p2Id,
   stageId,
   hud,
   callouts,
-  headlines,
   muted,
   isFullscreen,
   fullscreenSupported,
@@ -74,22 +44,52 @@ export function FightHud({
   const p1Pct = Math.max(0, Math.min(100, (hud.p1Hp / hud.p1MaxHp) * 100));
   const p2Pct = Math.max(0, Math.min(100, (hud.p2Hp / hud.p2MaxHp) * 100));
 
-  // Delayed trailing white/yellow ghost damage bars
-  const [p1Ghost, setP1Ghost] = useState(100);
-  const [p2Ghost, setP2Ghost] = useState(100);
+  // Smooth red trailing damage indicator
+  const [p1Trail, setP1Trail] = useState(100);
+  const [p2Trail, setP2Trail] = useState(100);
+
   useEffect(() => {
-    const t = window.setTimeout(() => setP1Ghost(p1Pct), 240);
+    if (p1Pct > p1Trail) {
+      setP1Trail(p1Pct);
+      return;
+    }
+    const t = window.setTimeout(() => setP1Trail(p1Pct), 220);
     return () => clearTimeout(t);
-  }, [p1Pct]);
+  }, [p1Pct, p1Trail]);
+
   useEffect(() => {
-    const t = window.setTimeout(() => setP2Ghost(p2Pct), 240);
+    if (p2Pct > p2Trail) {
+      setP2Trail(p2Pct);
+      return;
+    }
+    const t = window.setTimeout(() => setP2Trail(p2Pct), 220);
     return () => clearTimeout(t);
-  }, [p2Pct]);
+  }, [p2Pct, p2Trail]);
+
+  // Auto-hide touch controls during pre-fight intros, cinematic Supers, and KO/Victory
+  const controlsHidden =
+    hud.phase === 'intro' ||
+    hud.showBroadcastIntro ||
+    hud.isSuperCinematic ||
+    hud.phase === 'ko_freeze' ||
+    hud.phase === 'finished';
 
   // Virtual Joystick State
   const stickBaseRef = useRef<HTMLDivElement | null>(null);
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const activePointerId = useRef<number | null>(null);
+
+  const resetStick = useCallback(() => {
+    activePointerId.current = null;
+    setKnobPos({ x: 0, y: 0 });
+    onTouchDirection({ left: false, right: false, up: false, down: false });
+  }, [onTouchDirection]);
+
+  useEffect(() => {
+    if (controlsHidden && activePointerId.current !== null) {
+      resetStick();
+    }
+  }, [controlsHidden, resetStick]);
 
   const updateStickFromPoint = (clientX: number, clientY: number) => {
     const base = stickBaseRef.current;
@@ -97,7 +97,7 @@ export function FightHud({
     const rect = base.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const maxR = rect.width * 0.38;
+    const maxR = rect.width * 0.36;
     let dx = clientX - cx;
     let dy = clientY - cy;
     const dist = Math.hypot(dx, dy);
@@ -106,7 +106,7 @@ export function FightHud({
       dy = (dy / dist) * maxR;
     }
     setKnobPos({ x: dx, y: dy });
-    const dead = maxR * 0.26;
+    const dead = maxR * 0.25;
     onTouchDirection({
       left: dx < -dead,
       right: dx > dead,
@@ -115,300 +115,296 @@ export function FightHud({
     });
   };
 
-  const resetStick = () => {
-    activePointerId.current = null;
-    setKnobPos({ x: 0, y: 0 });
-    onTouchDirection({ left: false, right: false, up: false, down: false });
-  };
-
-  // Cooldown progress for Specialised Move radial ring
-  const cdRatio =
-    hud.p1SpecialMaxCd > 0 ? Math.max(0, Math.min(1, hud.p1SpecialCd / hud.p1SpecialMaxCd)) : 0;
-  const cdReady = hud.p1SpecialCd <= 0.01;
-  const ringCircumference = 2 * Math.PI * 28;
-  const ringOffset = ringCircumference * (1 - cdRatio);
-
-  const superReady = hud.p1Shakti >= 100;
-  const tickerText = headlines.join('   ★   ');
+  const p1SuperReady = hud.p1Shakti >= 100;
+  const p2SuperReady = hud.p2Shakti >= 100;
+  const timerUrgent = hud.roundTime <= 10;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-20 flex h-[100dvh] w-[100dvw] flex-col justify-between overflow-hidden select-none touch-none">
-      {/* TOP TV NEWS BROADCAST ARENA HUD */}
-      <header className="safe-pad-hud-top w-full shrink-0 sm:px-5 sm:pt-3">
-        <div className="mx-auto flex max-w-6xl items-start justify-between gap-2 sm:gap-3">
-          {/* P1 Skewed Health + Glowing SHAKTI */}
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
-            <div className="hud-portrait relative h-12 w-12 shrink-0 border-2 border-[#facc15] bg-[#16110e] shadow-[3px_3px_0_#0f0a06] sm:h-14 sm:w-14">
+      {/* =================================================================
+          TOP ARCADE HUD BAR (SPACIOUS, CLEAN, ZERO BOTTOM TICKER)
+          ================================================================= */}
+      <header className="safe-pad-hud-top w-full">
+        <div className="mx-auto flex w-full max-w-6xl items-start gap-2 sm:gap-3">
+          {/* ---------------- LEFT: P1 PORTRAIT + HP + ROUNDS + SHAKTI ---------------- */}
+          <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-2.5">
+            {/* Far-Left Square Portrait with Thin Gold Border */}
+            <div className="hud-portrait relative h-14 w-14 shrink-0 overflow-hidden rounded-sm border-2 border-[#facc15] bg-[#14100d] shadow-[0_3px_12px_rgba(0,0,0,0.75)] sm:h-16 sm:w-16">
               <img
                 src={getFighterPortraitDataUrl(p1Id)}
                 alt={p1Cfg.name}
                 className="h-full w-full object-cover"
               />
-              <span className="absolute -bottom-1 -left-1 bg-[#facc15] px-1 font-display text-[10px] font-extrabold text-[#110b08]">
-                1P
-              </span>
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-1.5">
-                <span className="hud-fighter-name truncate pr-1 font-display text-lg font-extrabold uppercase italic tracking-wide text-white news-stroke sm:text-xl">
-                  {p1Cfg.name}
-                </span>
-                <span
-                  className="hud-hp-num shrink-0 bg-[#120d0a]/88 px-1.5 py-0.5 font-mono-num text-xs font-bold text-[#facc15]"
-                  data-testid="p1-hp"
-                >
-                  {hud.p1Hp}/{hud.p1MaxHp}
-                </span>
+              {/* Fighter Name + P1 Tag */}
+              <div className="mb-1 flex items-baseline justify-between gap-2 px-0.5">
+                <div className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="hud-role-tag font-display text-xs font-extrabold uppercase tracking-wider text-[#facc15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] sm:text-sm">
+                    P1
+                  </span>
+                  <span className="hud-fighter-name truncate font-display text-base font-extrabold uppercase tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] sm:text-xl">
+                    {p1Cfg.name}
+                  </span>
+                </div>
               </div>
 
-              {/* Skewed P1 Health Bar with White/Yellow Trailing Ghost */}
-              <div className="hud-hp-bar relative h-4 w-full -skew-x-12 overflow-hidden border-2 border-[#0f0a06] bg-[#1c1917] shadow-[3px_3px_0_#0f0a06] sm:h-5">
+              {/* Thick Skewed Golden-Yellow HP Bar + Smooth Red Trailing Damage Indicator */}
+              <div
+                data-testid="p1-hp-bar"
+                className="hud-hp-bar relative h-4 w-full -skew-x-[12deg] overflow-hidden border-2 border-[#facc15]/90 bg-[#1a130e]/90 shadow-[0_3px_10px_rgba(0,0,0,0.65)] sm:h-5"
+              >
+                {/* Red trailing damage bar */}
                 <div
-                  className="absolute inset-y-0 left-0 bg-[#fef08a] transition-[width] duration-350"
-                  style={{ width: `${p1Ghost}%` }}
+                  className="absolute inset-y-0 left-0 bg-[#dc2626] transition-[width] duration-300 ease-out"
+                  style={{ width: `${p1Trail}%` }}
                 />
+                {/* Golden-yellow active health fill */}
                 <div
-                  className={`absolute inset-y-0 left-0 transition-[width] duration-75 ${
-                    p1Pct <= 25
-                      ? 'bg-[#ef4444]'
-                      : 'bg-gradient-to-r from-[#16a34a] to-[#4ade80]'
-                  }`}
+                  className="absolute inset-y-0 left-0 bg-gradient-to-b from-[#fef08a] via-[#facc15] to-[#ca8a04] transition-[width] duration-100"
                   style={{ width: `${p1Pct}%` }}
                 />
+                {/* Subtle top specular gloss */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[38%] bg-white/25" />
               </div>
 
-              {/* Glowing SHAKTI Meter */}
-              <div className="hud-shakti-row mt-1 flex items-center gap-1.5 bg-[#120d0a]/88 px-2 py-0.5">
-                <span className="font-display text-[10px] font-extrabold tracking-wider text-[#facc15] sm:text-[11px]">
-                  SHAKTI
-                </span>
-                <div className="hud-shakti-bar relative h-2 flex-1 -skew-x-12 overflow-hidden border border-[#0f0a06] bg-[#292524]">
-                  <div
-                    className={`h-full transition-[width] duration-100 ${
-                      superReady
-                        ? 'bg-[#fde047] shadow-[0_0_10px_#fde047]'
-                        : 'bg-gradient-to-r from-[#f59e0b] to-[#fde047]'
-                    }`}
-                    style={{ width: `${hud.p1Shakti}%` }}
-                  />
-                </div>
-                <span className="font-mono-num text-[10px] font-bold text-[#fef08a]">
-                  {hud.p1Shakti}%
-                </span>
+              {/* 2 Round-Win Indicator Circles (Best of 3) */}
+              <div
+                data-testid="p1-rounds"
+                className="mt-1 flex items-center gap-1.5 px-0.5"
+                aria-label={`P1 rounds won: ${hud.p1RoundsWon} of 2`}
+              >
+                {[0, 1].map((idx) => {
+                  const won = hud.p1RoundsWon > idx;
+                  return (
+                    <span
+                      key={idx}
+                      data-won={won ? 'true' : 'false'}
+                      className={`hud-round-dot h-3 w-3 rounded-full border-[1.5px] transition-all duration-200 ${
+                        won
+                          ? 'border-[#fef9c3] bg-[#facc15] shadow-[0_0_8px_rgba(250,204,21,0.95)]'
+                          : 'border-[#facc15]/60 bg-black/65'
+                      }`}
+                    />
+                  );
+                })}
+                {p1SuperReady && (
+                  <span
+                    data-testid="p1-shakti-ready"
+                    className="hud-shakti-ready-text ml-auto font-display text-[11px] font-extrabold uppercase tracking-wider text-[#fde047] [-webkit-text-stroke:0.6px_#140d04] drop-shadow-[0_1px_3px_rgba(0,0,0,0.98)] sm:text-xs"
+                  >
+                    SHAKTI READY!
+                  </span>
+                )}
+              </div>
+
+              {/* Sleek Emerald-to-Gold Shakti Bar */}
+              <div
+                data-testid="p1-shakti-bar"
+                className={`hud-shakti-bar mt-1 h-2 w-full -skew-x-[12deg] overflow-hidden border bg-black/75 transition-all ${
+                  p1SuperReady
+                    ? 'shakti-ready-pulse border-[#fef08a]'
+                    : 'border-white/25'
+                }`}
+              >
+                <div
+                  className={`h-full transition-[width] duration-150 ${
+                    p1SuperReady
+                      ? 'bg-gradient-to-r from-[#fde047] via-[#facc15] to-[#fef08a]'
+                      : 'bg-gradient-to-r from-[#059669] via-[#10b981] to-[#facc15]'
+                  }`}
+                  style={{ width: `${Math.min(100, hud.p1Shakti)}%` }}
+                />
               </div>
             </div>
           </div>
 
-          {/* CENTER STATIC ● LIVE BADGE & 60 TIMER */}
-          <div className="flex shrink-0 flex-col items-center">
-            <div className="hud-live-badge flex items-center gap-1.5 bg-[#dc2626] px-2.5 py-0.5 text-[11px] font-extrabold tracking-widest text-white shadow-[2px_2px_0_#0f0a06]">
-              <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
-              <span>LIVE</span>
-            </div>
+          {/* ---------------- CENTER: CRISP WHITE 60s TIMER + PAUSE BUTTON ---------------- */}
+          <div className="flex shrink-0 flex-col items-center px-1 sm:px-2">
             <div
-              data-testid="round-timer"
-              className="hud-timer-box mt-0.5 flex h-11 w-16 items-center justify-center border-2 border-[#facc15] bg-[#120d0a] font-mono-num text-2xl font-bold text-[#facc15] shadow-[3px_3px_0_#0f0a06] sm:h-12 sm:w-20 sm:text-3xl"
+              data-testid="hud-timer"
+              className={`hud-timer-num font-display text-4xl font-extrabold leading-none tracking-tight drop-shadow-[0_3px_6px_rgba(0,0,0,0.95)] sm:text-5xl ${
+                timerUrgent ? 'text-[#f87171]' : 'text-white'
+              }`}
             >
               {String(hud.roundTime).padStart(2, '0')}
             </div>
-            <span className="hud-stage-label mt-0.5 hidden max-w-[120px] truncate bg-[#120d0a]/88 px-1.5 text-[10px] font-bold uppercase tracking-wider text-[#e7e5e4] sm:block">
-              {stageCfg.name}
-            </span>
+            <button
+              type="button"
+              onClick={onPause}
+              aria-label="Pause Game"
+              data-testid="hud-pause-btn"
+              className="hud-pause-btn pointer-events-auto mt-1 flex h-7 w-9 cursor-pointer items-center justify-center rounded-md border border-white/35 bg-black/55 text-white backdrop-blur-sm transition hover:border-[#facc15] hover:bg-black/75 hover:text-[#facc15]"
+            >
+              <Pause className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+            </button>
           </div>
 
-          {/* CPU Skewed Health + SHAKTI + Top-Right Pause, Mute & Fullscreen */}
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
+          {/* ---------------- RIGHT: CPU HP + ROUNDS + SHAKTI + PORTRAIT ---------------- */}
+          <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-2.5">
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-1.5">
-                <span
-                  className="hud-hp-num shrink-0 bg-[#120d0a]/88 px-1.5 py-0.5 font-mono-num text-xs font-bold text-[#fda4af]"
-                  data-testid="p2-hp"
-                >
-                  {hud.p2Hp}/{hud.p2MaxHp}
-                </span>
-                <span className="hud-fighter-name truncate pr-1 font-display text-lg font-extrabold uppercase italic tracking-wide text-white news-stroke sm:text-xl">
+              {/* Fighter Name + CPU Tag */}
+              <div className="mb-1 flex items-baseline justify-end gap-1.5 px-0.5">
+                <span className="hud-fighter-name truncate font-display text-base font-extrabold uppercase tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] sm:text-xl">
                   {p2Cfg.name}
                 </span>
+                <span className="hud-role-tag font-display text-xs font-extrabold uppercase tracking-wider text-[#facc15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] sm:text-sm">
+                  CPU
+                </span>
               </div>
 
-              {/* Skewed Mirrored CPU Health Bar */}
-              <div className="hud-hp-bar relative h-4 w-full skew-x-12 overflow-hidden border-2 border-[#0f0a06] bg-[#1c1917] shadow-[3px_3px_0_#0f0a06] sm:h-5">
+              {/* Thick Skewed Golden-Yellow HP Bar (Drains Right-to-Left) */}
+              <div
+                data-testid="p2-hp-bar"
+                className="hud-hp-bar relative h-4 w-full skew-x-[12deg] overflow-hidden border-2 border-[#facc15]/90 bg-[#1a130e]/90 shadow-[0_3px_10px_rgba(0,0,0,0.65)] sm:h-5"
+              >
+                {/* Red trailing damage bar */}
                 <div
-                  className="absolute inset-y-0 right-0 bg-[#fef08a] transition-[width] duration-350"
-                  style={{ width: `${p2Ghost}%` }}
+                  className="absolute inset-y-0 right-0 bg-[#dc2626] transition-[width] duration-300 ease-out"
+                  style={{ width: `${p2Trail}%` }}
                 />
+                {/* Golden-yellow active health fill */}
                 <div
-                  className={`absolute inset-y-0 right-0 transition-[width] duration-75 ${
-                    p2Pct <= 25
-                      ? 'bg-[#ef4444]'
-                      : 'bg-gradient-to-l from-[#e11d48] to-[#fb7185]'
-                  }`}
+                  className="absolute inset-y-0 right-0 bg-gradient-to-b from-[#fef08a] via-[#facc15] to-[#ca8a04] transition-[width] duration-100"
                   style={{ width: `${p2Pct}%` }}
                 />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[38%] bg-white/25" />
               </div>
 
-              {/* CPU SHAKTI Meter */}
-              <div className="hud-shakti-row mt-1 flex items-center gap-1.5 bg-[#120d0a]/88 px-2 py-0.5">
-                <span className="font-mono-num text-[10px] font-bold text-[#fda4af]">
-                  {hud.p2Shakti}%
-                </span>
-                <div className="hud-shakti-bar relative h-2 flex-1 skew-x-12 overflow-hidden border border-[#0f0a06] bg-[#292524]">
-                  <div
-                    className="ml-auto h-full bg-gradient-to-l from-[#e11d48] to-[#fda4af] transition-[width] duration-100"
-                    style={{ width: `${hud.p2Shakti}%` }}
-                  />
-                </div>
-                <span className="font-display text-[10px] font-extrabold tracking-wider text-[#fda4af] sm:text-[11px]">
-                  SHAKTI
-                </span>
+              {/* 2 Round-Win Indicator Circles (Right-aligned) */}
+              <div
+                data-testid="p2-rounds"
+                className="mt-1 flex items-center justify-end gap-1.5 px-0.5"
+                aria-label={`CPU rounds won: ${hud.p2RoundsWon} of 2`}
+              >
+                {p2SuperReady && (
+                  <span className="hud-shakti-ready-text mr-auto font-display text-[11px] font-extrabold uppercase tracking-wider text-[#fde047] [-webkit-text-stroke:0.6px_#140d04] drop-shadow-[0_1px_3px_rgba(0,0,0,0.98)] sm:text-xs">
+                    SHAKTI READY!
+                  </span>
+                )}
+                {[1, 0].map((idx) => {
+                  const won = hud.p2RoundsWon > idx;
+                  return (
+                    <span
+                      key={idx}
+                      data-won={won ? 'true' : 'false'}
+                      className={`hud-round-dot h-3 w-3 rounded-full border-[1.5px] transition-all duration-200 ${
+                        won
+                          ? 'border-[#fef9c3] bg-[#facc15] shadow-[0_0_8px_rgba(250,204,21,0.95)]'
+                          : 'border-[#facc15]/60 bg-black/65'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Sleek Emerald-to-Gold Shakti Bar (Fills Right-to-Left) */}
+              <div
+                data-testid="p2-shakti-bar"
+                className={`hud-shakti-bar mt-1 flex h-2 w-full skew-x-[12deg] justify-end overflow-hidden border bg-black/75 transition-all ${
+                  p2SuperReady
+                    ? 'shakti-ready-pulse border-[#fef08a]'
+                    : 'border-white/25'
+                }`}
+              >
+                <div
+                  className={`h-full transition-[width] duration-150 ${
+                    p2SuperReady
+                      ? 'bg-gradient-to-l from-[#fde047] via-[#facc15] to-[#fef08a]'
+                      : 'bg-gradient-to-l from-[#059669] via-[#10b981] to-[#facc15]'
+                  }`}
+                  style={{ width: `${Math.min(100, hud.p2Shakti)}%` }}
+                />
               </div>
             </div>
 
-            <div className="hud-portrait relative h-12 w-12 shrink-0 border-2 border-[#ef4444] bg-[#16110e] shadow-[3px_3px_0_#0f0a06] sm:h-14 sm:w-14">
+            {/* Far-Right Square Portrait with Thin Gold Border */}
+            <div className="hud-portrait relative h-14 w-14 shrink-0 overflow-hidden rounded-sm border-2 border-[#facc15] bg-[#14100d] shadow-[0_3px_12px_rgba(0,0,0,0.75)] sm:h-16 sm:w-16">
               <img
                 src={getFighterPortraitDataUrl(p2Id)}
                 alt={p2Cfg.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full -scale-x-100 object-cover"
               />
-              <span className="absolute -bottom-1 -right-1 bg-[#dc2626] px-1 font-display text-[10px] font-extrabold text-white">
-                CPU
-              </span>
             </div>
 
-            {/* Sleek Top-Right Utility Cluster: Pause (II), Mute & Fullscreen */}
-            <div className="pointer-events-auto flex shrink-0 items-center gap-1 self-start">
+            {/* Compact Top-Right Utility Controls (Fullscreen + Mute) Tucked Cleanly Beside Portrait */}
+            <div className="pointer-events-auto flex shrink-0 flex-col gap-1">
+              <FullscreenButton
+                variant="hud"
+                isFullscreen={isFullscreen}
+                isSupported={fullscreenSupported}
+                onToggle={onToggleFullscreen}
+              />
               <button
                 type="button"
-                tabIndex={-1}
-                aria-label="Pause game (Chai Break)"
-                title="Pause"
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onPause();
-                }}
-                className="hud-util-btn flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-[#facc15] bg-[#14100d]/90 text-[#facc15] hover:bg-[#facc15] hover:text-[#110b08]"
-              >
-                <Pause className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-                title={muted ? 'Unmute' : 'Mute'}
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onToggleMute();
-                }}
-                className="hud-util-btn flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white/40 bg-[#14100d]/90 text-white hover:border-[#facc15] hover:text-[#facc15]"
+                onClick={onToggleMute}
+                aria-label={muted ? 'Unmute Audio' : 'Mute Audio'}
+                className="hud-util-btn flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white/40 bg-[#14100d]/90 text-white transition-colors hover:border-[#facc15] hover:text-[#facc15]"
               >
                 {muted ? (
-                  <VolumeX className="h-3.5 w-3.5" aria-hidden="true" />
+                  <VolumeX className="h-3.5 w-3.5 text-[#f87171]" aria-hidden="true" />
                 ) : (
                   <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
               </button>
-              <FullscreenButton
-                isFullscreen={isFullscreen}
-                isSupported={fullscreenSupported}
-                onToggle={onToggleFullscreen}
-                variant="hud"
-              />
             </div>
           </div>
         </div>
 
-        {/* Live Combo Counter */}
-        <div className="hud-combo-row mx-auto mt-1 flex max-w-6xl justify-between px-14">
-          <div className="hud-combo-slot h-6">
+        {/* Combo Counters */}
+        <div className="hud-combo-row mx-auto mt-1 flex w-full max-w-6xl justify-between px-16 sm:px-20">
+          <div className="h-6">
             {hud.p1Combo >= 2 && (
-              <span className="hud-combo-text font-display text-2xl font-extrabold italic text-[#facc15] news-stroke">
-                {hud.p1Combo} HITS!
-              </span>
+              <div className="hud-combo-text news-stroke font-display text-xl font-extrabold italic text-[#facc15] sm:text-2xl">
+                {hud.p1Combo} HIT COMBO!
+              </div>
             )}
           </div>
-          <div className="hud-combo-slot h-6">
+          <div className="h-6">
             {hud.p2Combo >= 2 && (
-              <span className="hud-combo-text font-display text-2xl font-extrabold italic text-[#fb7185] news-stroke">
-                {hud.p2Combo} HITS!
-              </span>
+              <div className="hud-combo-text news-stroke font-display text-xl font-extrabold italic text-[#fb7185] sm:text-2xl">
+                {hud.p2Combo} HIT COMBO!
+              </div>
             )}
           </div>
         </div>
       </header>
 
-      {/* FLOATING 2D COMIC HIT-WORDS */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        {callouts.map((c) => {
-          const isTrillion = c.text.includes('TRILLION');
-          return (
-            <div
-              key={c.id}
-              className={`comic-pop-text absolute whitespace-nowrap ${
-                isTrillion
-                  ? 'text-4xl font-black tracking-wider drop-shadow-[0_0_18px_rgba(250,204,21,0.95)] sm:text-5xl'
-                  : 'text-3xl sm:text-4xl'
-              }`}
-              style={{
-                left: `${c.screenX}px`,
-                top: `${c.screenY}px`,
-                color: c.color,
-              }}
-            >
-              {c.text}
-            </div>
-          );
-        })}
+      {/* =================================================================
+          FLOATING COMIC-BOOK CALLOUTS (DHISHUM!, PAISA VASOOL!, ETC.)
+          ================================================================= */}
+      <div className="pointer-events-none fixed inset-0 z-20 overflow-hidden">
+        {callouts.map((c) => (
+          <div
+            key={c.id}
+            className="comic-pop-text absolute text-2xl sm:text-4xl"
+            style={{
+              left: `${c.screenX}px`,
+              top: `${c.screenY}px`,
+              color: c.color,
+            }}
+          >
+            {c.text}
+          </div>
+        ))}
       </div>
 
-      {/* SHERU BHAI SUPER POWER COMIC-ARCADE BANNER */}
-      {hud.superBannerText && (
-        <div
-          data-testid="sheru-super-banner"
-          className="pointer-events-none fixed inset-x-0 top-[14%] z-30 flex justify-center px-3 sm:top-[15%]"
-        >
-          <div className="-skew-x-12 border-4 border-[#facc15] bg-[#140e08]/95 px-5 py-1.5 shadow-[6px_6px_0_#ca8a04] sm:px-8 sm:py-2">
-            <div className="skew-x-12 text-center">
-              <div className="font-display text-[10px] font-black uppercase tracking-[0.26em] text-[#fde047] sm:text-xs">
-                ★ SHERU BHAI · SUPER POWER ★
-              </div>
-              <div className="font-display text-2xl font-black uppercase italic tracking-wide text-[#facc15] news-stroke sm:text-4xl">
-                {hud.superBannerText}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PRE-FIGHT TV DEBATE CLASH BANNER (2s intro with SKIP ›) */}
+      {/* =================================================================
+          PRE-FIGHT BROADCAST INTRO CARD (ROUND 1)
+          ================================================================= */}
       {hud.showBroadcastIntro && (
-        <div
-          data-testid="broadcast-intro-banner"
-          className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center px-4"
-        >
-          <div className="pointer-events-auto relative w-full max-w-2xl border-4 border-[#0f0a06] bg-[#14100d]/95 shadow-[8px_8px_0_#dc2626]">
-            {/* Top Live Debate Ribbon */}
-            <div className="flex items-center justify-between bg-[#dc2626] px-4 py-1.5">
-              <div className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-widest text-white">
-                <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
-                <span>LIVE · PRIME TIME SHOWDOWN</span>
-              </div>
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onSkipIntro();
-                }}
-                className="flex cursor-pointer items-center gap-0.5 border border-[#facc15] bg-[#110b08] px-2.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#facc15] hover:bg-[#facc15] hover:text-[#110b08]"
-              >
-                <span>SKIP</span>
-                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
+        <div className="pointer-events-auto fixed inset-0 z-30 flex items-center justify-center px-4">
+          <div className="w-full max-w-2xl border-4 border-[#110b08] bg-[#140e0b]/95 shadow-[8px_8px_0_#dc2626]">
+            <div className="flex items-center justify-between border-b-2 border-[#facc15] bg-[#dc2626] px-4 py-1.5">
+              <span className="font-display text-xs font-extrabold uppercase tracking-[0.18em] text-white sm:text-sm">
+                BREAKING BAKWAS · ROUND 1 SHOWDOWN
+              </span>
+              <span className="font-display text-xs font-extrabold uppercase tracking-widest text-[#facc15]">
+                {stageCfg.name}
+              </span>
             </div>
-
-            {/* P1 VS CPU Clash Row */}
-            <div className="hud-intro-body flex items-center justify-between gap-3 px-5 py-4">
+            <div className="hud-intro-body flex items-center justify-between gap-4 px-5 py-4">
               <div className="flex items-center gap-3">
                 <img
                   src={getFighterPortraitDataUrl(p1Id)}
@@ -416,216 +412,204 @@ export function FightHud({
                   className="hud-intro-avatar h-14 w-14 border-2 border-[#facc15] object-cover sm:h-16 sm:w-16"
                 />
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#facc15]">
-                    PLAYER 1
-                  </div>
-                  <div className="hud-intro-name font-display text-2xl font-extrabold uppercase italic leading-none text-white sm:text-3xl">
+                  <div className="font-display text-xs font-bold uppercase text-[#facc15]">P1</div>
+                  <div className="hud-intro-name font-display text-xl font-extrabold uppercase text-white sm:text-2xl">
                     {p1Cfg.name}
                   </div>
                 </div>
               </div>
 
-              <div className="-skew-x-12 bg-[#facc15] px-3 py-1 font-display text-2xl font-extrabold italic text-[#110b08] shadow-[4px_4px_0_#dc2626] sm:text-3xl">
-                <span className="inline-block skew-x-12">VS</span>
+              <div className="border-2 border-[#110b08] bg-[#facc15] px-3 py-1 font-display text-2xl font-extrabold italic text-[#110b08] shadow-[3px_3px_0_#dc2626]">
+                VS
               </div>
 
-              <div className="flex flex-row-reverse items-center gap-3 text-right">
-                <img
-                  src={getFighterPortraitDataUrl(p2Id)}
-                  alt={p2Cfg.name}
-                  className="hud-intro-avatar h-14 w-14 border-2 border-[#ef4444] object-cover sm:h-16 sm:w-16"
-                />
+              <div className="flex items-center gap-3 text-right">
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#fb7185]">
-                    CPU CHALLENGER
-                  </div>
-                  <div className="hud-intro-name font-display text-2xl font-extrabold uppercase italic leading-none text-white sm:text-3xl">
+                  <div className="font-display text-xs font-bold uppercase text-[#facc15]">CPU</div>
+                  <div className="hud-intro-name font-display text-xl font-extrabold uppercase text-white sm:text-2xl">
                     {p2Cfg.name}
                   </div>
                 </div>
+                <img
+                  src={getFighterPortraitDataUrl(p2Id)}
+                  alt={p2Cfg.name}
+                  className="hud-intro-avatar h-14 w-14 -scale-x-100 border-2 border-[#facc15] object-cover sm:h-16 sm:w-16"
+                />
               </div>
             </div>
-
-            {/* Witty 1-line Debate Tagline */}
-            <div className="border-t-2 border-[#facc15] bg-[#facc15] px-4 py-1 text-center font-display text-sm font-extrabold uppercase italic tracking-wider text-[#110b08] sm:text-lg">
-              &ldquo;{hud.introTagline}&rdquo;
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CENTER TRANSIENT FIGHT KARO! / K.O.! CALLOUT BANNER */}
-      {!hud.showBroadcastIntro && hud.bannerText && (
-        <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
-          <div className="hud-banner-box -skew-x-12 border-4 border-[#0f0a06] bg-[#dc2626] px-8 py-2.5 font-display text-5xl font-extrabold uppercase italic tracking-wider text-[#facc15] shadow-[8px_8px_0_#0f0a06] sm:text-7xl">
-            <span className="inline-block skew-x-12">{hud.bannerText}</span>
-          </div>
-        </div>
-      )}
-
-      {/* BOTTOM CLEAN CONTROLS & FLUSH BREAKING BAKWAS TICKER */}
-      <div className="w-full shrink-0">
-        {/* Responsive Touch Joystick (Left) + Sleek Circular Arcade Cluster (Right) */}
-        <div className="safe-pad-hud-controls hud-controls-row mx-auto flex w-full max-w-6xl items-end justify-between pb-2.5 sm:px-6 sm:pb-3">
-          {/* Left Virtual Joystick */}
-          <div
-            ref={stickBaseRef}
-            data-testid="virtual-joystick"
-            aria-label="Movement virtual joystick"
-            onPointerDown={(e) => {
-              activePointerId.current = e.pointerId;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              updateStickFromPoint(e.clientX, e.clientY);
-            }}
-            onPointerMove={(e) => {
-              if (activePointerId.current === e.pointerId) {
-                updateStickFromPoint(e.clientX, e.clientY);
-              }
-            }}
-            onPointerUp={(e) => {
-              if (activePointerId.current === e.pointerId) resetStick();
-            }}
-            onPointerCancel={resetStick}
-            className="hud-stick-base pointer-events-auto relative flex h-24 w-24 touch-none items-center justify-center rounded-full border-2 border-[#facc15]/75 bg-[#120d0a]/60 shadow-[0_4px_12px_rgba(0,0,0,0.45)] sm:h-28 sm:w-28"
-          >
-            <div className="pointer-events-none absolute inset-2 rounded-full border border-dashed border-white/25" />
-            <div
-              className="hud-stick-knob pointer-events-none h-10 w-10 rounded-full border-2 border-[#0f0a06] bg-[#facc15]/95 shadow-[0_3px_0_#dc2626] sm:h-11 sm:w-11"
-              style={{
-                transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
-              }}
-            />
-          </div>
-
-          {/* Right Semi-Translucent Circular Arcade Action Cluster */}
-          <div className="hud-action-cluster pointer-events-auto flex items-end gap-3" data-testid="action-cluster">
-            {/* Highlighted Specialised Move Circular Button with Radial Cooldown Ring */}
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label={`Specialised move: ${p1Cfg.special.name}`}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                onTouchAction('special');
-              }}
-              className={`hud-special-btn relative flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-full border-2 text-center shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-transform active:scale-95 sm:h-[72px] sm:w-[72px] ${
-                cdReady
-                  ? 'border-[#facc15] bg-[#14100d]/82 text-[#facc15]'
-                  : 'border-white/25 bg-[#14100d]/65 text-[#a8a29e]'
-              }`}
-            >
-              <svg
-                viewBox="0 0 64 64"
-                className="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="28"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.14)"
-                  strokeWidth="4"
-                />
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="28"
-                  fill="none"
-                  stroke={cdReady ? '#FACC15' : '#FB923C'}
-                  strokeWidth="4"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={cdReady ? 0 : ringOffset}
-                />
-              </svg>
-              <SpecialIcon iconKey={p1Cfg.special.iconKey} />
-              <span className="hud-special-label mt-0.5 max-w-[46px] truncate font-display text-[9px] font-extrabold uppercase leading-none sm:text-[10px]">
-                {cdReady ? p1Cfg.special.shortLabel : `${hud.p1SpecialCd.toFixed(1)}s`}
+            <div className="flex items-center justify-between border-t border-white/15 bg-[#1c1510] px-4 py-2">
+              <span className="font-display text-xs font-bold uppercase tracking-wider text-[#fde047] sm:text-sm">
+                &ldquo;{hud.introTagline}&rdquo;
               </span>
-            </button>
-
-            {/* Circular Diamond/Grid for PUNCH, KICK, GRAB, SUPER */}
-            <div className="hud-action-grid grid grid-cols-2 gap-2">
               <button
                 type="button"
-                tabIndex={-1}
-                aria-label="Punch attack"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  onTouchAction('punch');
-                }}
-                className="hud-action-btn flex h-13 w-13 cursor-pointer flex-col items-center justify-center rounded-full border-2 border-[#facc15] bg-[#facc15]/82 font-display text-xs font-extrabold uppercase leading-none text-[#110b08] shadow-[0_3px_10px_rgba(0,0,0,0.45)] active:scale-95 sm:h-14 sm:w-14 sm:text-sm"
+                onClick={onSkipIntro}
+                className="flex cursor-pointer items-center gap-1 border border-[#facc15] bg-[#facc15] px-2.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#110b08] hover:bg-[#fde047]"
               >
-                <span>PUNCH</span>
-              </button>
-
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="Kick attack"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  onTouchAction('kick');
-                }}
-                className="hud-action-btn flex h-13 w-13 cursor-pointer flex-col items-center justify-center rounded-full border-2 border-[#fca5a5] bg-[#dc2626]/82 font-display text-xs font-extrabold uppercase leading-none text-white shadow-[0_3px_10px_rgba(0,0,0,0.45)] active:scale-95 sm:h-14 sm:w-14 sm:text-sm"
-              >
-                <span>KICK</span>
-              </button>
-
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="Grab throw"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  onTouchAction('grab');
-                }}
-                className="hud-action-btn flex h-13 w-13 cursor-pointer flex-col items-center justify-center rounded-full border-2 border-[#7dd3fc] bg-[#0284c7]/78 font-display text-xs font-extrabold uppercase leading-none text-white shadow-[0_3px_10px_rgba(0,0,0,0.45)] active:scale-95 sm:h-14 sm:w-14 sm:text-sm"
-              >
-                <span>GRAB</span>
-              </button>
-
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={superReady ? 'Trigger Shakti Super' : 'Super Shakti charge'}
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  onTouchAction('superMove');
-                }}
-                className={`hud-action-btn flex h-13 w-13 cursor-pointer flex-col items-center justify-center rounded-full border-2 font-display text-xs font-extrabold uppercase leading-none shadow-[0_3px_10px_rgba(0,0,0,0.45)] active:scale-95 sm:h-14 sm:w-14 ${
-                  superReady
-                    ? 'border-[#fde047] bg-[#ea580c]/92 text-white'
-                    : 'border-white/30 bg-[#14100d]/72 text-[#d6d3d1]'
-                }`}
-              >
-                <span>SUPER</span>
-                <span className="font-mono-num text-[9px] font-bold">
-                  {superReady ? 'MAX!' : `${hud.p1Shakti}%`}
-                </span>
+                <span>SKIP</span>
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* FLUSH BOTTOM BREAKING BAKWAS NEWS TICKER */}
+      {/* =================================================================
+          SHERU BHAI SUPER POWER CINEMATIC BANNER
+          ================================================================= */}
+      {hud.superBannerText && (
         <div
-          data-testid="breaking-ticker"
-          className="safe-pad-ticker w-full border-t-2 border-[#0f0a06] bg-[#facc15] text-[#110b08]"
+          data-testid="sheru-super-banner"
+          className="pointer-events-none fixed inset-x-0 top-[18%] z-30 flex flex-col items-center justify-center px-4"
         >
-          <div className="hud-ticker-inner flex h-7 w-full items-center overflow-hidden sm:h-8">
-            <div className="hud-ticker-label z-10 flex h-full shrink-0 items-center bg-[#dc2626] px-3 font-display text-xs font-extrabold uppercase tracking-wider text-white sm:text-sm">
-              BREAKING BAKWAS
+          <div className="border-4 border-[#110b08] bg-gradient-to-r from-[#b45309] via-[#facc15] to-[#b45309] px-7 py-2 shadow-[0_0_40px_rgba(250,204,21,0.85),6px_6px_0_#110b08]">
+            <div className="text-center font-display text-xs font-extrabold uppercase tracking-[0.28em] text-[#1c1005] sm:text-sm">
+              SHERU BHAI · SUPER POWER
             </div>
-            <div className="relative flex-1 overflow-hidden">
-              <div className="hud-ticker-text animate-ticker font-display text-xs font-extrabold uppercase tracking-wide sm:text-sm">
-                <span className="pr-10">{tickerText}</span>
-                <span className="pr-10" aria-hidden="true">
-                  {tickerText}
-                </span>
-              </div>
+            <div className="news-stroke text-center font-display text-3xl font-extrabold uppercase italic tracking-wider text-white sm:text-5xl">
+              {hud.superBannerText}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* =================================================================
+          ROUND / FIGHT KARO! / K.O.! CENTER BANNER
+          ================================================================= */}
+      {hud.bannerText && (
+        <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
+          <div className="hud-banner-box news-stroke -rotate-2 border-4 border-[#110b08] bg-[#dc2626] px-8 py-2 font-display text-5xl font-extrabold uppercase italic tracking-wider text-[#facc15] shadow-[8px_8px_0_#110b08] sm:text-7xl">
+            {hud.bannerText}
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================
+          BOTTOM ERGONOMIC TRANSLUCENT TOUCH CONTROLS (AUTO-HIDE ON CUTSCENES)
+          ================================================================= */}
+      <div
+        data-testid="touch-controls-layer"
+        data-hidden={controlsHidden ? 'true' : 'false'}
+        className={`safe-pad-hud-controls mt-auto flex w-full items-end justify-between pb-3 transition-all duration-200 sm:pb-4 ${
+          controlsHidden
+            ? 'pointer-events-none translate-y-4 opacity-0'
+            : 'pointer-events-none translate-y-0 opacity-100'
+        }`}
+      >
+        {/* Bottom-Left: Semi-Transparent Dark Circular Virtual Joystick + Glowing Golden-Orange Orb */}
+        <div
+          ref={stickBaseRef}
+          aria-label="Virtual Movement Joystick"
+          data-testid="virtual-joystick"
+          onPointerDown={(e) => {
+            if (controlsHidden) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            activePointerId.current = e.pointerId;
+            updateStickFromPoint(e.clientX, e.clientY);
+          }}
+          onPointerMove={(e) => {
+            if (activePointerId.current !== e.pointerId) return;
+            updateStickFromPoint(e.clientX, e.clientY);
+          }}
+          onPointerUp={(e) => {
+            if (activePointerId.current !== e.pointerId) return;
+            resetStick();
+          }}
+          onPointerCancel={resetStick}
+          className={`hud-stick-base relative flex h-28 w-28 touch-none items-center justify-center rounded-full border-2 border-white/25 bg-black/40 shadow-[inset_0_0_24px_rgba(0,0,0,0.65),0_4px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:h-32 sm:w-32 ${
+            controlsHidden ? 'pointer-events-none' : 'pointer-events-auto'
+          }`}
+        >
+          {/* Subtle inner guide ring & directional pips */}
+          <div className="pointer-events-none absolute inset-4 rounded-full border border-white/12" />
+          <span className="pointer-events-none absolute top-2 h-1.5 w-1.5 rounded-full bg-white/35" />
+          <span className="pointer-events-none absolute bottom-2 h-1.5 w-1.5 rounded-full bg-white/35" />
+          <span className="pointer-events-none absolute left-2 h-1.5 w-1.5 rounded-full bg-white/35" />
+          <span className="pointer-events-none absolute right-2 h-1.5 w-1.5 rounded-full bg-white/35" />
+
+          {/* Glowing Golden-Orange Thumbstick Orb */}
+          <div
+            className="hud-stick-knob pointer-events-none h-11 w-11 rounded-full border-2 border-[#fef3c7]/90 bg-gradient-to-br from-[#fef08a] via-[#f59e0b] to-[#ea580c] shadow-[0_0_20px_rgba(245,158,11,0.85),inset_0_2px_4px_rgba(255,255,255,0.65)] sm:h-12 sm:w-12"
+            style={{
+              transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
+            }}
+          />
+        </div>
+
+        {/* Bottom-Right: 4 Translucent Circular Arcade Buttons in an Ergonomic Thumb Arc */}
+        <div
+          data-testid="touch-action-arc"
+          className={`hud-thumb-arc ${controlsHidden ? 'pointer-events-none' : 'pointer-events-auto'}`}
+        >
+          {/* PUNCH — Warm Amber-Gold Tint */}
+          <button
+            type="button"
+            data-testid="btn-punch"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              onTouchAction('punch');
+            }}
+            className="hud-arc-btn hud-arc-punch cursor-pointer border-amber-300/80 bg-amber-500/35 text-amber-50 shadow-[0_0_16px_rgba(245,158,11,0.35),inset_0_1px_4px_rgba(255,255,255,0.35)] hover:bg-amber-500/45"
+          >
+            <span className="hud-arc-label font-display text-sm font-extrabold uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+              PUNCH
+            </span>
+          </button>
+
+          {/* KICK — Sky-Blue Tint */}
+          <button
+            type="button"
+            data-testid="btn-kick"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              onTouchAction('kick');
+            }}
+            className="hud-arc-btn hud-arc-kick cursor-pointer border-sky-300/80 bg-sky-500/35 text-sky-50 shadow-[0_0_16px_rgba(56,189,248,0.35),inset_0_1px_4px_rgba(255,255,255,0.35)] hover:bg-sky-500/45"
+          >
+            <span className="hud-arc-label font-display text-sm font-extrabold uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+              KICK
+            </span>
+          </button>
+
+          {/* GRAB — Fresh Green Tint */}
+          <button
+            type="button"
+            data-testid="btn-grab"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              onTouchAction('grab');
+            }}
+            className="hud-arc-btn hud-arc-grab cursor-pointer border-emerald-300/80 bg-emerald-500/35 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.35),inset_0_1px_4px_rgba(255,255,255,0.35)] hover:bg-emerald-500/45"
+          >
+            <span className="hud-arc-label font-display text-sm font-extrabold uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+              GRAB
+            </span>
+          </button>
+
+          {/* SUPER — Muted Translucent Grey While Charging; Bright Glowing Gold at 100% Shakti */}
+          <button
+            type="button"
+            data-testid="btn-super"
+            disabled={!p1SuperReady}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              if (p1SuperReady) onTouchAction('superMove');
+            }}
+            className={`hud-arc-btn hud-arc-super ${
+              p1SuperReady
+                ? 'shakti-ready-pulse cursor-pointer border-[#fef9c3] bg-gradient-to-br from-[#fef08a]/92 via-[#facc15]/88 to-[#ea580c]/90 text-[#1c1004] shadow-[0_0_24px_rgba(250,204,21,0.95),inset_0_2px_5px_rgba(255,255,255,0.65)]'
+                : 'cursor-not-allowed border-zinc-400/45 bg-zinc-800/45 text-zinc-300/80'
+            }`}
+          >
+            <span className="hud-arc-label font-display text-sm font-extrabold uppercase tracking-wider">
+              SUPER
+            </span>
+            {!p1SuperReady && (
+              <span className="font-mono-num text-[10px] font-bold opacity-80">
+                {hud.p1Shakti}%
+              </span>
+            )}
+          </button>
         </div>
       </div>
     </div>

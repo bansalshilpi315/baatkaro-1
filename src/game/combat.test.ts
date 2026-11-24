@@ -111,30 +111,68 @@ test('Garib Sena Neta Dharna Shield reduces damage and counters melee attacker',
   assert.ok(p2StartHp - state.fighters[1].hp <= 4, 'Neta should take reduced damage');
 });
 
-test('KO transitions match into ko_freeze then finished and builds newspaper result', () => {
+test('Best-of-3 KO transitions Round 1 into Round 2, then 2nd round win finishes match and builds BREAKING BAKWAS result', () => {
   const state = createMatchState('anda', 'billa', true);
   state.fighters[0].x = -0.6;
   state.fighters[1].x = 0.6;
   state.fighters[1].hp = 5;
 
+  // Round 1 KO
   stepMatch(state, [{ ...createEmptyInput(), kick: true }, createEmptyInput()], 1 / 60);
   stepFrames(state, createEmptyInput(), createEmptyInput(), 20);
 
   assert.equal(state.fighters[1].hp, 0);
   assert.equal(state.phase, 'ko_freeze');
+  assert.equal(state.p1RoundsWon, 1);
+  assert.equal(state.p2RoundsWon, 0);
+  assert.equal(state.roundWinnerSlot, 0);
+  assert.equal(state.winnerSlot, null, 'Match must not end after only 1 round win');
+
+  // Advance past Round 1 ko_freeze -> starts Round 2 intro with full HP reset
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 65);
+  assert.equal(state.phase, 'intro');
+  assert.equal(state.roundNumber, 2);
+  assert.equal(state.fighters[0].hp, state.fighters[0].maxHp);
+  assert.equal(state.fighters[1].hp, state.fighters[1].maxHp);
+
+  // Advance past Round 2 intro into active fighting
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 100);
+  assert.equal(state.phase, 'fighting');
+
+  // Round 2 KO -> P1 reaches 2 round wins (Landslide 2-0)
+  state.fighters[0].x = -0.6;
+  state.fighters[1].x = 0.6;
+  state.fighters[1].hp = 5;
+  stepMatch(state, [{ ...createEmptyInput(), kick: true }, createEmptyInput()], 1 / 60);
+  stepFrames(state, createEmptyInput(), createEmptyInput(), 20);
+  assert.equal(state.phase, 'ko_freeze');
+  assert.equal(state.p1RoundsWon, 2);
   assert.equal(state.winnerSlot, 0);
 
-  // Advance past ko_freeze
   stepFrames(state, createEmptyInput(), createEmptyInput(), 65);
   assert.equal(state.phase, 'finished');
   assert.equal(state.fighters[0].action, 'victory');
+  assert.equal(state.fighters[1].action, 'ko');
 
   const result = buildMatchResultSnapshot(state, 'railway', 'normal', 42);
   assert.equal(result.winnerSlot, 0);
   assert.equal(result.finishReason, 'ko');
+  assert.equal(result.p1RoundsWon, 2);
+  assert.equal(result.p2RoundsWon, 0);
   assert.equal(result.stampText, 'YOU WIN!');
+  assert.ok(result.scoreSummary.includes('LANDSLIDE 2-0'), `Expected 2-0 landslide, got ${result.scoreSummary}`);
   assert.ok(result.headline.length > 10);
-  assert.ok(result.reportParagraph.length > 40);
+  assert.ok(result.loserQuote.length > 10);
+
+  // Verify CPU 2-1 nail-biter produces YOU LOSE! stamp and NAIL-BITER 2-1 score
+  const loseState = createMatchState('sheru', 'mausi', true);
+  loseState.p1RoundsWon = 1;
+  loseState.p2RoundsWon = 2;
+  loseState.winnerSlot = 1;
+  loseState.finishReason = 'ko';
+  const loseResult = buildMatchResultSnapshot(loseState, 'mohalla', 'normal', 7);
+  assert.equal(loseResult.stampText, 'YOU LOSE!');
+  assert.ok(loseResult.scoreSummary.includes('NAIL-BITER 2-1'));
 });
 
 test('CPU AI produces valid inputs across easy, normal, and hard', () => {

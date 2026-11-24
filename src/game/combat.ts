@@ -87,10 +87,17 @@ export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
   };
 }
 
+export const ROUNDS_TO_WIN = 2;
+
 export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = false): MatchState {
   return {
     fighters: [createFighterState(0, p1Id), createFighterState(1, p2Id)],
     projectiles: [],
+    roundNumber: 1,
+    p1RoundsWon: 0,
+    p2RoundsWon: 0,
+    roundsToWin: ROUNDS_TO_WIN,
+    roundWinnerSlot: null,
     roundTime: ROUND_DURATION_SECONDS,
     hitstopTimer: 0,
     phase: skipIntro ? 'fighting' : 'intro',
@@ -104,6 +111,62 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     sheruSuper: null,
     sheruSuperSignals: [],
   };
+}
+
+export function resolveRoundEnd(
+  state: MatchState,
+  roundWinner: 0 | 1 | 'draw',
+  reason: 'ko' | 'timeout',
+  freezeDuration = 0.85,
+): void {
+  state.phase = 'ko_freeze';
+  state.phaseTimer = freezeDuration;
+  state.roundWinnerSlot = roundWinner;
+  state.finishReason = reason;
+
+  if (roundWinner === 0) {
+    state.p1RoundsWon = Math.min(state.roundsToWin, state.p1RoundsWon + 1);
+  } else if (roundWinner === 1) {
+    state.p2RoundsWon = Math.min(state.roundsToWin, state.p2RoundsWon + 1);
+  }
+
+  if (state.p1RoundsWon >= state.roundsToWin) {
+    state.winnerSlot = 0;
+  } else if (state.p2RoundsWon >= state.roundsToWin) {
+    state.winnerSlot = 1;
+  } else if (roundWinner === 'draw' && state.roundNumber >= state.roundsToWin * 2 - 1) {
+    if (state.p1RoundsWon > state.p2RoundsWon) state.winnerSlot = 0;
+    else if (state.p2RoundsWon > state.p1RoundsWon) state.winnerSlot = 1;
+    else state.winnerSlot = 'draw';
+  } else {
+    state.winnerSlot = null;
+  }
+}
+
+function resetFighterForNextRound(f: FighterState): void {
+  f.x = f.slot === 0 ? -2.4 : 2.4;
+  f.y = GROUND_Y;
+  f.vx = 0;
+  f.vy = 0;
+  f.facing = f.slot === 0 ? 1 : -1;
+  f.hp = f.maxHp;
+  f.action = 'idle';
+  f.actionTimer = 0;
+  f.actionDuration = 0;
+  f.hasHitCurrentAttack = false;
+  f.hitstunTimer = 0;
+  f.blockstunTimer = 0;
+  f.specialCooldown = 0;
+  f.dharnaShieldTimer = 0;
+  f.invulnTimer = 0;
+  f.comboCount = 0;
+  f.comboTimer = 0;
+  f.hitFlashTimer = 0;
+  f.squashX = 1;
+  f.squashY = 1;
+  f.expression = 'idle';
+  f.bufferedAction = null;
+  f.bufferTimer = 0;
 }
 
 export function isHoldingBack(fighter: FighterState, input: FighterInput): boolean {
@@ -632,12 +695,34 @@ export function stepMatch(
     }
     state.phaseTimer -= dt;
     if (state.phaseTimer <= 0) {
-      state.phase = 'finished';
-      for (const f of state.fighters) {
-        if (state.winnerSlot === f.slot) {
-          f.action = 'victory';
-          f.expression = 'victory';
+      if (state.winnerSlot !== null) {
+        state.phase = 'finished';
+        for (const f of state.fighters) {
+          if (state.winnerSlot === f.slot) {
+            f.action = 'victory';
+            f.expression = 'victory';
+          } else if (state.winnerSlot !== 'draw') {
+            f.action = 'ko';
+            f.expression = 'ko';
+            f.y = GROUND_Y;
+            f.vx = 0;
+            f.vy = 0;
+          }
         }
+      } else {
+        // Start next round in Best-of-3 match
+        state.roundNumber += 1;
+        state.roundTime = ROUND_DURATION_SECONDS;
+        state.roundWinnerSlot = null;
+        state.finishReason = null;
+        state.projectiles = [];
+        state.hitstopTimer = 0;
+        state.sheruSuper = null;
+        state.sheruSuperSignals = [];
+        resetFighterForNextRound(state.fighters[0]);
+        resetFighterForNextRound(state.fighters[1]);
+        state.phase = 'intro';
+        state.phaseTimer = 1.45;
       }
     }
     return events;
@@ -970,27 +1055,15 @@ export function stepMatch(
 
   // Check KO or Timeout
   if (p1.hp <= 0 || p2.hp <= 0) {
-    state.phase = 'ko_freeze';
-    state.phaseTimer = 0.85;
-    state.finishReason = 'ko';
-    if (p1.hp <= 0 && p2.hp <= 0) {
-      state.winnerSlot = 'draw';
-    } else if (p2.hp <= 0) {
-      state.winnerSlot = 0;
-    } else {
-      state.winnerSlot = 1;
-    }
+    const roundWinner: 0 | 1 | 'draw' =
+      p1.hp <= 0 && p2.hp <= 0 ? 'draw' : p2.hp <= 0 ? 0 : 1;
+    resolveRoundEnd(state, roundWinner, 'ko', 0.85);
   } else if (state.roundTime <= 0) {
-    state.phase = 'ko_freeze';
-    state.phaseTimer = 0.7;
-    state.finishReason = 'timeout';
     const p1Ratio = p1.hp / p1.maxHp;
     const p2Ratio = p2.hp / p2.maxHp;
-    if (Math.abs(p1Ratio - p2Ratio) < 0.001) {
-      state.winnerSlot = 'draw';
-    } else {
-      state.winnerSlot = p1Ratio > p2Ratio ? 0 : 1;
-    }
+    const roundWinner: 0 | 1 | 'draw' =
+      Math.abs(p1Ratio - p2Ratio) < 0.001 ? 'draw' : p1Ratio > p2Ratio ? 0 : 1;
+    resolveRoundEnd(state, roundWinner, 'timeout', 0.7);
   }
 
   return events;
@@ -1113,6 +1186,57 @@ export function computeCpuInput(
   return input;
 }
 
+const WINNER_SATIRE_HEADLINES: Record<FighterId, string[]> = {
+  sheru: [
+    'SHERU BHAI SWEEPS MOHALLA!',
+    'BILLIONAIRE BEATDOWN SHAKES SENSEX!',
+    'PAISA FLEX LANDSLIDE — OPPOSITION BANKRUPT!',
+  ],
+  billa: [
+    'BLUE BILLA SWATTER SWEEP!',
+    'TOON CAT CLEANS HOUSE WITH GIANT SWATTER!',
+    'MOHALLA SHOOK AS BLUE BILLA STEALS THE SHOW!',
+  ],
+  neta: [
+    'GARIB SENA NETA WINS BY DHARNA!',
+    'JHOLA-CHAAP MANDATE STUNS PRIME-TIME PANEL!',
+    'GRASSROOTS UPSET: NETA CLINCHES CHAI TROPHY!',
+  ],
+  anda: [
+    'ANDA BHAI CRACKS THE COMPETITION!',
+    'DEEWAR DROP SHATTERS ALL EXIT POLLS!',
+    'UNBREAKABLE SHELL! ANDA BHAI RULES THE ARENA!',
+  ],
+  mausi: [
+    'LADDOO MAUSI BELAN LANDSLIDE!',
+    'SWEET-SHOP AUNTY FLATTENS OPPOSITION WITH BELAN!',
+    'EXTRA DESI GHEE KO! MAUSI OWNS THE MOHALLA!',
+  ],
+};
+
+const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
+  sheru: [
+    '"This was clearly a hostile market correction, not a defeat!" — Sheru Bhai PR Desk',
+    '"Our accountants are auditing that last combo immediately." — Team Sheru',
+  ],
+  billa: [
+    '"The cockroaches tampered with my flyswatter grip!" — Blue Billa Spokesperson',
+    '"Wait till I finish my fish curry, then we rematch!" — Blue Billa Camp',
+  ],
+  neta: [
+    '"We demand an immediate recount and a fresh cup of cutting chai!" — Garib Sena Office',
+    '"The stage floor was clearly biased against the common man!" — Neta Ji Camp',
+  ],
+  anda: [
+    '"Minor hairline fracture only! I will bounce right back!" — Anda Bhai Medical Bulletin',
+    '"Somebody greased the arena tiles — blatant foul play!" — Team Anda',
+  ],
+  mausi: [
+    '"My belan slipped only because the laddoo batch was still on the stove!" — Mausi Sweet Mart',
+    '"Wait until I bring the heavy iron tawa next round!" — Laddoo Mausi Camp',
+  ],
+};
+
 export function buildMatchResultSnapshot(
   state: MatchState,
   stageId: StageId,
@@ -1130,26 +1254,46 @@ export function buildMatchResultSnapshot(
   let subheadline: string;
   let reportParagraph: string;
   let stampText: string;
+  let scoreSummary: string;
+  let loserQuote: string;
 
   const finishReason = state.finishReason ?? 'ko';
   const winCfg = winnerSlot === 1 ? p2Cfg : p1Cfg;
   const loseCfg = winnerSlot === 1 ? p1Cfg : p2Cfg;
 
+  const winRounds =
+    winnerSlot === 0
+      ? Math.max(state.p1RoundsWon, 1)
+      : winnerSlot === 1
+        ? Math.max(state.p2RoundsWon, 1)
+        : state.p1RoundsWon;
+  const loseRounds =
+    winnerSlot === 0
+      ? state.p2RoundsWon
+      : winnerSlot === 1
+        ? state.p1RoundsWon
+        : state.p2RoundsWon;
+
   if (winnerSlot === 'draw') {
     stampText = 'DRAW!';
-    headline = `HISTORIC TIE AT ${stageCfg.name.toUpperCase()}! BOTH SIDES CLAIM 100% VICTORY!`;
-    subheadline = `Exit polls confused as ${p1Cfg.name} and ${p2Cfg.name} both demand recount over cutting chai.`;
+    headline = `HISTORIC TIE AT ${stageCfg.name.toUpperCase()}!`;
+    scoreSummary = `DEADLOCK ${state.p1RoundsWon}-${state.p2RoundsWon} · Recount demanded`;
+    subheadline = `Exit polls confused as ${p1Cfg.name} and ${p2Cfg.name} both claim 100% victory.`;
+    loserQuote = '"Both sides have filed RTIs over the missing cutting-chai trophy." — Mohalla Bureau';
     reportParagraph = `Chaos erupted at ${stageCfg.name} after the timer hit zero with both fighters refusing to leave the stage. Local chai bhaiya has already filed a ₹420 invoice for six spilled cutting-chai glasses.`;
   } else {
-    stampText =
-      winnerSlot === 0 ? 'YOU WIN!' : finishReason === 'timeout' ? 'TIME UP!' : 'K.O.!';
-    const templates = [
-      `${winCfg.name.toUpperCase()} FLOORS ${loseCfg.name.toUpperCase()} IN ${stageCfg.name.toUpperCase()}!`,
-      `PAISA VASOOL KO! ${winCfg.name.toUpperCase()} DECLARED UNDISPUTED ${winCfg.titleBadge}!`,
-      `EXCLUSIVE: ${loseCfg.name.toUpperCase()} FILES RTI AFTER ${winCfg.name.toUpperCase()}'S ${winCfg.special.name.toUpperCase()}!`,
-      `SANSAD TO MOHALLA SHOCKED: ${winCfg.name.toUpperCase()} TAKES HOME THE CHAI TROPHY!`,
-    ];
-    headline = templates[Math.abs(Math.floor(seed)) % templates.length];
+    stampText = winnerSlot === 0 ? 'YOU WIN!' : 'YOU LOSE!';
+    const winnerHeadlines = WINNER_SATIRE_HEADLINES[winCfg.id];
+    headline = winnerHeadlines[Math.abs(Math.floor(seed)) % winnerHeadlines.length];
+
+    scoreSummary =
+      loseRounds === 0
+        ? `LANDSLIDE ${winRounds}-${loseRounds} · Opposition in shock`
+        : `NAIL-BITER ${winRounds}-${loseRounds} · Recount demanded`;
+
+    const loserQuotes = LOSER_CAMP_QUOTES[loseCfg.id];
+    loserQuote = loserQuotes[Math.abs(Math.floor(seed / 5)) % loserQuotes.length];
+
     subheadline = winCfg.victoryQuotes[Math.abs(Math.floor(seed / 3)) % winCfg.victoryQuotes.length];
 
     const reports = [
@@ -1167,6 +1311,10 @@ export function buildMatchResultSnapshot(
     stageId,
     difficulty,
     finishReason,
+    p1RoundsWon: state.p1RoundsWon,
+    p2RoundsWon: state.p2RoundsWon,
+    scoreSummary,
+    loserQuote,
     timeRemaining: Math.ceil(state.roundTime),
     p1HpPercent: Math.round((p1.hp / p1.maxHp) * 100),
     p2HpPercent: Math.round((p2.hp / p2.maxHp) * 100),

@@ -181,6 +181,11 @@ export interface CombatEvent {
 export interface MatchState {
   fighters: [FighterState, FighterState];
   projectiles: ProjectileState[];
+  roundNumber: number;
+  p1RoundsWon: number;
+  p2RoundsWon: number;
+  roundsToWin: number;
+  roundWinnerSlot: 0 | 1 | 'draw' | null;
   roundTime: number;
   hitstopTimer: number;
   phase: 'intro' | 'fighting' | 'ko_freeze' | 'finished';
@@ -210,6 +215,10 @@ export interface MatchResultSnapshot {
   stageId: StageId;
   difficulty: Difficulty;
   finishReason: 'ko' | 'timeout';
+  p1RoundsWon: number;
+  p2RoundsWon: number;
+  scoreSummary: string;
+  loserQuote: string;
   timeRemaining: number;
   p1HpPercent: number;
   p2HpPercent: number;
@@ -235,8 +244,12 @@ export interface HudSnapshot {
   p2SpecialCd: number;
   p2SpecialMaxCd: number;
   p2Combo: number;
+  roundNumber: number;
+  p1RoundsWon: number;
+  p2RoundsWon: number;
   roundTime: number;
   phase: MatchState['phase'];
+  isSuperCinematic: boolean;
   bannerText: string | null;
   superBannerText: string | null;
   showBroadcastIntro: boolean;

@@ -5,6 +5,7 @@
     --font-display: 'Barlow Condensed', system-ui, sans-serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-serif-news: 'Playfair Display', Georgia, 'Times New Roman', serif;
   }
 
   html,
@@ -30,6 +31,10 @@
 .font-mono-num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+.font-serif-news {
+  font-family: var(--font-serif-news);
 }
 
 .news-stroke {
@@ -161,6 +166,74 @@
 
 .cta-pulse {
   animation: ctaPulse 1.8s ease-out infinite;
+}
+
+@keyframes shaktiReadyPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.55), 0 0 22px rgba(245, 158, 11, 0.35);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(254, 240, 138, 0.95), 0 0 34px rgba(245, 158, 11, 0.72);
+    filter: brightness(1.12);
+  }
+}
+
+.shakti-ready-pulse {
+  animation: shaktiReadyPulse 1.25s ease-in-out infinite;
+}
+
+/* Ergonomic 4-button arcade thumb arc (Desktop default) */
+.hud-thumb-arc {
+  position: relative;
+  width: 12rem;
+  height: 9rem;
+}
+
+.hud-arc-btn {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border-width: 2px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform 90ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.hud-arc-btn:active {
+  transform: scale(0.93);
+}
+
+.hud-arc-punch {
+  left: 0.25rem;
+  bottom: 0.9rem;
+  width: 3.95rem;
+  height: 3.95rem;
+}
+
+.hud-arc-kick {
+  left: 4.85rem;
+  bottom: 0;
+  width: 3.95rem;
+  height: 3.95rem;
+}
+
+.hud-arc-grab {
+  left: 2.75rem;
+  bottom: 4.95rem;
+  width: 3.6rem;
+  height: 3.6rem;
+}
+
+.hud-arc-super {
+  left: 7.45rem;
+  bottom: 4.25rem;
+  width: 4.2rem;
+  height: 4.2rem;
 }
 
 /* =========================================================================
@@ -320,135 +393,121 @@
     border-width: 2px;
   }
 
-  /* In-Fight HUD */
+  /* In-Fight HUD (Compact Mobile Landscape <= 520px height) */
   .safe-pad-hud-top {
-    padding-top: max(0.25rem, env(safe-area-inset-top));
-    padding-right: max(0.5rem, env(safe-area-inset-right));
-    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-top: max(0.35rem, env(safe-area-inset-top));
+    padding-right: max(0.6rem, env(safe-area-inset-right));
+    padding-left: max(0.6rem, env(safe-area-inset-left));
   }
 
   .safe-pad-hud-controls {
-    padding-right: max(0.5rem, env(safe-area-inset-right));
-    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.65rem, env(safe-area-inset-right));
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+    padding-left: max(0.65rem, env(safe-area-inset-left));
   }
 
   .hud-portrait {
-    width: 2.35rem;
-    height: 2.35rem;
+    width: 2.8rem;
+    height: 2.8rem;
   }
 
   .hud-fighter-name {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     line-height: 1;
   }
 
-  .hud-hp-num {
-    font-size: 0.65rem;
-    padding: 0.05rem 0.3rem;
+  .hud-role-tag {
+    font-size: 0.62rem;
   }
 
   .hud-hp-bar {
-    height: 0.75rem;
+    height: 0.95rem;
   }
 
-  .hud-shakti-row {
-    margin-top: 0.15rem;
-    padding: 0.05rem 0.35rem;
+  .hud-round-dot {
+    width: 0.62rem;
+    height: 0.62rem;
   }
 
   .hud-shakti-bar {
-    height: 0.375rem;
+    height: 0.36rem;
   }
 
-  .hud-live-badge {
-    padding: 0.05rem 0.45rem;
-    font-size: 0.6rem;
+  .hud-shakti-ready-text {
+    font-size: 0.58rem;
   }
 
-  .hud-timer-box {
-    height: 2.1rem;
-    width: 3.1rem;
-    font-size: 1.25rem;
+  .hud-timer-num {
+    font-size: 2rem;
+    line-height: 0.95;
   }
 
-  .hud-stage-label {
-    display: none;
+  .hud-pause-btn {
+    width: 1.85rem;
+    height: 1.55rem;
+    margin-top: 0.15rem;
   }
 
   .hud-util-btn {
-    width: 1.65rem;
-    height: 1.65rem;
+    width: 1.7rem;
+    height: 1.7rem;
   }
 
   .hud-combo-row {
-    margin-top: 0.1rem;
-    padding-left: 2.75rem;
-    padding-right: 2.75rem;
-  }
-
-  .hud-combo-slot {
-    height: 1.1rem;
+    margin-top: 0.15rem;
+    padding-left: 3.25rem;
+    padding-right: 3.25rem;
   }
 
   .hud-combo-text {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     line-height: 1;
   }
 
-  .hud-controls-row {
-    padding-bottom: 0.35rem;
-  }
-
   .hud-stick-base {
-    width: 4.85rem;
-    height: 4.85rem;
+    width: 5.5rem;
+    height: 5.5rem;
   }
 
   .hud-stick-knob {
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
-  .hud-special-btn {
+  .hud-thumb-arc {
+    width: 9.85rem;
+    height: 7.35rem;
+  }
+
+  .hud-arc-punch {
+    left: 0.15rem;
+    bottom: 0.7rem;
+    width: 3.2rem;
+    height: 3.2rem;
+  }
+
+  .hud-arc-kick {
+    left: 3.95rem;
+    bottom: 0;
+    width: 3.2rem;
+    height: 3.2rem;
+  }
+
+  .hud-arc-grab {
+    left: 2.2rem;
+    bottom: 4.05rem;
+    width: 2.95rem;
+    height: 2.95rem;
+  }
+
+  .hud-arc-super {
+    left: 6.1rem;
+    bottom: 3.45rem;
     width: 3.45rem;
     height: 3.45rem;
   }
 
-  .hud-special-btn > svg:not(:first-child) {
-    width: 0.875rem;
-    height: 0.875rem;
-  }
-
-  .hud-special-label {
-    max-width: 2.35rem;
-    font-size: 0.48rem;
-  }
-
-  .hud-action-cluster {
-    gap: 0.5rem;
-  }
-
-  .hud-action-grid {
-    gap: 0.32rem;
-  }
-
-  .hud-action-btn {
-    width: 2.7rem;
-    height: 2.7rem;
-    font-size: 0.66rem;
-  }
-
-  .hud-ticker-inner {
-    height: 1.5rem;
-  }
-
-  .hud-ticker-label {
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    font-size: 0.68rem;
-  }
-
-  .hud-ticker-text {
+  .hud-arc-label {
     font-size: 0.68rem;
   }
 
@@ -470,6 +529,66 @@
     padding: 0.35rem 1.5rem;
   }
 
+  /* Victory Screen Compact Mobile Landscape */
+  .victory-layout {
+    gap: 1.25rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .victory-paper {
+    max-width: 23.5rem;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .victory-masthead {
+    font-size: 1.7rem;
+    line-height: 1;
+  }
+
+  .victory-submeta {
+    font-size: 0.56rem;
+  }
+
+  .victory-headline {
+    font-size: 1.1rem;
+    line-height: 1.12;
+  }
+
+  .victory-score {
+    font-size: 0.68rem;
+  }
+
+  .victory-quote {
+    font-size: 0.66rem;
+    line-height: 1.25;
+  }
+
+  .victory-portrait {
+    width: 3.6rem;
+    height: 3.6rem;
+  }
+
+  .victory-stamp {
+    font-size: 1.15rem;
+    padding: 0.15rem 0.55rem;
+  }
+
+  .victory-action-col {
+    max-width: 15.5rem;
+    gap: 0.6rem;
+  }
+
+  .victory-winner-title {
+    font-size: 1.85rem;
+    line-height: 0.98;
+  }
+
+  .victory-cta-btn {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+    font-size: 1.05rem;
+  }
+
   /* Modals compact spacing */
   .safe-pad-modal {
     padding-top: max(0.375rem, env(safe-area-inset-top));
@@ -487,7 +606,8 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-ticker,
   .comic-pop-text,
-  .cta-pulse {
+  .cta-pulse,
+  .shakti-ready-pulse {
     animation: none;
   }
 }

@@ -5,6 +5,7 @@ import {
   GROUND_Y,
   SUPER_COMBO_DAMAGE_SHARE,
   computeTotalSuperDamage,
+  resolveRoundEnd,
 } from './combat';
 
 export const SHERU_SUPER_DURATION = 7.5;
@@ -394,10 +395,7 @@ export function stepSheruSuper(
     if (defender.hp > 0) {
       defender.hitstunTimer = Math.min(defender.hitstunTimer, 0.2);
     } else {
-      state.phase = 'ko_freeze';
-      state.phaseTimer = 1.35;
-      state.winnerSlot = attacker.slot;
-      state.finishReason = 'ko';
+      resolveRoundEnd(state, attacker.slot, 'ko', 1.35);
       defender.action = 'ko';
       defender.expression = 'ko';
     }

@@ -9,7 +9,6 @@ import { SelectScreen } from './components/SelectScreen';
 import { TitleScreen } from './components/TitleScreen';
 import { VictoryScreen } from './components/VictoryScreen';
 import { audioEngine } from './game/audio';
-import { STAGE_CONFIGS } from './game/characters';
 import { DesiShowdownEngine } from './game/engine';
 import type {
   Difficulty,
@@ -36,8 +35,12 @@ const INITIAL_HUD: HudSnapshot = {
   p2SpecialCd: 0,
   p2SpecialMaxCd: 4.2,
   p2Combo: 0,
+  roundNumber: 1,
+  p1RoundsWon: 0,
+  p2RoundsWon: 0,
   roundTime: 60,
   phase: 'intro',
+  isSuperCinematic: false,
   bannerText: null,
   superBannerText: null,
   showBroadcastIntro: false,
@@ -49,10 +52,17 @@ function isAutostartRequested(): boolean {
   return new URLSearchParams(window.location.search).get('autostart') === '1';
 }
 
+function getNumericQueryParam(key: string): number | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const raw = new URLSearchParams(window.location.search).get(key);
+  if (raw === null || raw === '') return undefined;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : undefined;
+}
+
 function getInitialShaktiParam(): number {
-  if (typeof window === 'undefined') return 0;
-  const raw = Number(new URLSearchParams(window.location.search).get('shakti'));
-  return Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 0;
+  const raw = getNumericQueryParam('shakti');
+  return raw !== undefined ? Math.max(0, Math.min(100, raw)) : 0;
 }
 
 export default function App() {
@@ -76,7 +86,6 @@ export default function App() {
 
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [callouts, setCallouts] = useState<FloatingCallout[]>([]);
-  const [headlines, setHeadlines] = useState<string[]>(() => STAGE_CONFIGS.mohalla.headlines);
   const [matchResult, setMatchResult] = useState<MatchResultSnapshot | null>(null);
 
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
@@ -114,9 +123,7 @@ export default function App() {
           setCallouts((prev) => prev.filter((c) => c.id !== callout.id));
         }, ttl);
       },
-      onHeadline: (headline) => {
-        setHeadlines((prev) => [headline, ...prev.slice(0, 4)]);
-      },
+      onHeadline: () => {},
       onMatchFinish: (result) => {
         setMatchResult(result);
         setScreen('victory');
@@ -127,7 +134,16 @@ export default function App() {
     void audioEngine.preloadSuperAudio();
 
     if (isAutostartRequested()) {
-      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', true, getInitialShaktiParam());
+      const p1RoundsWon = getNumericQueryParam('p1rounds');
+      const p2RoundsWon = getNumericQueryParam('p2rounds');
+      const p1Hp = getNumericQueryParam('p1hp');
+      const p2Hp = getNumericQueryParam('p2hp');
+      engine.startMatch('sheru', 'billa', 'mohalla', 'normal', true, getInitialShaktiParam(), {
+        p1RoundsWon,
+        p2RoundsWon,
+        p1Hp,
+        p2Hp,
+      });
     }
 
     return () => {
@@ -213,7 +229,6 @@ export default function App() {
       audioEngine.unlock();
       audioEngine.playUiClick();
       setStageId(id);
-      setHeadlines(STAGE_CONFIGS[id].headlines);
       engineRef.current?.setPreviewSelection(p1Id, p2Id, id, difficulty);
     },
     [p1Id, p2Id, difficulty],
@@ -237,7 +252,6 @@ export default function App() {
     (document.activeElement as HTMLElement | null)?.blur?.();
     setMatchResult(null);
     setCallouts([]);
-    setHeadlines(STAGE_CONFIGS[stageId].headlines);
     engineRef.current?.startMatch(p1Id, p2Id, stageId, difficulty, false);
     setScreen('playing');
   }, [p1Id, p2Id, stageId, difficulty]);
@@ -379,7 +393,6 @@ export default function App() {
           stageId={stageId}
           hud={hud}
           callouts={callouts}
-          headlines={headlines}
           muted={muted}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
