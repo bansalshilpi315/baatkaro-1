@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { audioEngine } from './audio';
+import {
+  CAMERA_PAN_MAX_X,
+  CAMERA_PAN_MIN_X,
+  computeFixedZoomCameraTarget,
+} from './camera';
 import { animateFighterRig, buildFighterRig, FIGHTER_CONFIGS, type FighterRig } from './characters';
 import {
   buildMatchResultSnapshot,
@@ -179,14 +184,15 @@ export class DesiShowdownEngine {
     this.keyLight.castShadow = !this.isSoftwareGl;
     this.keyLight.shadow.mapSize.set(1024, 1024);
     this.keyLight.shadow.camera.near = 1;
-    this.keyLight.shadow.camera.far = 32;
-    this.keyLight.shadow.camera.left = -10;
-    this.keyLight.shadow.camera.right = 10;
+    this.keyLight.shadow.camera.far = 34;
+    this.keyLight.shadow.camera.left = -14;
+    this.keyLight.shadow.camera.right = 14;
     this.keyLight.shadow.camera.top = 10;
     this.keyLight.shadow.camera.bottom = -4;
     this.keyLight.shadow.bias = -0.0005;
     this.keyLight.shadow.normalBias = 0.02;
     this.scene.add(this.keyLight);
+    this.scene.add(this.keyLight.target);
 
     this.rimLight = new THREE.DirectionalLight(0xf59e0b, 1.0);
     this.rimLight.position.set(-6, 5, -7);
@@ -570,17 +576,26 @@ export class DesiShowdownEngine {
       if (!mesh) {
         if (proj.kind === 'belan') {
           const grp = new THREE.Group();
+          const belanPts: THREE.Vector2[] = [
+            new THREE.Vector2(0.002, -0.5),
+            new THREE.Vector2(0.038, -0.48),
+            new THREE.Vector2(0.034, -0.34),
+            new THREE.Vector2(0.068, -0.3),
+            new THREE.Vector2(0.082, 0.0),
+            new THREE.Vector2(0.068, 0.3),
+            new THREE.Vector2(0.034, 0.34),
+            new THREE.Vector2(0.038, 0.48),
+            new THREE.Vector2(0.002, 0.5),
+          ];
           const barrel = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.08, 0.08, 0.72, 10),
-            new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.45 }),
+            new THREE.LatheGeometry(belanPts, 12),
+            new THREE.MeshStandardMaterial({ color: 0xc68b49, roughness: 0.52 }),
           );
-          const h1 = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.038, 0.038, 0.24, 8),
-            new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.4 }),
-          );
-          h1.position.y = 0.45;
+          const handleMat = new THREE.MeshStandardMaterial({ color: 0x9b642c, roughness: 0.48 });
+          const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.038, 0.16, 8), handleMat);
+          h1.position.y = 0.41;
           const h2 = h1.clone();
-          h2.position.y = -0.45;
+          h2.position.y = -0.41;
           grp.add(barrel, h1, h2);
           mesh = grp;
         } else {
@@ -603,6 +618,9 @@ export class DesiShowdownEngine {
       mesh.position.set(proj.x, proj.y, 0.18);
       if (proj.kind === 'belan') {
         mesh.rotation.z = proj.spin;
+        // Golden flour & laddoo sparkle trail along the spinning belan's flight path
+        this.spawnParticles(proj.x, proj.y, 1, 0xfff5d6, 2.2);
+        this.spawnParticles(proj.x, proj.y, 1, 0xf0c420, 2.8);
       } else {
         mesh.rotation.z = Math.sin(proj.spin * 1.4) * 0.65;
         mesh.rotation.y = proj.spin * 1.15;
@@ -633,14 +651,28 @@ export class DesiShowdownEngine {
   private handleCombatEvents(events: CombatEvent[]): void {
     for (const ev of events) {
       if (ev.type === 'hit') {
-        audioEngine.playPunchHit();
+        const attacker = this.matchState.fighters[ev.attackerSlot];
+        if (attacker?.id === 'mausi' && attacker.action === 'punch') {
+          audioEngine.playBelanBonk();
+          this.spawnParticles(ev.x, ev.y, 8, 0xf0c420, 5.0);
+          this.spawnParticles(ev.x, ev.y, 5, 0xfff5d6, 4.0);
+        } else {
+          audioEngine.playPunchHit();
+          this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.2);
+        }
         this.trauma = Math.min(1, this.trauma + 0.28);
-        this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.2);
       } else if (ev.type === 'heavy_hit' || ev.type === 'grab' || ev.type === 'dharna_counter') {
-        audioEngine.playHeavyHit();
+        const attacker = this.matchState.fighters[ev.attackerSlot];
+        if (ev.type === 'heavy_hit' && attacker?.id === 'mausi' && ev.headline?.includes('BELAN THROW')) {
+          audioEngine.playBelanBonk();
+          this.spawnParticles(ev.x, ev.y, 14, 0xf0c420, 6.4);
+          this.spawnParticles(ev.x, ev.y + 0.08, 10, 0xfff5d6, 5.2);
+        } else {
+          audioEngine.playHeavyHit();
+          this.spawnParticles(ev.x, ev.y, 18, 0xfb7185, 6.8);
+        }
         this.trauma = Math.min(1, this.trauma + 0.52);
-        this.stage?.triggerExcitement(1.25);
-        this.spawnParticles(ev.x, ev.y, 18, 0xfb7185, 6.8);
+        this.stage?.triggerExcitement(1.5);
       } else if (ev.type === 'block') {
         audioEngine.playBlock();
         this.trauma = Math.min(1, this.trauma + 0.14);
@@ -649,10 +681,12 @@ export class DesiShowdownEngine {
         const caster = this.matchState.fighters[ev.attackerSlot];
         if (caster?.id === 'billa') {
           audioEngine.playSwatterSlap();
+        } else if (caster?.id === 'mausi') {
+          audioEngine.playBelanBonk();
         } else {
           audioEngine.playSpecial();
         }
-        this.stage?.triggerExcitement(0.95);
+        this.stage?.triggerExcitement(1.5);
         if (caster?.id === 'sheru') {
           // Golden sparkle burst + emerald cash glint for Paisa Flex!
           this.spawnParticles(ev.x, ev.y, 14, 0xfde047, 5.8);
@@ -661,18 +695,22 @@ export class DesiShowdownEngine {
           // Neon-green & bright-yellow giant flyswatter slap sparks!
           this.spawnParticles(ev.x, ev.y, 14, 0x4ade80, 6.2);
           this.spawnParticles(ev.x, ev.y + 0.12, 10, 0xfde047, 5.0);
+        } else if (caster?.id === 'mausi') {
+          // Golden flour & laddoo sparkle burst on Belan Throw launch!
+          this.spawnParticles(ev.x, ev.y, 12, 0xf0c420, 5.6);
+          this.spawnParticles(ev.x, ev.y + 0.08, 10, 0xfff5d6, 4.6);
         } else {
           this.spawnParticles(ev.x, ev.y, 12, 0xf97316, 4.8);
         }
       } else if (ev.type === 'super') {
         audioEngine.playSuper();
         this.trauma = Math.min(1, this.trauma + 0.65);
-        this.stage?.triggerExcitement(1.65);
+        this.stage?.triggerExcitement(1.5);
         this.spawnParticles(ev.x, ev.y, 24, 0xfde047, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
         this.trauma = 1.0;
-        this.stage?.triggerExcitement(2.0);
+        this.stage?.triggerExcitement(1.5);
         this.spawnParticles(ev.x, ev.y, 28, 0xfacc15, 8.8);
       } else if (ev.type === 'jump') {
         audioEngine.playJump();
@@ -682,7 +720,7 @@ export class DesiShowdownEngine {
           // Anda Bhai Deewar Drop slam shockwave + comic CRACK! eggshell & gold sparks!
           audioEngine.playHeavyHit();
           this.trauma = Math.min(1, this.trauma + 0.42);
-          this.stage?.triggerExcitement(1.1);
+          this.stage?.triggerExcitement(1.5);
           this.shockwaveRing.position.set(ev.x, 0.048, 0);
           this.shockwaveRing.scale.set(0.65, 0.65, 1);
           this.shockwaveRing.visible = true;
@@ -814,36 +852,42 @@ export class DesiShowdownEngine {
     if (this.currentScreen === 'victory') {
       const winner = this.matchState.winnerSlot === 1 ? p2 : p1;
       // Offset winner cleanly to the left-third of viewport so THE DAILY JUMLA newspaper sits on right!
-      const targetX = winner.x + 1.55;
+      const clampedWinnerX = THREE.MathUtils.clamp(winner.x, CAMERA_PAN_MIN_X - 0.8, CAMERA_PAN_MAX_X + 0.8);
+      const targetX = THREE.MathUtils.clamp(clampedWinnerX + 1.55, CAMERA_PAN_MIN_X, CAMERA_PAN_MAX_X + 1.5);
       const targetY = 1.95;
       const targetZ = 5.4;
       this.camPos.x = THREE.MathUtils.damp(this.camPos.x, targetX, 4.2, dt);
       this.camPos.y = THREE.MathUtils.damp(this.camPos.y, targetY, 4.2, dt);
       this.camPos.z = THREE.MathUtils.damp(this.camPos.z, targetZ, 4.2, dt);
-      this.camLook.x = THREE.MathUtils.damp(this.camLook.x, winner.x + 1.0, 4.5, dt);
+      this.camLook.x = THREE.MathUtils.damp(this.camLook.x, clampedWinnerX + 1.0, 4.5, dt);
       this.camLook.y = THREE.MathUtils.damp(this.camLook.y, 1.45, 4.5, dt);
       this.camLook.z = THREE.MathUtils.damp(this.camLook.z, 0, 4.5, dt);
+      this.keyLight.position.x = this.camPos.x + 6;
+      this.keyLight.target.position.x = this.camPos.x;
+      this.keyLight.target.updateMatrixWorld();
       this.camera.position.copy(this.camPos);
       this.camera.lookAt(this.camLook);
       return;
     }
 
-    // Active 2.5D arcade fighting camera tracking midpoint + dynamic zoom + decaying trauma shake
-    const midX = THREE.MathUtils.clamp((p1.x + p2.x) * 0.5, -3.5, 3.5);
-    const sep = Math.abs(p1.x - p2.x);
-    const maxY = Math.max(p1.y, p2.y);
-    const targetZ = THREE.MathUtils.clamp(8.0 + sep * 0.56, 8.2, 12.6);
-    const targetY = 2.45 + maxY * 0.25;
+    // Active 2.5D arcade fighting camera: STRICTLY FIXED ZOOM (constant Z & Y),
+    // smooth horizontal left/right panning tracking fighter midpoint within [-6.5, +6.5]
+    const target = computeFixedZoomCameraTarget(p1.x, p2.x);
 
-    this.camPos.x = THREE.MathUtils.damp(this.camPos.x, midX, 6.5, dt);
-    this.camPos.y = THREE.MathUtils.damp(this.camPos.y, targetY, 5.5, dt);
-    this.camPos.z = THREE.MathUtils.damp(this.camPos.z, targetZ, 5.5, dt);
+    this.camPos.x = THREE.MathUtils.damp(this.camPos.x, target.x, 6.2, dt);
+    this.camPos.y = THREE.MathUtils.damp(this.camPos.y, target.y, 10.0, dt);
+    this.camPos.z = THREE.MathUtils.damp(this.camPos.z, target.z, 10.0, dt);
 
-    this.camLook.x = THREE.MathUtils.damp(this.camLook.x, midX, 7.5, dt);
-    this.camLook.y = THREE.MathUtils.damp(this.camLook.y, 1.45 + maxY * 0.22, 6.0, dt);
-    this.camLook.z = THREE.MathUtils.damp(this.camLook.z, 0, 6.0, dt);
+    this.camLook.x = THREE.MathUtils.damp(this.camLook.x, target.lookX, 6.2, dt);
+    this.camLook.y = THREE.MathUtils.damp(this.camLook.y, target.lookY, 10.0, dt);
+    this.camLook.z = THREE.MathUtils.damp(this.camLook.z, target.lookZ, 10.0, dt);
 
-    // Trauma camera shake
+    // Keep key directional light & shadow frustum centered on horizontal pan
+    this.keyLight.position.x = this.camPos.x + 6;
+    this.keyLight.target.position.x = this.camPos.x;
+    this.keyLight.target.updateMatrixWorld();
+
+    // Trauma camera shake layered cleanly on top of fixed-zoom horizontal pan
     let shakeX = 0;
     let shakeY = 0;
     if (this.trauma > 0) {

@@ -65,7 +65,7 @@ export function createClassroomFloorTexture(anisotropy = 4): THREE.CanvasTexture
     ctx.fillStyle = i % 3 === 0 ? 'rgba(180,83,9,0.14)' : 'rgba(255,255,255,0.2)';
     ctx.fillRect(x, y, 3, 3);
   }
-  return finalizeCanvasTexture(c, 4, 3, anisotropy);
+  return finalizeCanvasTexture(c, 6, 3, anisotropy);
 }
 
 export function createMohallaRoadTexture(anisotropy = 4): THREE.CanvasTexture {
@@ -101,7 +101,7 @@ export function createMohallaRoadTexture(anisotropy = 4): THREE.CanvasTexture {
     ctx.fillStyle = '#F5F5F4';
   }
 
-  return finalizeCanvasTexture(c, 4, 2, anisotropy);
+  return finalizeCanvasTexture(c, 6, 2, anisotropy);
 }
 
 export function createChaiSignTexture(anisotropy = 4): THREE.CanvasTexture {
@@ -360,7 +360,7 @@ export function createShaadiCarpetTexture(anisotropy = 4): THREE.CanvasTexture {
     }
   }
 
-  return finalizeCanvasTexture(c, 3, 2, anisotropy);
+  return finalizeCanvasTexture(c, 6, 2, anisotropy);
 }
 
 export function createRailwayPlatformTexture(anisotropy = 4): THREE.CanvasTexture {
@@ -399,7 +399,7 @@ export function createRailwayPlatformTexture(anisotropy = 4): THREE.CanvasTextur
     ctx.fillRect(x, 24, 16, 42);
   }
 
-  return finalizeCanvasTexture(c, 4, 1, anisotropy);
+  return finalizeCanvasTexture(c, 6, 1, anisotropy);
 }
 
 export function createStationBoardTexture(anisotropy = 4): THREE.CanvasTexture {
@@ -428,3 +428,73 @@ export function createStationBoardTexture(anisotropy = 4): THREE.CanvasTexture {
 
   return finalizeCanvasTexture(c, 1, 1, anisotropy);
 }
+
+export function createCrowdSignTexture(
+  text: string,
+  bgHex: string,
+  borderHex: string,
+  textHex: string,
+  anisotropy = 4,
+): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const ctx = c.getContext('2d')!;
+
+  ctx.fillStyle = bgHex;
+  ctx.fillRect(0, 0, 256, 128);
+
+  // Subtle cardboard grain / highlight lines
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(0, 0, 256, 46);
+
+  ctx.strokeStyle = borderHex;
+  ctx.lineWidth = 12;
+  ctx.strokeRect(6, 6, 244, 116);
+
+  ctx.fillStyle = textHex;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const words = text.split(' ');
+  if (words.length >= 2 && text.length > 9) {
+    ctx.font = '900 38px sans-serif';
+    ctx.fillText(words[0], 128, 46);
+    ctx.fillText(words.slice(1).join(' '), 128, 88);
+  } else {
+    ctx.font = '900 40px sans-serif';
+    ctx.fillText(text, 128, 66);
+  }
+
+  return finalizeCanvasTexture(c, 1, 1, anisotropy);
+}
+
+export function createDjBannerTexture(anisotropy = 4): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 140;
+  const ctx = c.getContext('2d')!;
+
+  const grad = ctx.createLinearGradient(0, 0, 512, 140);
+  grad.addColorStop(0, '#3b0764');
+  grad.addColorStop(0.5, '#be185d');
+  grad.addColorStop(1, '#1d4ed8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 140);
+
+  ctx.strokeStyle = '#38BDF8';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, 502, 130);
+
+  ctx.fillStyle = '#FEF08A';
+  ctx.font = '900 44px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('DJ BAARAAT BASS', 256, 62);
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText('NAGIN DANCE · FULL VOLUME', 256, 108);
+
+  return finalizeCanvasTexture(c, 1, 1, anisotropy);
+}
+

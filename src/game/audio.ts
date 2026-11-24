@@ -321,6 +321,42 @@ class DesiAudioEngine {
     src.start(slapTime);
   }
 
+  public playBelanBonk(): void {
+    const ctx = this.ensureSfxContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Hollow wooden rolling-pin primary resonant BONK!
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    const startFreq = this.pitchJitter(410);
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(175, now + 0.085);
+    gain.gain.setValueAtTime(0.38, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.105);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.115);
+
+    // Secondary bright wooden overtone knock
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(startFreq * 2.05, now);
+    osc2.frequency.exponentialRampToValueAtTime(startFreq * 1.18, now + 0.048);
+    gain2.gain.setValueAtTime(0.22, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now);
+    osc2.stop(now + 0.06);
+
+    // Crisp dry wooden impact tap burst
+    this.playNoiseBurst(0.045, 1350, 0.26);
+  }
+
   public playSuper(): void {
     const ctx = this.ensureSfxContext();
     if (!ctx) return;

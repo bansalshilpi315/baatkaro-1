@@ -12,8 +12,8 @@ import type {
   StageId,
 } from './types';
 
-export const ARENA_MIN_X = -6.6;
-export const ARENA_MAX_X = 6.6;
+export const ARENA_MIN_X = -9.5;
+export const ARENA_MAX_X = 9.5;
 export const GROUND_Y = 0;
 export const GRAVITY = -28;
 export const ROUND_DURATION_SECONDS = 60;

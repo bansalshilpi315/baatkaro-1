@@ -13,6 +13,8 @@ import {
   createBuffetBannerTexture,
   createChaiSignTexture,
   createClassroomFloorTexture,
+  createCrowdSignTexture,
+  createDjBannerTexture,
   createDynamicNewsScreen,
   createExamPosterTexture,
   createMohallaRoadTexture,
@@ -43,19 +45,32 @@ export interface StageInstance {
   dispose: () => void;
 }
 
-function disposeGroup(group: THREE.Group): void {
+function disposeGroup(group: THREE.Group, extraTextures: THREE.Texture[] = []): void {
+  const disposedTextures = new Set<THREE.Texture>();
   group.traverse((obj) => {
     if ((obj as THREE.Mesh).isMesh) {
       const mesh = obj as THREE.Mesh;
-      mesh.geometry.dispose();
+      if (mesh.geometry && !mesh.geometry.userData?.shared) {
+        mesh.geometry.dispose();
+      }
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       mats.forEach((m) => {
+        if (!m || m.userData?.shared) return;
         const std = m as THREE.MeshStandardMaterial;
-        if (std.map) std.map.dispose();
+        if (std.map && !std.map.userData?.shared && !disposedTextures.has(std.map)) {
+          disposedTextures.add(std.map);
+          std.map.dispose();
+        }
         m.dispose();
       });
     }
   });
+  for (const tex of extraTextures) {
+    if (!disposedTextures.has(tex)) {
+      disposedTextures.add(tex);
+      tex.dispose();
+    }
+  }
 }
 
 function buildAutoRickshaw(): THREE.Group {
@@ -126,20 +141,21 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
 
   const roadTex = createMohallaRoadTexture(anisotropy);
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(80, 48),
+    new THREE.PlaneGeometry(92, 48),
     new THREE.MeshStandardMaterial({ color: 0xffffff, map: roadTex, roughness: 0.86, metalness: 0.04 }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   group.add(ground);
 
-  const houseHexes = ['#f59e0b', '#0d9488', '#e11d48', '#f97316', '#0284c7', '#d97706'];
+  const houseHexes = ['#f59e0b', '#0d9488', '#e11d48', '#f97316', '#0284c7', '#d97706', '#16a34a', '#be185d', '#ca8a04'];
   const windowMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.5 });
   const trimMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.75 });
   const railMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.4, metalness: 0.7 });
 
-  for (let i = 0; i < 6; i++) {
-    const hx = -13.5 + i * 5.4;
+  // 10 colourful mohalla houses spanning x = -24.3 to +24.3 (aligned with balconies at ±2.7)
+  for (let i = 0; i < 10; i++) {
+    const hx = -24.3 + i * 5.4;
     const hHeight = 5.4 + (i % 3) * 1.4;
     const house = new THREE.Group();
     const wallMat = new THREE.MeshStandardMaterial({
@@ -228,14 +244,34 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
   auto.rotation.y = 0.28;
   group.add(auto);
 
-  // Swaying bunting
+  // Mohalla Street Lamp Posts flanking left & right ends
+  const lampPostMat = new THREE.MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.5, metalness: 0.7 });
+  const lampBulbMat = new THREE.MeshStandardMaterial({
+    color: 0xfef08a,
+    emissive: 0xfde047,
+    emissiveIntensity: 1.3,
+  });
+  [-15.2, 15.2].forEach((lx) => {
+    const lamp = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 5.2, 8), lampPostMat);
+    pole.position.y = 2.6;
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.08), lampPostMat);
+    arm.position.set(lx < 0 ? 0.4 : -0.4, 5.15, 0);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), lampBulbMat);
+    bulb.position.set(lx < 0 ? 0.75 : -0.75, 4.98, 0);
+    lamp.add(pole, arm, bulb);
+    lamp.position.set(lx, 0, -4.7);
+    group.add(lamp);
+  });
+
+  // Extended swaying bunting spanning x = -17.5 to +17.5
   const flags: THREE.Mesh[] = [];
   const flagColors = [0xef4444, 0xfacc15, 0x22c55e, 0xec4899, 0x38bdf8];
   const flagGeo = new THREE.PlaneGeometry(0.45, 0.55);
-  for (let i = 0; i < 12; i++) {
-    const t = i / 11;
-    const x = -8.5 + t * 17;
-    const sag = Math.sin(t * Math.PI) * 0.7;
+  for (let i = 0; i < 24; i++) {
+    const t = i / 23;
+    const x = -17.5 + t * 35;
+    const sag = Math.abs(Math.sin(t * Math.PI * 2)) * 0.65;
     const flag = new THREE.Mesh(
       flagGeo,
       new THREE.MeshStandardMaterial({
@@ -244,12 +280,16 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
         roughness: 0.7,
       }),
     );
-    flag.position.set(x, 4.9 - sag, -5.2);
+    flag.position.set(x, 4.95 - sag, -5.2);
     group.add(flag);
     flags.push(flag);
   }
 
-  // LIVING MOHALLA NPCs (strictly behind z <= -3.3)
+  // Cached cardboard crowd sign textures for Mohalla flanks
+  const signJitegaTex = createCrowdSignTexture('JITEGA BHAI!', '#FACC15', '#B91C1C', '#7F1D1D', anisotropy);
+  const signPowerTex = createCrowdSignTexture('FULL POWER!', '#FDBA74', '#C2410C', '#18181B', anisotropy);
+
+  // LIVING MOHALLA NPCs (strictly behind z <= -2.3)
   const npcs: AmbientNpc[] = [
     // Chaiwala behind counter serving cutting chai
     createLowPolyNpc({
@@ -260,7 +300,7 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
       x: 5.35,
       z: -5.1,
     }),
-    // Balcony neighbour #1 (aunty in teal saree)
+    // Balcony neighbours
     createLowPolyNpc({
       shirtColor: 0xec4899,
       pantColor: 0xbe185d,
@@ -269,7 +309,6 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
       y: 3.18,
       z: -5.3,
     }),
-    // Balcony neighbour #2 (uncle watching from orange house)
     createLowPolyNpc({
       shirtColor: 0x38bdf8,
       pantColor: 0x1e293b,
@@ -280,7 +319,7 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
       z: -5.3,
       isSecondary: true,
     }),
-    // Strolling mohalla uncle on far sidewalk
+    // Strolling mohalla uncle on center sidewalk
     createLowPolyNpc({
       shirtColor: 0xfef08a,
       pantColor: 0x475569,
@@ -291,6 +330,126 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
       walkMinX: -3.2,
       walkMaxX: 2.6,
       speed: 1.05,
+    }),
+
+    // LEFT FLANK SUPPORT AUDIENCE (x = -8.8 to -13.5, z = -2.4 to -3.8)
+    createLowPolyNpc({
+      shirtColor: 0xf97316,
+      pantColor: 0x334155,
+      hairColor: 0x9ca3af,
+      mode: 'supporter',
+      prop: 'sign',
+      signTexture: signJitegaTex,
+      faceYaw: 0.3,
+      x: -9.2,
+      z: -2.7,
+      phase: 0.2,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x10b981,
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: 0.34,
+      x: -10.4,
+      z: -3.25,
+      phase: 1.1,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x38bdf8,
+      pantColor: 0x1e3a8a,
+      mode: 'supporter',
+      prop: 'sign',
+      signTexture: signPowerTex,
+      scale: 0.74, // Cheering mohalla kid!
+      faceYaw: 0.28,
+      x: -11.35,
+      z: -2.55,
+      phase: 2.0,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xfacc15,
+      pantColor: 0x475569,
+      turbanColor: 0xdc2626,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: 0.36,
+      x: -12.4,
+      z: -3.45,
+      phase: 2.8,
+      isSecondary: true,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xec4899,
+      pantColor: 0x9d174d,
+      sareeColor: 0xfef08a,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.32,
+      x: -13.45,
+      z: -2.9,
+      phase: 3.6,
+      isSecondary: true,
+    }),
+
+    // RIGHT FLANK SUPPORT AUDIENCE (x = +8.8 to +13.5, z = -2.4 to -3.8)
+    createLowPolyNpc({
+      shirtColor: 0x2563eb,
+      pantColor: 0x1e293b,
+      hairColor: 0x9ca3af,
+      mode: 'supporter',
+      prop: 'sign',
+      signTexture: signPowerTex,
+      faceYaw: -0.3,
+      x: 9.2,
+      z: -2.7,
+      phase: 0.7,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xf59e0b,
+      pantColor: 0x334155,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: -0.34,
+      x: 10.4,
+      z: -3.25,
+      phase: 1.6,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xef4444,
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop: 'sign',
+      signTexture: signJitegaTex,
+      scale: 0.74, // Cheering mohalla kid!
+      faceYaw: -0.28,
+      x: 11.4,
+      z: -2.55,
+      phase: 2.4,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x14b8a6,
+      pantColor: 0x334155,
+      turbanColor: 0xfacc15,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: -0.36,
+      x: 12.45,
+      z: -3.45,
+      phase: 3.2,
+      isSecondary: true,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xa855f7,
+      pantColor: 0x581c87,
+      sareeColor: 0xfde047,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.32,
+      x: 13.5,
+      z: -2.9,
+      phase: 4.1,
+      isSecondary: true,
     }),
   ];
   npcs.forEach((n) => group.add(n.group));
@@ -304,8 +463,8 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
     group,
     backgroundColor: 0xfdba74,
     fogColor: 0xfdba74,
-    fogNear: 18,
-    fogFar: 46,
+    fogNear: 24,
+    fogFar: 58,
     keyLightColor: 0xfff3d1,
     keyLightIntensity: 2.1,
     hemiSkyColor: 0x93c5fd,
@@ -314,7 +473,7 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
     rimLightColor: 0xf59e0b,
     rimLightIntensity: 1.0,
     update(elapsed, dt) {
-      excitement = Math.max(0, excitement - dt * 1.1);
+      excitement = Math.max(0, excitement - dt);
       steamPuffs.forEach((p, idx) => {
         const phase = (elapsed * 0.9 + idx * 0.25) % 1;
         p.position.y = 1.55 + phase * 1.1;
@@ -337,7 +496,7 @@ function buildDesiMohalla(anisotropy: number): StageInstance {
       });
       strayCow.group.visible = !low;
     },
-    dispose: () => disposeGroup(group),
+    dispose: () => disposeGroup(group, [signJitegaTex, signPowerTex]),
   };
 }
 
@@ -346,7 +505,7 @@ function buildSchoolCoaching(anisotropy: number): StageInstance {
   let excitement = 0;
 
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(36, 26),
+    new THREE.PlaneGeometry(52, 28),
     new THREE.MeshStandardMaterial({
       color: 0xffffff,
       map: createClassroomFloorTexture(anisotropy),
@@ -358,24 +517,48 @@ function buildSchoolCoaching(anisotropy: number): StageInstance {
   floor.receiveShadow = true;
   group.add(floor);
 
-  const backWall = new THREE.Mesh(
-    new THREE.BoxGeometry(28, 9, 0.5),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      map: createPlasterWallTexture('#fef3c7', anisotropy),
-      roughness: 0.85,
-    }),
-  );
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: createPlasterWallTexture('#fef3c7', anisotropy),
+    roughness: 0.85,
+  });
+  const dadoMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.75 });
+
+  // Extended wide classroom back wall covering x = -22 to +22
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(44, 9, 0.5), wallMat);
   backWall.position.set(0, 4.5, -5.8);
   backWall.receiveShadow = true;
   group.add(backWall);
 
-  const dado = new THREE.Mesh(
-    new THREE.BoxGeometry(28, 1.8, 0.56),
-    new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.75 }),
-  );
+  const dado = new THREE.Mesh(new THREE.BoxGeometry(44, 1.8, 0.56), dadoMat);
   dado.position.set(0, 0.9, -5.78);
   group.add(dado);
+
+  // Enclosed left & right classroom side walls with sunny windows at x = ±19.2
+  const windowGlassMat = new THREE.MeshStandardMaterial({
+    color: 0xbae6fd,
+    emissive: 0xe0f2fe,
+    emissiveIntensity: 0.45,
+    roughness: 0.15,
+  });
+  const windowFrameMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.65 });
+  [-19.2, 19.2].forEach((sx) => {
+    const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 9, 20), wallMat);
+    sideWall.position.set(sx, 4.5, 2);
+    group.add(sideWall);
+
+    const sideDado = new THREE.Mesh(new THREE.BoxGeometry(0.56, 1.8, 20), dadoMat);
+    sideDado.position.set(sx, 0.9, 2);
+    group.add(sideDado);
+
+    [-2.5, 1.5].forEach((wz) => {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.62, 2.5, 2.2), windowFrameMat);
+      frame.position.set(sx, 3.8, wz);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(0.66, 2.1, 1.8), windowGlassMat);
+      glass.position.set(sx, 3.8, wz);
+      group.add(frame, glass);
+    });
+  });
 
   const boardFrame = new THREE.Mesh(
     new THREE.BoxGeometry(8.8, 3.8, 0.2),
@@ -395,32 +578,29 @@ function buildSchoolCoaching(anisotropy: number): StageInstance {
   blackboard.position.set(0, 3.6, -5.36);
   group.add(blackboard);
 
-  const poster1 = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.85, 2.5),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      map: createExamPosterTexture('EXAM SCHEDULE', '#DC2626', anisotropy),
-      roughness: 0.6,
-    }),
-  );
-  poster1.position.set(-6.1, 3.6, -5.5);
-  group.add(poster1);
-
-  const poster2 = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.85, 2.5),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      map: createExamPosterTexture('TOPPER RULES', '#2563EB', anisotropy),
-      roughness: 0.6,
-    }),
-  );
-  poster2.position.set(6.1, 3.6, -5.5);
-  group.add(poster2);
+  const posterSpecs: Array<[number, string, string]> = [
+    [-12.6, 'IIT JEE 2099', '#0D9488'],
+    [-6.1, 'EXAM SCHEDULE', '#DC2626'],
+    [6.1, 'TOPPER RULES', '#2563EB'],
+    [12.6, 'EXTRA CLASS!', '#D97706'],
+  ];
+  posterSpecs.forEach(([px, title, accent]) => {
+    const poster = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.85, 2.5),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: createExamPosterTexture(title, accent, anisotropy),
+        roughness: 0.6,
+      }),
+    );
+    poster.position.set(px, 3.6, -5.5);
+    group.add(poster);
+  });
 
   // Wooden Desks + Seated Students reacting to heavy hits!
   const deskWoodMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.68 });
   const deskLegMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.7 });
-  const deskPositions = [-5.2, -2.5, 2.5, 5.2];
+  const deskPositions = [-15.2, -5.2, -2.5, 2.5, 5.2, 15.2];
   const uniformColors = [0xf8fafc, 0x93c5fd, 0xfef08a, 0xf8fafc];
   const npcs: AmbientNpc[] = [];
 
@@ -441,48 +621,101 @@ function buildSchoolCoaching(anisotropy: number): StageInstance {
     desk.position.set(dx, 0, -3.9);
     group.add(desk);
 
-    // Seated coaching student behind each desk facing forward toward fight
-    const student = createLowPolyNpc({
-      shirtColor: uniformColors[idx % uniformColors.length],
-      pantColor: 0x1e3a8a,
-      mode: 'seated',
-      x: dx,
-      y: 0.25,
-      z: -4.45,
-      phase: idx * 1.4,
-      isSecondary: idx === 0 || idx === 3,
-    });
-    group.add(student.group);
-    npcs.push(student);
+    // Seated coaching students behind center desks
+    if (Math.abs(dx) < 8) {
+      const student = createLowPolyNpc({
+        shirtColor: uniformColors[idx % uniformColors.length],
+        pantColor: 0x1e3a8a,
+        mode: 'seated',
+        x: dx,
+        y: 0.25,
+        z: -4.45,
+        phase: idx * 1.4,
+        isSecondary: idx === 1 || idx === 4,
+      });
+      group.add(student.group);
+      npcs.push(student);
+    }
   });
 
-  // Rotating Ceiling Fan overhead
-  const fanGroup = new THREE.Group();
-  const fanMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.3, metalness: 0.5 });
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 8), fanMat);
-  rod.position.y = 0.7;
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.18, 14), fanMat);
-  fanGroup.add(rod, hub);
+  // LEFT & RIGHT FLANK COACHING STUDENTS waving notebooks and pens (x = ±8.8..±13.6, z = -2.4..-3.9)
+  const leftStudentSpecs: Array<[number, number, number, 'notebook' | 'pen', boolean]> = [
+    [-9.1, -2.65, 0xf8fafc, 'notebook', false],
+    [-10.25, -3.25, 0x93c5fd, 'pen', false],
+    [-11.3, -2.55, 0xfef08a, 'notebook', false],
+    [-12.45, -3.4, 0xf8fafc, 'pen', true],
+    [-13.5, -2.85, 0xbfdbfe, 'notebook', true],
+  ];
+  leftStudentSpecs.forEach(([sx, sz, shirt, prop, isSecondary], idx) => {
+    const s = createLowPolyNpc({
+      shirtColor: shirt,
+      pantColor: 0x1e3a8a,
+      mode: 'supporter',
+      prop,
+      faceYaw: 0.32,
+      x: sx,
+      z: sz,
+      phase: idx * 0.9,
+      isSecondary,
+    });
+    group.add(s.group);
+    npcs.push(s);
+  });
 
-  const fanBlades = new THREE.Group();
+  const rightStudentSpecs: Array<[number, number, number, 'notebook' | 'pen', boolean]> = [
+    [9.1, -2.65, 0x93c5fd, 'notebook', false],
+    [10.25, -3.25, 0xf8fafc, 'pen', false],
+    [11.3, -2.55, 0xbfdbfe, 'notebook', false],
+    [12.45, -3.4, 0xfef08a, 'pen', true],
+    [13.5, -2.85, 0xf8fafc, 'notebook', true],
+  ];
+  rightStudentSpecs.forEach(([sx, sz, shirt, prop, isSecondary], idx) => {
+    const s = createLowPolyNpc({
+      shirtColor: shirt,
+      pantColor: 0x1e3a8a,
+      mode: 'supporter',
+      prop,
+      faceYaw: -0.32,
+      x: sx,
+      z: sz,
+      phase: idx * 0.9 + 1.5,
+      isSecondary,
+    });
+    group.add(s.group);
+    npcs.push(s);
+  });
+
+  // 3 Rotating Ceiling Fans spanning the widened classroom
+  const fanMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.3, metalness: 0.5 });
   const bladeGeo = new THREE.BoxGeometry(1.85, 0.04, 0.28);
-  for (let i = 0; i < 3; i++) {
-    const b = new THREE.Mesh(bladeGeo, fanMat);
-    const angle = (i * Math.PI * 2) / 3;
-    b.position.set(Math.cos(angle) * 0.95, 0, Math.sin(angle) * 0.95);
-    b.rotation.y = -angle;
-    fanBlades.add(b);
-  }
-  fanGroup.add(fanBlades);
-  fanGroup.position.set(0, 6.2, -2.5);
-  group.add(fanGroup);
+  const fanBladeGroups: THREE.Group[] = [];
+  [-11, 0, 11].forEach((fx) => {
+    const fanGroup = new THREE.Group();
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 8), fanMat);
+    rod.position.y = 0.7;
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.18, 14), fanMat);
+    fanGroup.add(rod, hub);
+
+    const fanBlades = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Mesh(bladeGeo, fanMat);
+      const angle = (i * Math.PI * 2) / 3;
+      b.position.set(Math.cos(angle) * 0.95, 0, Math.sin(angle) * 0.95);
+      b.rotation.y = -angle;
+      fanBlades.add(b);
+    }
+    fanGroup.add(fanBlades);
+    fanGroup.position.set(fx, 6.2, -2.5);
+    group.add(fanGroup);
+    fanBladeGroups.push(fanBlades);
+  });
 
   const tubeMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: 0xe0f2fe,
     emissiveIntensity: 1.2,
   });
-  [-4.5, 4.5].forEach((tx) => {
+  [-13.5, -4.5, 4.5, 13.5].forEach((tx) => {
     const tube = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 0.14), tubeMat);
     tube.position.set(tx, 5.9, -5.35);
     group.add(tube);
@@ -493,8 +726,8 @@ function buildSchoolCoaching(anisotropy: number): StageInstance {
     group,
     backgroundColor: 0xe7e5e4,
     fogColor: 0xe7e5e4,
-    fogNear: 16,
-    fogFar: 38,
+    fogNear: 24,
+    fogFar: 54,
     keyLightColor: 0xfffbeb,
     keyLightIntensity: 1.9,
     hemiSkyColor: 0xe0f2fe,
@@ -503,8 +736,10 @@ function buildSchoolCoaching(anisotropy: number): StageInstance {
     rimLightColor: 0x38bdf8,
     rimLightIntensity: 0.7,
     update(elapsed, dt) {
-      excitement = Math.max(0, excitement - dt * 1.15);
-      fanBlades.rotation.y = elapsed * (8.5 + excitement * 4);
+      excitement = Math.max(0, excitement - dt);
+      fanBladeGroups.forEach((blades, idx) => {
+        blades.rotation.y = elapsed * (8.5 + excitement * 4) + idx * 1.1;
+      });
       updateAmbientNpcs(npcs, elapsed, dt, excitement);
     },
     triggerExcitement(amount) {
@@ -524,12 +759,35 @@ function buildNewsStudio(anisotropy: number): StageInstance {
   let excitement = 0;
 
   const baseFloor = new THREE.Mesh(
-    new THREE.PlaneGeometry(40, 28),
+    new THREE.PlaneGeometry(58, 30),
     new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.2, metalness: 0.45 }),
   );
   baseFloor.rotation.x = -Math.PI / 2;
   baseFloor.receiveShadow = true;
   group.add(baseFloor);
+
+  // Dark studio architectural backdrop enclosure spanning x = -25 to +25
+  const studioWallMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.65, metalness: 0.25 });
+  const studioBackWall = new THREE.Mesh(new THREE.BoxGeometry(52, 9.5, 0.4), studioWallMat);
+  studioBackWall.position.set(0, 4.75, -7.2);
+  group.add(studioBackWall);
+
+  // Glowing studio LED floor border strips extending across x = -19..+19
+  const redNeonMat = new THREE.MeshStandardMaterial({
+    color: 0xef4444,
+    emissive: 0xef4444,
+    emissiveIntensity: 1.4,
+  });
+  const blueNeonMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 1.4,
+  });
+  const floorStripLeft = new THREE.Mesh(new THREE.BoxGeometry(19, 0.04, 0.16), blueNeonMat);
+  floorStripLeft.position.set(-9.5, 0.025, -2.15);
+  const floorStripRight = new THREE.Mesh(new THREE.BoxGeometry(19, 0.04, 0.16), redNeonMat);
+  floorStripRight.position.set(9.5, 0.025, -2.15);
+  group.add(floorStripLeft, floorStripRight);
 
   const ringMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -546,7 +804,7 @@ function buildNewsStudio(anisotropy: number): StageInstance {
   ringDecal.position.y = 0.025;
   group.add(ringDecal);
 
-  // Dynamic Animated BREAKING BAKWAS Studio LED Screens with live pulsing equalizers!
+  // Dynamic Animated BREAKING BAKWAS Studio LED Screens spanning x = -18 to +18!
   const dynScreen = createDynamicNewsScreen(anisotropy);
   const screenMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -559,9 +817,11 @@ function buildNewsStudio(anisotropy: number): StageInstance {
   const bezelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.8 });
 
   const panels: Array<[number, number, number]> = [
-    [-7.4, -4.6, 0.38],
+    [-15.2, -5.6, 0.22],
+    [-7.6, -5.8, 0.16],
     [0, -6.1, 0],
-    [7.4, -4.6, -0.38],
+    [7.6, -5.8, -0.16],
+    [15.2, -5.6, -0.22],
   ];
   panels.forEach(([px, pz, ry]) => {
     const pGroup = new THREE.Group();
@@ -574,23 +834,34 @@ function buildNewsStudio(anisotropy: number): StageInstance {
     group.add(pGroup);
   });
 
-  const redNeonMat = new THREE.MeshStandardMaterial({
-    color: 0xef4444,
-    emissive: 0xef4444,
-    emissiveIntensity: 1.4,
-  });
-  const blueNeonMat = new THREE.MeshStandardMaterial({
-    color: 0x38bdf8,
-    emissive: 0x38bdf8,
-    emissiveIntensity: 1.4,
-  });
-  [-4.0, 4.0].forEach((px, idx) => {
+  [-11.6, -3.9, 3.9, 11.6].forEach((px, idx) => {
     const pillar = new THREE.Mesh(
       new THREE.CylinderGeometry(0.22, 0.22, 6.2, 12),
-      idx === 0 ? redNeonMat : blueNeonMat,
+      idx % 2 === 0 ? redNeonMat : blueNeonMat,
     );
-    pillar.position.set(px, 3.1, -5.6);
+    pillar.position.set(px, 3.1, -5.5);
     group.add(pillar);
+  });
+
+  // Left & Right Live Debate Barricades (z = -2.55, waist-high so audience & placards pop above!)
+  const barricadeBodyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.65 });
+  [-11.3, 11.3].forEach((bx, sideIdx) => {
+    const barricade = new THREE.Group();
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.78, 0.28), barricadeBodyMat);
+    wall.position.y = 0.39;
+    const neonTop = new THREE.Mesh(
+      new THREE.BoxGeometry(6.24, 0.1, 0.32),
+      sideIdx === 0 ? blueNeonMat : redNeonMat,
+    );
+    neonTop.position.y = 0.82;
+    const neonMid = new THREE.Mesh(
+      new THREE.BoxGeometry(6.0, 0.055, 0.3),
+      sideIdx === 0 ? redNeonMat : blueNeonMat,
+    );
+    neonMid.position.y = 0.42;
+    barricade.add(wall, neonTop, neonMid);
+    barricade.position.set(bx, 0, -2.55);
+    group.add(barricade);
   });
 
   // 2 Broadcast TV Camera Rigs + Moving Studio Camera Operators behind them!
@@ -625,7 +896,6 @@ function buildNewsStudio(anisotropy: number): StageInstance {
     group.add(camRig);
     camRigs.push(head);
 
-    // Camera operator standing behind rig
     const operator = createLowPolyNpc({
       shirtColor: 0x1e293b,
       pantColor: 0x0f172a,
@@ -655,10 +925,63 @@ function buildNewsStudio(anisotropy: number): StageInstance {
   group.add(producer.group);
   npcs.push(producer);
 
-  const redSpot = new THREE.PointLight(0xef4444, 18, 22, 1.6);
-  redSpot.position.set(-5.5, 5.5, -1.5);
-  const blueSpot = new THREE.PointLight(0x38bdf8, 18, 22, 1.6);
-  blueSpot.position.set(5.5, 5.5, -1.5);
+  // Studio audience placard textures
+  const placardTrpTex = createCrowdSignTexture('TRP HIGH!', '#FACC15', '#DC2626', '#111827', anisotropy);
+  const placardBreakingTex = createCrowdSignTexture('BREAKING!', '#DC2626', '#FACC15', '#FFFFFF', anisotropy);
+
+  // LEFT & RIGHT LIVE STUDIO AUDIENCE behind debate barricades (x = ±8.8..±13.8, z = -3.1..-3.9)
+  const studioLeftSpecs: Array<[number, number, number, 'placard' | 'none', THREE.CanvasTexture | undefined, boolean]> = [
+    [-9.0, -3.15, 0x38bdf8, 'placard', placardTrpTex, false],
+    [-10.2, -3.65, 0xf8fafc, 'none', undefined, false],
+    [-11.35, -3.2, 0xf43f5e, 'placard', placardBreakingTex, false],
+    [-12.5, -3.75, 0xfacc15, 'none', undefined, true],
+    [-13.6, -3.25, 0x22c55e, 'placard', placardTrpTex, true],
+  ];
+  studioLeftSpecs.forEach(([sx, sz, shirt, prop, tex, isSecondary], idx) => {
+    const member = createLowPolyNpc({
+      shirtColor: shirt,
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop,
+      signTexture: tex,
+      faceYaw: 0.28,
+      x: sx,
+      z: sz,
+      phase: idx * 0.85,
+      isSecondary,
+    });
+    group.add(member.group);
+    npcs.push(member);
+  });
+
+  const studioRightSpecs: Array<[number, number, number, 'placard' | 'none', THREE.CanvasTexture | undefined, boolean]> = [
+    [9.0, -3.15, 0xf43f5e, 'placard', placardBreakingTex, false],
+    [10.2, -3.65, 0x38bdf8, 'none', undefined, false],
+    [11.35, -3.2, 0xfacc15, 'placard', placardTrpTex, false],
+    [12.5, -3.75, 0xf8fafc, 'none', undefined, true],
+    [13.6, -3.25, 0xa855f7, 'placard', placardBreakingTex, true],
+  ];
+  studioRightSpecs.forEach(([sx, sz, shirt, prop, tex, isSecondary], idx) => {
+    const member = createLowPolyNpc({
+      shirtColor: shirt,
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop,
+      signTexture: tex,
+      faceYaw: -0.28,
+      x: sx,
+      z: sz,
+      phase: idx * 0.85 + 1.4,
+      isSecondary,
+    });
+    group.add(member.group);
+    npcs.push(member);
+  });
+
+  const redSpot = new THREE.PointLight(0xef4444, 18, 28, 1.5);
+  redSpot.position.set(-6.5, 5.5, -1.5);
+  const blueSpot = new THREE.PointLight(0x38bdf8, 18, 28, 1.5);
+  blueSpot.position.set(6.5, 5.5, -1.5);
   group.add(redSpot, blueSpot);
 
   return {
@@ -666,19 +989,19 @@ function buildNewsStudio(anisotropy: number): StageInstance {
     group,
     backgroundColor: 0x090d1a,
     fogColor: 0x090d1a,
-    fogNear: 16,
-    fogFar: 42,
+    fogNear: 24,
+    fogFar: 56,
     keyLightColor: 0xf8fafc,
     keyLightIntensity: 1.75,
     hemiSkyColor: 0x38bdf8,
     hemiGroundColor: 0x7f1d1d,
-    hemiIntensity: 0.75,
+    hemiIntensity: 0.78,
     rimLightColor: 0xf43f5e,
     rimLightIntensity: 1.25,
     update(elapsed, dt) {
-      excitement = Math.max(0, excitement - dt * 1.15);
-      redSpot.position.x = -5.5 + Math.sin(elapsed * 1.4) * 2.5;
-      blueSpot.position.x = 5.5 + Math.cos(elapsed * 1.4) * 2.5;
+      excitement = Math.max(0, excitement - dt);
+      redSpot.position.x = -6.5 + Math.sin(elapsed * 1.4) * 3.0;
+      blueSpot.position.x = 6.5 + Math.cos(elapsed * 1.4) * 3.0;
       ringDecal.rotation.z = elapsed * 0.16;
       ringMat.emissiveIntensity = 0.5 + Math.sin(elapsed * 3.5) * 0.18 + excitement * 0.3;
       camRigs.forEach((h, i) => {
@@ -695,7 +1018,7 @@ function buildNewsStudio(anisotropy: number): StageInstance {
         if (n.isSecondary) n.group.visible = !low;
       });
     },
-    dispose: () => disposeGroup(group),
+    dispose: () => disposeGroup(group, [placardTrpTex, placardBreakingTex]),
   };
 }
 
@@ -704,7 +1027,7 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
   let excitement = 0;
 
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(75, 45),
+    new THREE.PlaneGeometry(86, 48),
     new THREE.MeshStandardMaterial({ color: 0x2b1117, roughness: 0.88 }),
   );
   ground.rotation.x = -Math.PI / 2;
@@ -712,7 +1035,7 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
   group.add(ground);
 
   const carpet = new THREE.Mesh(
-    new THREE.PlaneGeometry(18, 8.5),
+    new THREE.PlaneGeometry(38, 8.5),
     new THREE.MeshStandardMaterial({
       color: 0xffffff,
       map: createShaadiCarpetTexture(anisotropy),
@@ -731,8 +1054,9 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
   const goldClothMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.55, metalness: 0.25 });
   const pinkClothMat = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.72 });
 
-  for (let i = 0; i < 9; i++) {
-    const x = -10 + i * 2.5;
+  // Extended festive red/gold back drapery spanning x = -20 to +20
+  for (let i = 0; i < 17; i++) {
+    const x = -20 + i * 2.5;
     const drape = new THREE.Mesh(
       new THREE.BoxGeometry(2.48, 6.2, 0.35),
       i % 2 === 0 ? redClothMat : goldClothMat,
@@ -746,43 +1070,90 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
   arch.position.set(0, 1.8, -5.5);
   group.add(arch);
 
-  [-3.2, 3.2].forEach((px) => {
+  [-17.2, -10.5, -3.2, 3.2, 10.5, 17.2].forEach((px) => {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 3.8, 12), goldClothMat);
     col.position.set(px, 1.9, -5.5);
     group.add(col);
   });
 
-  // Shahi Paneer Buffet Counter in background center!
-  const buffet = new THREE.Group();
-  const tableCloth = new THREE.Mesh(
-    new THREE.BoxGeometry(4.4, 1.05, 1.1),
-    new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 }),
-  );
-  tableCloth.position.y = 0.525;
-  buffet.add(tableCloth);
-
+  const buffetBannerTex = createBuffetBannerTexture(anisotropy);
+  buffetBannerTex.userData.shared = true;
   const dishMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.88 });
-  [-1.3, 0, 1.3].forEach((dx) => {
-    const dish = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.3, 0.58), dishMat);
-    dish.position.set(dx, 1.2, 0);
-    buffet.add(dish);
-  });
+  const tableClothMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 });
 
-  const buffetSign = new THREE.Mesh(
-    new THREE.BoxGeometry(4.2, 0.78, 0.08),
+  const buildBuffetCounter = (bx: number, bz: number, width: number, rotY = 0) => {
+    const buffet = new THREE.Group();
+    const tableCloth = new THREE.Mesh(new THREE.BoxGeometry(width, 1.05, 1.1), tableClothMat);
+    tableCloth.position.y = 0.525;
+    buffet.add(tableCloth);
+
+    [-1.1, 0, 1.1].forEach((dx) => {
+      const dish = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.3, 0.56), dishMat);
+      dish.position.set(dx * (width / 4.2), 1.2, 0);
+      buffet.add(dish);
+    });
+
+    const buffetSign = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.15, 0.76, 0.08),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: buffetBannerTex,
+        roughness: 0.45,
+      }),
+    );
+    buffetSign.position.set(0, 2.35, -0.45);
+    buffet.add(buffetSign);
+    buffet.position.set(bx, 0, bz);
+    buffet.rotation.y = rotY;
+    group.add(buffet);
+  };
+
+  // Center Shahi Paneer Buffet + Right Flank Buffet Side (x = +14.2)
+  buildBuffetCounter(0, -4.65, 4.4, 0);
+  buildBuffetCounter(14.3, -3.9, 3.9, -0.22);
+
+  // LEFT FLANK DJ CORNER (x = -14.3, z = -3.9): Dual speaker stacks + glowing DJ console!
+  const djCorner = new THREE.Group();
+  const speakerBodyMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.45, metalness: 0.4 });
+  const wooferGlowMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0xec4899,
+    emissiveIntensity: 1.5,
+  });
+  [-1.55, 1.55].forEach((sx) => {
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(1.05, 2.8, 0.95), speakerBodyMat);
+    tower.position.set(sx, 1.4, 0);
+    djCorner.add(tower);
+    [0.8, 1.95].forEach((wy) => {
+      const woofer = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.06, 8, 16), wooferGlowMat);
+      woofer.position.set(sx, wy, 0.49);
+      djCorner.add(woofer);
+    });
+  });
+  const djDesk = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.12, 0.85), speakerBodyMat);
+  djDesk.position.set(0, 0.56, 0.08);
+  djCorner.add(djDesk);
+  const djBannerTex = createDjBannerTexture(anisotropy);
+  const djBanner = new THREE.Mesh(
+    new THREE.BoxGeometry(3.8, 0.88, 0.1),
     new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      map: createBuffetBannerTexture(anisotropy),
-      roughness: 0.45,
+      map: djBannerTex,
+      emissive: 0xffffff,
+      emissiveMap: djBannerTex,
+      emissiveIntensity: 0.45,
+      roughness: 0.35,
     }),
   );
-  buffetSign.position.set(0, 2.35, -0.45);
-  buffet.add(buffetSign);
-  buffet.position.set(0, 0, -4.65);
-  group.add(buffet);
+  djBanner.position.set(0, 3.15, 0.15);
+  djCorner.add(djBanner);
+  djCorner.position.set(-14.3, 0, -3.9);
+  djCorner.rotation.y = 0.24;
+  group.add(djCorner);
 
-  for (let i = 0; i < 7; i++) {
-    const x = -9 + i * 3;
+  // Extended overhead pink/gold pandal canopy spanning x = -18 to +18
+  for (let i = 0; i < 13; i++) {
+    const x = -18 + i * 3;
     const canopy = new THREE.Mesh(
       new THREE.BoxGeometry(2.95, 0.16, 10),
       i % 2 === 0 ? pinkClothMat : goldClothMat,
@@ -819,11 +1190,11 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
     group.add(stack);
   });
 
-  // Blinking Colorful Fairy / DJ Lights
+  // Blinking Colorful Fairy / DJ Lights spanning x = -16.8 to +16.8
   const fairyBulbs: THREE.MeshStandardMaterial[] = [];
   const bulbColors = [0xfef08a, 0xec4899, 0x38bdf8, 0x4ade80, 0xf97316];
   const bulbGeo = new THREE.SphereGeometry(0.14, 8, 8);
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 27; i++) {
     const col = bulbColors[i % bulbColors.length];
     const mat = new THREE.MeshStandardMaterial({
       color: col,
@@ -832,11 +1203,11 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
     });
     fairyBulbs.push(mat);
     const bulb = new THREE.Mesh(bulbGeo, mat);
-    bulb.position.set(-7.8 + i * 1.2, 5.5 + Math.sin(i * 0.9) * 0.35, -4.6);
+    bulb.position.set(-16.8 + i * 1.29, 5.5 + Math.sin(i * 0.9) * 0.35, -4.6);
     group.add(bulb);
   }
 
-  // Shaadi Guests strolling near buffet & cheering!
+  // Shaadi Guests strolling center + clapping near Left DJ Corner & Right Buffet Side!
   const npcs: AmbientNpc[] = [
     createLowPolyNpc({
       shirtColor: 0xfacc15,
@@ -868,21 +1239,128 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
       z: -5.2,
       isSecondary: true,
     }),
+
+    // LEFT DJ CORNER GUESTS (x = -8.7 to -12.6, z = -2.4 to -3.6)
+    createLowPolyNpc({
+      shirtColor: 0xf97316,
+      pantColor: 0xfef3c7,
+      turbanColor: 0xec4899,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.34,
+      x: -8.8,
+      z: -2.6,
+      phase: 0.3,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xec4899,
+      pantColor: 0xbe185d,
+      sareeColor: 0xfacc15,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.32,
+      x: -9.85,
+      z: -3.2,
+      phase: 1.1,
+    }),
     createLowPolyNpc({
       shirtColor: 0x38bdf8,
-      pantColor: 0x1e293b,
-      mode: 'stroll',
-      x: -1.2,
-      z: -3.9,
-      walkMinX: -2.6,
-      walkMaxX: 2.6,
-      speed: 0.8,
+      pantColor: 0xf8fafc,
+      turbanColor: 0xfacc15,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.36,
+      x: -10.85,
+      z: -2.55,
+      phase: 1.9,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x10b981,
+      pantColor: 0x047857,
+      sareeColor: 0xfef08a,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.34,
+      x: -11.8,
+      z: -3.35,
+      phase: 2.7,
+      isSecondary: true,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xa855f7,
+      pantColor: 0xfef3c7,
+      turbanColor: 0xef4444,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.3,
+      x: -12.65,
+      z: -2.75,
+      phase: 3.5,
+      isSecondary: true,
+    }),
+
+    // RIGHT BUFFET SIDE GUESTS (x = +8.7 to +12.6, z = -2.4 to -3.6)
+    createLowPolyNpc({
+      shirtColor: 0xfacc15,
+      pantColor: 0xf8fafc,
+      turbanColor: 0xdc2626,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.34,
+      x: 8.8,
+      z: -2.6,
+      phase: 0.6,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xe11d48,
+      pantColor: 0x9f1239,
+      sareeColor: 0xfde047,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.32,
+      x: 9.85,
+      z: -3.2,
+      phase: 1.4,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x14b8a6,
+      pantColor: 0xfef3c7,
+      turbanColor: 0xf97316,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.36,
+      x: 10.85,
+      z: -2.55,
+      phase: 2.2,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x6366f1,
+      pantColor: 0x3730a3,
+      sareeColor: 0xf472b6,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.34,
+      x: 11.8,
+      z: -3.35,
+      phase: 3.0,
+      isSecondary: true,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xf97316,
+      pantColor: 0xf8fafc,
+      turbanColor: 0x22c55e,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.3,
+      x: 12.65,
+      z: -2.75,
+      phase: 3.8,
       isSecondary: true,
     }),
   ];
   npcs.forEach((n) => group.add(n.group));
 
-  const djLight = new THREE.PointLight(0xec4899, 14, 24, 1.5);
+  const djLight = new THREE.PointLight(0xec4899, 14, 28, 1.4);
   djLight.position.set(0, 5.2, -1.5);
   group.add(djLight);
 
@@ -891,8 +1369,8 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
     group,
     backgroundColor: 0x260915,
     fogColor: 0x260915,
-    fogNear: 18,
-    fogFar: 46,
+    fogNear: 24,
+    fogFar: 58,
     keyLightColor: 0xffe8b6,
     keyLightIntensity: 2.0,
     hemiSkyColor: 0xf472b6,
@@ -901,11 +1379,12 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
     rimLightColor: 0xfacc15,
     rimLightIntensity: 1.15,
     update(elapsed, dt) {
-      excitement = Math.max(0, excitement - dt * 1.1);
+      excitement = Math.max(0, excitement - dt);
       fairyBulbs.forEach((mat, i) => {
         const pulse = Math.sin(elapsed * (6.5 + excitement * 4) + i * 0.9);
         mat.emissiveIntensity = pulse > 0 ? 1.8 : 0.25;
       });
+      wooferGlowMat.emissiveIntensity = 1.0 + Math.abs(Math.sin(elapsed * (7.5 + excitement * 4))) * 1.1;
       djLight.color.setHSL((elapsed * 0.18) % 1, 0.85, 0.55);
       updateAmbientNpcs(npcs, elapsed, dt, excitement);
     },
@@ -917,7 +1396,7 @@ function buildShaadiPandal(anisotropy: number): StageInstance {
         if (n.isSecondary) n.group.visible = !low;
       });
     },
-    dispose: () => disposeGroup(group),
+    dispose: () => disposeGroup(group, [buffetBannerTex, djBannerTex]),
   };
 }
 
@@ -926,7 +1405,7 @@ function buildRailwayStation(anisotropy: number): StageInstance {
   let excitement = 0;
 
   const ballast = new THREE.Mesh(
-    new THREE.PlaneGeometry(90, 50),
+    new THREE.PlaneGeometry(108, 54),
     new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.95 }),
   );
   ballast.rotation.x = -Math.PI / 2;
@@ -935,7 +1414,7 @@ function buildRailwayStation(anisotropy: number): StageInstance {
 
   const platTopTex = createRailwayPlatformTexture(anisotropy);
   const platform = new THREE.Mesh(
-    new THREE.BoxGeometry(34, 0.65, 8.5),
+    new THREE.BoxGeometry(48, 0.65, 8.5),
     new THREE.MeshStandardMaterial({ color: 0xffffff, map: platTopTex, roughness: 0.8 }),
   );
   platform.position.set(0, -0.325, 0.4);
@@ -944,35 +1423,58 @@ function buildRailwayStation(anisotropy: number): StageInstance {
 
   const railMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.3, metalness: 0.85 });
   [-4.9, -6.2].forEach((rz) => {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(70, 0.12, 0.14), railMat);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(96, 0.12, 0.14), railMat);
     rail.position.set(0, -0.58, rz);
     group.add(rail);
   });
 
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.45, metalness: 0.55 });
-  [-7.5, 0, 7.5].forEach((px) => {
+  [-15, -7.5, 0, 7.5, 15].forEach((px) => {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 6.2, 10), steelMat);
     col.position.set(px, 3.1, -3.4);
     group.add(col);
   });
   const roof = new THREE.Mesh(
-    new THREE.BoxGeometry(24, 0.22, 5.5),
+    new THREE.BoxGeometry(42, 0.22, 5.5),
     new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 }),
   );
   roof.position.set(0, 6.2, -2.5);
   roof.rotation.x = 0.08;
   group.add(roof);
 
-  const board = new THREE.Mesh(
-    new THREE.BoxGeometry(6.8, 1.65, 0.16),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      map: createStationBoardTexture(anisotropy),
-      roughness: 0.4,
-    }),
-  );
-  board.position.set(-2.5, 4.45, -3.2);
-  group.add(board);
+  const stationBoardTex = createStationBoardTexture(anisotropy);
+  stationBoardTex.userData.shared = true;
+  const stationBoardMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: stationBoardTex,
+    roughness: 0.4,
+  });
+
+  // Main + flank platform nameboards spanning the widened station
+  [-12.6, -2.5, 12.6].forEach((bx) => {
+    const board = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.45, 0.16), stationBoardMat);
+    board.position.set(bx, 4.45, -3.2);
+    group.add(board);
+  });
+
+  // Classic Railway Platform Wooden Benches on both flanks
+  const benchWoodMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.78 });
+  const benchIronMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.7 });
+  [-11.8, 11.8].forEach((bx) => {
+    const bench = new THREE.Group();
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 0.65), benchWoodMat);
+    seat.position.y = 0.55;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.55, 0.1), benchWoodMat);
+    back.position.set(0, 0.88, -0.28);
+    bench.add(seat, back);
+    [-1.1, 1.1].forEach((lx) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.58), benchIronMat);
+      leg.position.set(lx, 0.275, 0);
+      bench.add(leg);
+    });
+    bench.position.set(bx, 0, -3.55);
+    group.add(bench);
+  });
 
   const stall = new THREE.Group();
   const stallBody = new THREE.Mesh(
@@ -994,14 +1496,14 @@ function buildRailwayStation(anisotropy: number): StageInstance {
   stall.position.set(5.4, 0, -2.9);
   group.add(stall);
 
-  // Platform Passengers + Chai-Samosa Vendor (behind z <= -2.6)
+  // Platform Passengers + Red-Shirt Coolies + Chai Vendors (strictly behind z <= -2.15)
   const npcs: AmbientNpc[] = [
     createLowPolyNpc({
       shirtColor: 0xfef08a,
       pantColor: 0x1e293b,
       mode: 'vendor',
       x: 5.4,
-      z: -2.15, // standing right beside stall counter (still well behind z=0 arena!)
+      z: -2.15,
     }),
     createLowPolyNpc({
       shirtColor: 0xdc2626,
@@ -1023,16 +1525,119 @@ function buildRailwayStation(anisotropy: number): StageInstance {
       walkMinX: -5.5,
       walkMaxX: 3.2,
       speed: 1.05,
+      isSecondary: true,
+    }),
+
+    // LEFT PLATFORM END SUPPORTERS: Red-Shirt Coolies, Passengers & Chai Vendors!
+    createLowPolyNpc({
+      shirtColor: 0xdc2626, // Iconic Red-Shirt Coolie!
+      pantColor: 0xf8fafc,
+      turbanColor: 0xf8fafc,
+      mode: 'supporter',
+      prop: 'luggage',
+      faceYaw: 0.32,
+      x: -8.9,
+      z: -2.6,
+      phase: 0.2,
     }),
     createLowPolyNpc({
-      shirtColor: 0x10b981,
-      pantColor: 0x1e293b,
-      mode: 'stroll',
-      x: -1.6,
+      shirtColor: 0xfacc15, // Platform Chai Vendor
+      pantColor: 0x334155,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: 0.34,
+      x: -10.1,
       z: -3.0,
-      walkMinX: -6.2,
-      walkMaxX: 2.8,
-      speed: 0.9,
+      phase: 1.0,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x38bdf8, // Cheering Passenger
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.3,
+      x: -11.2,
+      z: -2.45,
+      phase: 1.8,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xdc2626, // Second Red-Shirt Coolie!
+      pantColor: 0xf8fafc,
+      turbanColor: 0xfacc15,
+      mode: 'supporter',
+      prop: 'luggage',
+      faceYaw: 0.36,
+      x: -12.45,
+      z: -2.9,
+      phase: 2.6,
+      isSecondary: true,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xec4899,
+      pantColor: 0x9d174d,
+      sareeColor: 0xfef08a,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: 0.32,
+      x: -13.6,
+      z: -2.6,
+      phase: 3.4,
+      isSecondary: true,
+    }),
+
+    // RIGHT PLATFORM END SUPPORTERS: Red-Shirt Coolies, Passengers & Chai Vendors!
+    createLowPolyNpc({
+      shirtColor: 0xdc2626, // Iconic Red-Shirt Coolie!
+      pantColor: 0xf8fafc,
+      turbanColor: 0xf8fafc,
+      mode: 'supporter',
+      prop: 'luggage',
+      faceYaw: -0.32,
+      x: 8.9,
+      z: -2.6,
+      phase: 0.6,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xf97316, // Platform Chai Vendor
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: -0.34,
+      x: 10.1,
+      z: -3.0,
+      phase: 1.4,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x10b981, // Cheering Passenger
+      pantColor: 0x1e293b,
+      mode: 'supporter',
+      prop: 'none',
+      faceYaw: -0.3,
+      x: 11.2,
+      z: -2.45,
+      phase: 2.2,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0xdc2626, // Second Red-Shirt Coolie!
+      pantColor: 0xf8fafc,
+      turbanColor: 0xfacc15,
+      mode: 'supporter',
+      prop: 'luggage',
+      faceYaw: -0.36,
+      x: 12.45,
+      z: -2.9,
+      phase: 3.0,
+      isSecondary: true,
+    }),
+    createLowPolyNpc({
+      shirtColor: 0x6366f1,
+      pantColor: 0x334155,
+      mode: 'supporter',
+      prop: 'chai',
+      faceYaw: -0.32,
+      x: 13.6,
+      z: -2.6,
+      phase: 3.8,
       isSecondary: true,
     }),
   ];
@@ -1071,7 +1676,7 @@ function buildRailwayStation(anisotropy: number): StageInstance {
     coach.position.x = c * 7.25;
     trainGroup.add(coach);
   }
-  trainGroup.position.set(-34, -0.55, -5.55);
+  trainGroup.position.set(-48, -0.55, -5.55);
   group.add(trainGroup);
 
   return {
@@ -1079,8 +1684,8 @@ function buildRailwayStation(anisotropy: number): StageInstance {
     group,
     backgroundColor: 0x93c5fd,
     fogColor: 0x93c5fd,
-    fogNear: 20,
-    fogFar: 52,
+    fogNear: 26,
+    fogFar: 62,
     keyLightColor: 0xfff7e6,
     keyLightIntensity: 2.0,
     hemiSkyColor: 0xbae6fd,
@@ -1089,9 +1694,9 @@ function buildRailwayStation(anisotropy: number): StageInstance {
     rimLightColor: 0xfacc15,
     rimLightIntensity: 0.85,
     update(elapsed, dt) {
-      excitement = Math.max(0, excitement - dt * 1.1);
-      const cycle = (elapsed * 9.5) % 92;
-      trainGroup.position.x = -38 + cycle;
+      excitement = Math.max(0, excitement - dt);
+      const cycle = (elapsed * 9.5) % 108;
+      trainGroup.position.x = -48 + cycle;
       updateAmbientNpcs(npcs, elapsed, dt, excitement);
     },
     triggerExcitement(amount) {
@@ -1102,7 +1707,7 @@ function buildRailwayStation(anisotropy: number): StageInstance {
         if (n.isSecondary) n.group.visible = !low;
       });
     },
-    dispose: () => disposeGroup(group),
+    dispose: () => disposeGroup(group, [stationBoardTex]),
   };
 }
 

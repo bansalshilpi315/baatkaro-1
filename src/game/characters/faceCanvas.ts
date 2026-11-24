@@ -1321,210 +1321,324 @@ function paintAndaPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.restore();
 }
 
+function paintMausiFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+  const cy = h * 0.53;
+  // Equirectangular SphereGeometry maps 2*PI lon across w and PI lat across h -> 2:1 horizontal stretch!
+  // Drawing horizontal radii/offsets at ~0.52x relative to vertical keeps bindi, eyes & smile crisp and round in 3D.
+  const uvX = 0.54;
+
+  // Base warm wheatish-tan skin tone (#DFB48E)
+  ctx.fillStyle = '#DFB48E';
+  ctx.fillRect(0, 0, w, h);
+
+  // Soft chubby cheek volumetric shading (matte vinyl-caricature depth, no blown highlights)
+  const skinGrad = ctx.createRadialGradient(cx, cy - h * 0.03, w * 0.04, cx, cy, w * 0.52);
+  skinGrad.addColorStop(0, 'rgba(255, 240, 224, 0.20)');
+  skinGrad.addColorStop(0.65, 'rgba(223, 180, 142, 0.0)');
+  skinGrad.addColorStop(1, 'rgba(135, 86, 52, 0.22)');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle painted center-parted hairline edge at very top of forehead so 3D hair blends seamlessly
+  ctx.fillStyle = '#3A1412';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.26);
+  ctx.quadraticCurveTo(cx + w * 0.09, h * 0.2, cx, h * 0.16);
+  ctx.quadraticCurveTo(cx - w * 0.09, h * 0.2, 0, h * 0.26);
+  ctx.closePath();
+  ctx.fill();
+
+  // Warm rosy chubby cheeks (aspect-compensated)
+  ctx.fillStyle = 'rgba(214, 78, 84, 0.24)';
+  ctx.beginPath();
+  ctx.ellipse(cx - w * 0.088, cy + h * 0.068, w * 0.032, h * 0.034, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + w * 0.088, cy + h * 0.068, w * 0.032, h * 0.034, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Subtle plump chin contour curve
+  ctx.strokeStyle = 'rgba(138, 86, 52, 0.34)';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + h * 0.175, w * 0.036, h * 0.022, 0, Math.PI * 0.18, Math.PI * 0.82);
+  ctx.stroke();
+
+  // Prominent BRIGHT RED ROUND BINDI centered dead-on forehead (aspect-compensated so it renders perfectly circular!)
+  const bindiY = cy - h * 0.145;
+  const bindiRx = w * 0.022;
+  const bindiRy = h * 0.039;
+  ctx.fillStyle = '#E11D2A';
+  ctx.beginPath();
+  ctx.ellipse(cx, bindiY, bindiRx, bindiRy, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#991B1B';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  // Crisp highlight dot on bindi
+  ctx.fillStyle = 'rgba(255, 228, 228, 0.5)';
+  ctx.beginPath();
+  ctx.ellipse(cx - bindiRx * 0.3, bindiY - bindiRy * 0.28, bindiRx * 0.26, bindiRy * 0.26, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wide expressive dark eyes (aspect-compensated for spherical UV)
+  const eyeOffsetX = w * 0.064;
+  const eyeY = cy - h * 0.032;
+  const eyeRx = w * 0.031;
+  const eyeRy = h * 0.054;
+
+  if (expression === 'ko') {
+    // Dizzy X eyes
+    ctx.strokeStyle = '#240E0C';
+    ctx.lineWidth = 5.5;
+    ctx.lineCap = 'round';
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      ctx.beginPath();
+      ctx.moveTo(ex - 7.5, eyeY - 11);
+      ctx.lineTo(ex + 7.5, eyeY + 11);
+      ctx.moveTo(ex + 7.5, eyeY - 11);
+      ctx.lineTo(ex - 7.5, eyeY + 11);
+      ctx.stroke();
+    });
+  } else if (expression === 'victory') {
+    // Joyful arched ^ ^ eyes with cute eyelash flicks
+    ctx.strokeStyle = '#240E0C';
+    ctx.lineWidth = 5.2;
+    ctx.lineCap = 'round';
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY + 6, eyeRx * 0.95, eyeRy * 0.85, 0, Math.PI * 1.12, Math.PI * 1.88);
+      ctx.stroke();
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.moveTo(ex + side * eyeRx * 0.85, eyeY + 2);
+      ctx.lineTo(ex + side * (eyeRx + 4), eyeY - 3);
+      ctx.stroke();
+      ctx.lineWidth = 5.2;
+    });
+  } else if (expression === 'hit') {
+    // Wide-eyed shocked expression!
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx * 1.12, eyeRy * 1.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#240E0C';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+
+      // Tiny shocked pinprick pupil
+      ctx.fillStyle = '#180A08';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY + 1, 3.0, 5.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(ex - 1.2, eyeY - 1.5, 1.2, 2.0, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  } else {
+    // Expressive big dark eyes (idle, attack, block)
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      const hScale = expression === 'block' ? 0.66 : expression === 'attack' ? 0.92 : 1.02;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx, eyeRy * hScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#240E0C';
+      ctx.lineWidth = 3.0;
+      ctx.stroke();
+
+      // Deep espresso-brown iris + dark pupil (aspect-compensated circles!)
+      const pupilY = expression === 'attack' ? eyeY - 1.5 : eyeY + 1;
+      ctx.fillStyle = '#2E1610';
+      ctx.beginPath();
+      ctx.ellipse(ex + side * 0.8, pupilY, 9.2 * uvX, 9.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#120806';
+      ctx.beginPath();
+      ctx.ellipse(ex + side * 0.8, pupilY, 5.8 * uvX, 5.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Twin catchlight sparkles
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(ex + side * 0.8 - 1.8, pupilY - 3.2, 2.8 * uvX, 2.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(ex + side * 0.8 + 1.6, pupilY + 2.5, 1.4 * uvX, 1.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bold upper kohl eyeliner + outer lash flick
+      ctx.strokeStyle = '#1E0C0A';
+      ctx.lineWidth = 3.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx + 0.4, eyeRy * hScale, 0, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.stroke();
+
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(ex + side * (eyeRx - 0.5), eyeY - 2);
+      ctx.lineTo(ex + side * (eyeRx + 4.2), eyeY - 6);
+      ctx.stroke();
+
+      // Fierce angled upper lid on attack
+      if (expression === 'attack') {
+        ctx.fillStyle = '#DFB48E';
+        ctx.beginPath();
+        ctx.moveTo(ex - side * (eyeRx + 3), eyeY - eyeRy - 2);
+        ctx.lineTo(ex + side * (eyeRx + 3), eyeY - eyeRy - 2);
+        ctx.lineTo(ex - side * (eyeRx + 3), eyeY - eyeRy * 0.08);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#240E0C';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(ex - side * (eyeRx + 1.5), eyeY - eyeRy * 0.14);
+        ctx.lineTo(ex + side * (eyeRx + 2), eyeY - eyeRy * 0.9);
+        ctx.stroke();
+      }
+    });
+  }
+
+  // Neat arched dark reddish-brown eyebrows (#3A1412, aspect-compensated)
+  ctx.strokeStyle = '#3A1412';
+  ctx.lineWidth = expression === 'attack' ? 5.2 : 4.2;
+  ctx.lineCap = 'round';
+  [-1, 1].forEach((side) => {
+    const ex = cx + side * eyeOffsetX;
+    ctx.beginPath();
+    if (expression === 'attack') {
+      ctx.moveTo(ex - side * 9.5, eyeY - 12);
+      ctx.quadraticCurveTo(ex, eyeY - 18, ex + side * 9.5, eyeY - 24);
+    } else if (expression === 'hit') {
+      ctx.moveTo(ex - side * 9.2, eyeY - 24);
+      ctx.quadraticCurveTo(ex, eyeY - 33, ex + side * 9.5, eyeY - 22);
+    } else if (expression === 'block') {
+      ctx.moveTo(ex - side * 9.5, eyeY - 13);
+      ctx.lineTo(ex + side * 9.2, eyeY - 19);
+    } else {
+      ctx.moveTo(ex - side * 9.2, eyeY - 18);
+      ctx.quadraticCurveTo(ex + side * 0.5, eyeY - 27, ex + side * 9.8, eyeY - 17);
+    }
+    ctx.stroke();
+  });
+
+  // Cute round button nose shade under 3D nose bump
+  const noseY = cy + h * 0.036;
+  ctx.fillStyle = 'rgba(156, 98, 62, 0.30)';
+  ctx.beginPath();
+  ctx.ellipse(cx, noseY + 2, 6.2, 6.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#8F5838';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.ellipse(cx, noseY, 4.6, 5.5, 0, Math.PI * 0.16, Math.PI * 0.84);
+  ctx.stroke();
+
+  // Expressive mouth (aspect-compensated)
+  const mouthY = cy + h * 0.118;
+  ctx.strokeStyle = '#3B1218';
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = 'round';
+
+  if (expression === 'attack') {
+    // Fierce angry battle shout / scowl!
+    ctx.fillStyle = '#7A161E';
+    ctx.beginPath();
+    ctx.moveTo(cx - 13.5, mouthY + 4);
+    ctx.quadraticCurveTo(cx, mouthY - 12, cx + 13.5, mouthY + 4);
+    ctx.quadraticCurveTo(cx, mouthY + 19, cx - 13.5, mouthY + 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(cx - 8.5, mouthY - 4, 17, 7, 2.5);
+    ctx.fill();
+  } else if (expression === 'hit') {
+    // Shocked open O mouth
+    ctx.fillStyle = '#7A161E';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 4, 8.2, 15.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (expression === 'ko') {
+    // Dizzy wavy mouth
+    ctx.beginPath();
+    ctx.moveTo(cx - 13, mouthY + 4);
+    ctx.quadraticCurveTo(cx - 6, mouthY - 7, cx, mouthY + 4);
+    ctx.quadraticCurveTo(cx + 6, mouthY + 13, cx + 13, mouthY + 2);
+    ctx.stroke();
+  } else if (expression === 'block') {
+    // Gritted determined teeth
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(cx - 12, mouthY - 5, 24, 12.5, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 11, mouthY + 1.5);
+    ctx.lineTo(cx + 11, mouthY + 1.5);
+    ctx.stroke();
+  } else if (expression === 'victory') {
+    // Big cheerful triumphant sweet-shop boss grin!
+    ctx.fillStyle = '#991B29';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY - 2, 13.5, 19, 0, 0.08 * Math.PI, 0.92 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(cx - 10, mouthY - 3, 20, 7.5, 2.5);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // Bold cheerful-yet-fierce confident aunty smile with warm berry lip tint
+    ctx.fillStyle = '#B83848';
+    ctx.beginPath();
+    ctx.moveTo(cx - 13.5, mouthY - 1);
+    ctx.quadraticCurveTo(cx, mouthY + 15, cx + 14, mouthY - 3);
+    ctx.quadraticCurveTo(cx, mouthY + 5.5, cx - 13.5, mouthY - 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
 export function paintFighterFace(
   ctx: CanvasRenderingContext2D,
   id: FighterId,
   expression: FaceExpression,
   crackLevel = 0,
 ): void {
-  if (id === 'sheru') {
-    paintWhiteLionFace(ctx, expression);
-    return;
-  }
-  if (id === 'billa') {
-    paintBlueBillaFace(ctx, expression);
-    return;
-  }
-  if (id === 'neta') {
-    paintNetaFace(ctx, expression);
-    return;
-  }
-  if (id === 'anda') {
-    paintAndaEggFace(ctx, expression, crackLevel);
-    return;
-  }
-
-  const w = ctx.canvas.width;
-  const h = ctx.canvas.height;
-  const cfg = FIGHTER_CONFIGS[id];
-
-  // Fill base skin/surface color
-  ctx.fillStyle = cfg.skinHex;
-  ctx.fillRect(0, 0, w, h);
-
-  // Subtle top-down cheek shading for vinyl-toy softness
-  const grad = ctx.createRadialGradient(w * 0.5, h * 0.45, w * 0.08, w * 0.5, h * 0.5, w * 0.65);
-  grad.addColorStop(0, 'rgba(255,255,255,0.18)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.14)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
-
-  // Face center coordinates (front UV patch on sphere is centered at u=0.5, v=0.5)
-  const cx = w * 0.5;
-  const cy = h * 0.52;
-
-  // Blush cheeks
-  ctx.fillStyle = 'rgba(225, 29, 72, 0.22)';
-  ctx.beginPath();
-  ctx.ellipse(cx - w * 0.14, cy + h * 0.06, w * 0.045, h * 0.028, 0, 0, Math.PI * 2);
-  ctx.ellipse(cx + w * 0.14, cy + h * 0.06, w * 0.045, h * 0.028, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eyes
-  const eyeOffsetX = w * 0.095;
-  const eyeY = cy - h * 0.05;
-  const eyeW = w * 0.052;
-  const eyeH = h * 0.058;
-
-  if (expression === 'ko') {
-    // Classic cartoon X eyes
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 7;
-    ctx.lineCap = 'round';
-    [-1, 1].forEach((side) => {
-      const ex = cx + side * eyeOffsetX;
-      ctx.beginPath();
-      ctx.moveTo(ex - 13, eyeY - 13);
-      ctx.lineTo(ex + 13, eyeY + 13);
-      ctx.moveTo(ex + 13, eyeY - 13);
-      ctx.lineTo(ex - 13, eyeY + 13);
-      ctx.stroke();
-    });
-  } else if (expression === 'hit') {
-    // Tightly winced > < eyes
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 7;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - eyeOffsetX - 14, eyeY - 10);
-    ctx.lineTo(cx - eyeOffsetX + 10, eyeY);
-    ctx.lineTo(cx - eyeOffsetX - 14, eyeY + 10);
-    ctx.moveTo(cx + eyeOffsetX + 14, eyeY - 10);
-    ctx.lineTo(cx + eyeOffsetX - 10, eyeY);
-    ctx.lineTo(cx + eyeOffsetX + 14, eyeY + 10);
-    ctx.stroke();
-  } else if (expression === 'victory') {
-    // Happy curved ^ ^ eyes
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 7;
-    ctx.lineCap = 'round';
-    [-1, 1].forEach((side) => {
-      const ex = cx + side * eyeOffsetX;
-      ctx.beginPath();
-      ctx.arc(ex, eyeY + 6, 15, Math.PI * 1.12, Math.PI * 1.88);
-      ctx.stroke();
-    });
-  } else {
-    // Crisp cartoon white sclera + dark pupils + specular sparkle
-    [-1, 1].forEach((side) => {
-      const ex = cx + side * eyeOffsetX;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.ellipse(ex, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#111827';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-
-      const pupilShiftY = expression === 'attack' ? -2 : 1;
-      ctx.fillStyle = '#0F172A';
-      ctx.beginPath();
-      ctx.arc(ex + side * 2, eyeY + pupilShiftY, 8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Catchlight dot
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(ex + side * 2 - 3, eyeY + pupilShiftY - 3, 3.2, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }
-
-  // Eyebrows (expressive angles)
-  ctx.strokeStyle = '#18181B';
-  ctx.lineWidth = id === 'mausi' ? 5 : 7;
-  ctx.lineCap = 'round';
-  const browTilt =
-    expression === 'attack' || expression === 'block'
-      ? 10
-      : expression === 'hit' || expression === 'ko'
-        ? -8
-        : 4;
-  [-1, 1].forEach((side) => {
-    const ex = cx + side * eyeOffsetX;
-    ctx.beginPath();
-    ctx.moveTo(ex - side * 16, eyeY - 22 - browTilt * 0.3);
-    ctx.lineTo(ex + side * 14, eyeY - 22 + browTilt);
-    ctx.stroke();
-  });
-
-  // Character-specific facial marks
-  if (id === 'mausi') {
-    // Iconic bright red bindi + subtle sindoor
-    ctx.fillStyle = '#DC2626';
-    ctx.beginPath();
-    ctx.arc(cx, eyeY - 20, 8.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#FDE047';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
-  // Mouth based on expression
-  const mouthY = cy + h * 0.12;
-  ctx.strokeStyle = '#111827';
-  ctx.lineWidth = 5;
-  ctx.lineCap = 'round';
-
-  if (expression === 'attack') {
-    // Shouting arcade battle mouth
-    ctx.fillStyle = '#991B1B';
-    ctx.beginPath();
-    ctx.ellipse(cx, mouthY + 2, 22, 16, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    // White teeth strip
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(cx - 14, mouthY - 10, 28, 7);
-  } else if (expression === 'hit') {
-    // Shocked O mouth
-    ctx.fillStyle = '#7F1D1D';
-    ctx.beginPath();
-    ctx.ellipse(cx, mouthY + 4, 15, 19, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  } else if (expression === 'ko') {
-    // Dizzy wavy mouth
-    ctx.beginPath();
-    ctx.moveTo(cx - 22, mouthY + 4);
-    ctx.quadraticCurveTo(cx - 10, mouthY - 8, cx, mouthY + 4);
-    ctx.quadraticCurveTo(cx + 10, mouthY + 14, cx + 22, mouthY + 2);
-    ctx.stroke();
-  } else if (expression === 'block') {
-    // Gritted teeth determination
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.roundRect(cx - 20, mouthY - 6, 40, 14, 5);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx - 20, mouthY + 1);
-    ctx.lineTo(cx + 20, mouthY + 1);
-    ctx.stroke();
-  } else if (expression === 'victory') {
-    // Big triumphant grin
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(cx, mouthY - 4, 24, 0.08 * Math.PI, 0.92 * Math.PI);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  } else {
-    // Confident smirk
-    ctx.beginPath();
-    ctx.moveTo(cx - 18, mouthY);
-    ctx.quadraticCurveTo(cx + 2, mouthY + 14, cx + 22, mouthY - 3);
-    ctx.stroke();
+  switch (id) {
+    case 'sheru':
+      paintWhiteLionFace(ctx, expression);
+      return;
+    case 'billa':
+      paintBlueBillaFace(ctx, expression);
+      return;
+    case 'neta':
+      paintNetaFace(ctx, expression);
+      return;
+    case 'anda':
+      paintAndaEggFace(ctx, expression, crackLevel);
+      return;
+    case 'mausi':
+      paintMausiFace(ctx, expression);
+      return;
   }
 }
 
@@ -2161,6 +2275,329 @@ function paintNetaPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function paintMausiPortrait(ctx: CanvasRenderingContext2D): void {
+  // Vibrant golden-amber to deep teal arcade comic radial backdrop
+  const bg = ctx.createRadialGradient(80, 68, 12, 80, 82, 102);
+  bg.addColorStop(0, '#FDE073');
+  bg.addColorStop(0.55, '#1C7E82');
+  bg.addColorStop(1, '#0C353A');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Crisp subtle comic halftone starburst rays
+  ctx.save();
+  ctx.translate(80, 74);
+  ctx.fillStyle = 'rgba(255, 245, 200, 0.13)';
+  for (let i = 0; i < 12; i++) {
+    ctx.rotate(Math.PI / 6);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-7, -96);
+    ctx.lineTo(7, -96);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Iconic wooden Belan (rolling pin) angled proudly behind her right shoulder
+  ctx.save();
+  ctx.translate(128, 84);
+  ctx.rotate(0.46);
+  // Handle tip
+  ctx.fillStyle = '#9B642C';
+  ctx.strokeStyle = '#3B1F0B';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.roundRect(-5, -56, 10, 18, 4);
+  ctx.fill();
+  ctx.stroke();
+  // Turned wooden barrel
+  const belanGrad = ctx.createLinearGradient(-11, 0, 11, 0);
+  belanGrad.addColorStop(0, '#A86E34');
+  belanGrad.addColorStop(0.45, '#DFAC6B');
+  belanGrad.addColorStop(1, '#9E662C');
+  ctx.fillStyle = belanGrad;
+  ctx.beginPath();
+  ctx.roundRect(-10, -40, 20, 64, 7);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // Back round hair bun (juda) peeking neatly behind crown/side
+  ctx.fillStyle = '#3A1412';
+  ctx.strokeStyle = '#1E0807';
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.arc(80, 24, 21, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Subtle reddish-brown sheen on hair bun
+  ctx.strokeStyle = 'rgba(128, 56, 46, 0.55)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(76, 21, 12, Math.PI * 1.1, Math.PI * 1.8);
+  ctx.stroke();
+
+  // Plump Heavyweight Shoulders: Dark Forest-Green Blouse (#1E5E3A)
+  ctx.fillStyle = '#1E5E3A';
+  ctx.strokeStyle = '#0E301D';
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(8, 162);
+  ctx.quadraticCurveTo(16, 118, 52, 112);
+  ctx.lineTo(108, 112);
+  ctx.quadraticCurveTo(144, 118, 152, 162);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Subtle green blouse shoulder highlight & neckline curve
+  ctx.fillStyle = '#267549';
+  ctx.beginPath();
+  ctx.ellipse(34, 134, 18, 10, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Sturdy wheatish-tan neck & upper chest neckline
+  ctx.fillStyle = '#DFB48E';
+  ctx.strokeStyle = '#6E4228';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(62, 108);
+  ctx.lineTo(98, 108);
+  ctx.lineTo(104, 124);
+  ctx.quadraticCurveTo(80, 144, 56, 124);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Rich Teal-Blue Saree (#1F8E91) draped diagonally over her left shoulder (viewer's right)
+  ctx.fillStyle = '#1F8E91';
+  ctx.strokeStyle = '#0D464B';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(92, 112);
+  ctx.lineTo(132, 118);
+  ctx.quadraticCurveTo(146, 134, 148, 162);
+  ctx.lineTo(36, 162);
+  ctx.quadraticCurveTo(64, 136, 92, 112);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Dark-teal saree pleat lines along diagonal pallu
+  ctx.strokeStyle = '#11585D';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  const pleatOffsets = [0, 11, 22, 33];
+  pleatOffsets.forEach((off) => {
+    ctx.beginPath();
+    ctx.moveTo(98 + off * 0.72, 115 + off * 0.12);
+    ctx.quadraticCurveTo(82 + off * 0.65, 138, 56 + off * 0.85, 160);
+    ctx.stroke();
+  });
+
+  // Thick V-shaped Metallic Gold Necklace (#F0C420) resting over upper chest
+  const goldGrad = ctx.createLinearGradient(54, 114, 106, 144);
+  goldGrad.addColorStop(0, '#FFF1A6');
+  goldGrad.addColorStop(0.45, '#F0C420');
+  goldGrad.addColorStop(1, '#B8840A');
+
+  ctx.strokeStyle = '#5E3D04';
+  ctx.lineWidth = 10.5;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(56, 115);
+  ctx.lineTo(80, 138);
+  ctx.lineTo(104, 115);
+  ctx.stroke();
+
+  ctx.strokeStyle = goldGrad;
+  ctx.lineWidth = 6.5;
+  ctx.beginPath();
+  ctx.moveTo(56, 115);
+  ctx.lineTo(80, 138);
+  ctx.lineTo(104, 115);
+  ctx.stroke();
+
+  // Gold central V-pendant drop
+  ctx.fillStyle = '#F0C420';
+  ctx.strokeStyle = '#6E4806';
+  ctx.lineWidth = 2.0;
+  ctx.beginPath();
+  ctx.arc(80, 143, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#FFF5B8';
+  ctx.beginPath();
+  ctx.arc(78.5, 141.5, 2.0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Round ears + shiny round gold earrings (#F0C420)
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 44;
+    ctx.fillStyle = '#DFB48E';
+    ctx.strokeStyle = '#6E4228';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.ellipse(ex, 80, 7.5, 10.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Round gold earring stud/jhumka
+    ctx.fillStyle = '#F0C420';
+    ctx.strokeStyle = '#6E4806';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.arc(ex + side * 1, 90, 6.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#FFF6BF';
+    ctx.beginPath();
+    ctx.arc(ex + side * 1 - 1.8, 88.2, 2.0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Round chubby wheatish-tan face (#DFB48E)
+  const faceGrad = ctx.createRadialGradient(74, 68, 8, 80, 76, 48);
+  faceGrad.addColorStop(0, '#ECC5A2');
+  faceGrad.addColorStop(0.75, '#DFB48E');
+  faceGrad.addColorStop(1, '#C4926B');
+  ctx.fillStyle = faceGrad;
+  ctx.strokeStyle = '#59331C';
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.ellipse(80, 78, 43, 41, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Warm rosy chubby cheek glow
+  ctx.fillStyle = 'rgba(218, 78, 84, 0.25)';
+  ctx.beginPath();
+  ctx.ellipse(54, 87, 10, 6.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(106, 87, 10, 6.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Center-parted Dark Reddish-Brown Hair (#3A1412) framing both sides cleanly
+  ctx.fillStyle = '#3A1412';
+  ctx.strokeStyle = '#1E0807';
+  ctx.lineWidth = 2.4;
+  // Left hair lobe
+  ctx.beginPath();
+  ctx.moveTo(80, 42);
+  ctx.quadraticCurveTo(56, 36, 39, 54);
+  ctx.quadraticCurveTo(33, 66, 37, 81);
+  ctx.quadraticCurveTo(42, 65, 55, 56);
+  ctx.quadraticCurveTo(70, 50, 80, 46);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Right hair lobe
+  ctx.beginPath();
+  ctx.moveTo(80, 42);
+  ctx.quadraticCurveTo(104, 36, 121, 54);
+  ctx.quadraticCurveTo(127, 66, 123, 81);
+  ctx.quadraticCurveTo(118, 65, 105, 56);
+  ctx.quadraticCurveTo(90, 50, 80, 46);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Warm mahogany hair highlights
+  ctx.strokeStyle = 'rgba(130, 58, 46, 0.55)';
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(47, 56);
+  ctx.quadraticCurveTo(58, 47, 72, 46);
+  ctx.moveTo(113, 56);
+  ctx.quadraticCurveTo(102, 47, 88, 46);
+  ctx.stroke();
+
+  // Prominent Bright Red Round Bindi dead-center on forehead!
+  ctx.fillStyle = '#E11D2A';
+  ctx.strokeStyle = '#8F111A';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(80, 60.5, 6.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255, 224, 224, 0.55)';
+  ctx.beginPath();
+  ctx.arc(78.2, 58.8, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Neat arched eyebrows (#3A1412)
+  ctx.strokeStyle = '#3A1412';
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(54, 67);
+  ctx.quadraticCurveTo(63, 61, 71, 67);
+  ctx.moveTo(89, 67);
+  ctx.quadraticCurveTo(97, 61, 106, 67);
+  ctx.stroke();
+
+  // Wide expressive dark eyes with kohl eyeliner & catchlights
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 16.5;
+    const ey = 76;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#1E0C0A';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, 8.6, 8.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#2B130E';
+    ctx.beginPath();
+    ctx.arc(ex + side * 0.8, ey + 0.5, 5.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#120705';
+    ctx.beginPath();
+    ctx.arc(ex + side * 0.8, ey + 0.5, 3.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(ex + side * 0.8 - 1.8, ey - 1.5, 1.9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Lash flick
+    ctx.strokeStyle = '#1E0C0A';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(ex + side * 8, ey - 1.5);
+    ctx.lineTo(ex + side * 12, ey - 4.2);
+    ctx.stroke();
+  });
+
+  // Cute round nose
+  ctx.fillStyle = 'rgba(155, 98, 62, 0.32)';
+  ctx.beginPath();
+  ctx.ellipse(80, 87.5, 5.8, 4.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#8F5838';
+  ctx.lineWidth = 2.0;
+  ctx.beginPath();
+  ctx.arc(80, 86.5, 4.4, Math.PI * 0.15, Math.PI * 0.85);
+  ctx.stroke();
+
+  // Bold cheerful-yet-fierce smile
+  ctx.fillStyle = '#B83848';
+  ctx.strokeStyle = '#3B1218';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(65, 97.5);
+  ctx.quadraticCurveTo(80, 110, 96, 96.5);
+  ctx.quadraticCurveTo(80, 102.5, 65, 97.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
 export function getFighterPortraitDataUrl(id: FighterId): string {
   const cached = portraitCache.get(id);
   if (cached) return cached;
@@ -2171,73 +2608,23 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
   canvas.height = 160;
   const ctx = canvas.getContext('2d')!;
 
-  if (id === 'sheru') {
-    paintSheruLionPortrait(ctx);
-    const url = canvas.toDataURL('image/png');
-    portraitCache.set(id, url);
-    return url;
+  switch (id) {
+    case 'sheru':
+      paintSheruLionPortrait(ctx);
+      break;
+    case 'billa':
+      paintBlueBillaPortrait(ctx);
+      break;
+    case 'neta':
+      paintNetaPortrait(ctx);
+      break;
+    case 'anda':
+      paintAndaPortrait(ctx);
+      break;
+    case 'mausi':
+      paintMausiPortrait(ctx);
+      break;
   }
-
-  if (id === 'billa') {
-    paintBlueBillaPortrait(ctx);
-    const url = canvas.toDataURL('image/png');
-    portraitCache.set(id, url);
-    return url;
-  }
-
-  if (id === 'neta') {
-    paintNetaPortrait(ctx);
-    const url = canvas.toDataURL('image/png');
-    portraitCache.set(id, url);
-    return url;
-  }
-
-  if (id === 'anda') {
-    paintAndaPortrait(ctx);
-    const url = canvas.toDataURL('image/png');
-    portraitCache.set(id, url);
-    return url;
-  }
-
-  const cfg = FIGHTER_CONFIGS[id];
-
-  // Comic radial backdrop
-  const bg = ctx.createRadialGradient(80, 72, 10, 80, 80, 95);
-  bg.addColorStop(0, cfg.accentHex);
-  bg.addColorStop(1, '#1A1210');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, 160, 160);
-
-  // Draw crisp face circle centered
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(80, 84, 52, 0, Math.PI * 2);
-  ctx.clip();
-
-  const temp = document.createElement('canvas');
-  temp.width = 256;
-  temp.height = 256;
-  const tctx = temp.getContext('2d')!;
-  paintFighterFace(tctx, id, 'idle', 0);
-  ctx.drawImage(temp, -28, -22, 216, 216);
-  ctx.restore();
-
-  // Signature headgear / shades overlay on portrait
-  ctx.save();
-  if (id === 'mausi') {
-    // Hair bun + gajra
-    ctx.fillStyle = '#18181B';
-    ctx.beginPath();
-    ctx.arc(80, 26, 20, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#FEF9C3';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    ctx.arc(80, 26, 19, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.restore();
 
   const url = canvas.toDataURL('image/png');
   portraitCache.set(id, url);

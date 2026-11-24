@@ -284,7 +284,8 @@ export function animateFighterRig(
   }
 
   // Target joint angles
-  const basePelvisY = state.id === 'billa' ? 0.68 : rig.isEggBody ? 0.68 : 0.92;
+  const basePelvisY =
+    state.id === 'billa' ? 0.68 : state.id === 'mausi' ? 0.88 : rig.isEggBody ? 0.68 : 0.92;
   let pelvisY = basePelvisY;
   let pelvisRotX = 0;
   let pelvisRotZ = 0;
@@ -1077,6 +1078,134 @@ export function animateFighterRig(
       rig.hatPivot.position.y = 1.215 + hatLift;
       rig.hatPivot.rotation.x = -0.24 - hatBob * 0.85;
       rig.hatPivot.rotation.z = 0.26 + Math.sin(elapsed * 3.8 + state.slot - 0.4) * 0.06 + (state.action === 'hit' ? 0.18 : 0);
+    }
+  } else if (state.id === 'mausi') {
+    // Laddoo Mausi (Heavyweight Sweet-Shop Boss): grounded sturdy bounce, determined brisk march,
+    // heavy overhead belan whack, stomping kick, powerhouse bear-hug shove, & snappy Belan Throw!
+    const bounce = Math.sin(elapsed * 4.2 + state.slot * 1.7);
+
+    if (state.action === 'idle') {
+      pelvisY = basePelvisY + bounce * 0.038;
+      pelvisRotZ = Math.sin(elapsed * 2.1 + state.slot) * 0.035;
+      torsoRotX = 0.03 + bounce * 0.025;
+      torsoRotY = Math.sin(elapsed * 2.1 + state.slot) * 0.09;
+      headRotX = -0.02 + bounce * 0.025;
+      // Confident grounded heavyweight stance: arms slightly out, belan poised in right hand
+      lShX = -0.34 + bounce * 0.06;
+      lShZ = -0.38 - Math.abs(bounce) * 0.04;
+      lElbX = -1.02;
+      rShX = -0.58 - bounce * 0.07;
+      rShZ = 0.36 + Math.abs(bounce) * 0.04;
+      rElbX = -1.2;
+      lHipX = 0.06;
+      lKneeX = 0.1;
+      rHipX = -0.08;
+      rKneeX = 0.12;
+    } else if (state.action === 'walk') {
+      // Determined brisk heavyweight march!
+      const cyc = state.walkCycle * 1.12;
+      const stride = Math.sin(cyc);
+      pelvisY = basePelvisY + Math.abs(Math.cos(cyc)) * 0.055;
+      pelvisRotZ = stride * 0.065;
+      torsoRotX = 0.11;
+      torsoRotY = stride * 0.18;
+      lHipX = stride * 0.48;
+      rHipX = -stride * 0.48;
+      lKneeX = Math.max(0, -stride) * 0.56;
+      rKneeX = Math.max(0, stride) * 0.56;
+      lShX = -0.38 - stride * 0.48;
+      rShX = -0.55 + stride * 0.44;
+      lShZ = -0.36;
+      rShZ = 0.36;
+      lElbX = -1.05;
+      rElbX = -1.15;
+    } else if (state.action === 'punch') {
+      // Heavy overhead-diagonal wooden belan whack!
+      const windup = atkProgress < 0.28 ? atkProgress / 0.28 : 0;
+      const swing = atkProgress >= 0.28 ? Math.sin(((atkProgress - 0.28) / 0.72) * Math.PI) : 0;
+      pelvisY = basePelvisY - 0.04 * swing;
+      torsoRotY = 0.32 * windup - 0.62 * swing;
+      torsoRotX = -0.1 * windup + 0.22 * swing;
+      rShX = -1.95 * windup - 1.55 * swing - 0.35;
+      rShZ = 0.55 * windup + 0.18 * (1 - swing);
+      rElbX = -1.35 * windup - 0.22 * swing - 0.45 * (1 - swing);
+      lShX = -0.35;
+      lShZ = -0.44;
+      lElbX = -1.15;
+    } else if (state.action === 'kick') {
+      // Sturdy stomping heavyweight kick (chappal driving forward!)
+      const snap = Math.sin(atkProgress * Math.PI);
+      pelvisY = basePelvisY - 0.03 * snap;
+      torsoRotX = -0.2 * snap;
+      torsoRotY = 0.28 * snap;
+      rHipX = -1.28 * snap;
+      rKneeX = 0.14 * snap;
+      lHipX = 0.14 * snap;
+      lKneeX = 0.16 * snap;
+      lShX = -0.48;
+      lShZ = -0.56 * snap - 0.34;
+      rShX = 0.36 * snap - 0.3;
+      rShZ = 0.52 * snap + 0.32;
+    } else if (state.action === 'grab') {
+      // Powerhouse bear-hug / shoulder-shove!
+      const snap = Math.sin(atkProgress * Math.PI);
+      const wrap = atkProgress > 0.35 ? Math.sin(((atkProgress - 0.35) / 0.65) * Math.PI) : 0;
+      pelvisY = basePelvisY - 0.05 * snap;
+      torsoRotX = 0.24 * snap;
+      lShX = -1.32 * snap - 0.25;
+      rShX = -1.32 * snap - 0.25;
+      lShZ = -0.68 * snap + 0.85 * wrap;
+      rShZ = 0.68 * snap - 0.85 * wrap;
+      lElbX = -0.5 - 0.7 * wrap;
+      rElbX = -0.5 - 0.7 * wrap;
+    } else if (state.action === 'special') {
+      // Expressive Belan Throw: big confident windup then snappy whip-throw launch!
+      const isWindup = atkProgress < 0.34;
+      const wind = isWindup ? atkProgress / 0.34 : 0;
+      const release = !isWindup ? Math.min(1, (atkProgress - 0.34) / 0.42) : 0;
+      const recover = atkProgress > 0.76 ? (atkProgress - 0.76) / 0.24 : 0;
+      const throwArc = release * (1 - recover * 0.45);
+      pelvisY = basePelvisY - 0.04 * wind + 0.03 * throwArc;
+      torsoRotY = 0.55 * wind - 0.72 * throwArc;
+      torsoRotX = -0.14 * wind + 0.2 * throwArc;
+      rShX = isWindup ? -0.55 - 1.75 * wind : -2.1 + 1.48 * throwArc;
+      rShZ = isWindup ? 0.42 + 0.34 * wind : 0.62 - 0.48 * throwArc;
+      rElbX = isWindup ? -1.45 : -0.18;
+      lShX = isWindup ? -0.95 * wind - 0.3 : -0.25 + 0.35 * throwArc;
+      lShZ = -0.46;
+      lElbX = -0.85;
+    } else if (state.action === 'hit') {
+      torsoRotX = -0.3;
+      pelvisRotZ = 0.14;
+      headRotX = -0.24;
+      lShX = -1.15;
+      rShX = -1.15;
+      lShZ = -0.68;
+      rShZ = 0.68;
+    } else if (state.action === 'ko') {
+      pelvisY = 0.46;
+      pelvisRotX = -Math.PI * 0.46;
+      pelvisRotZ = 0.18;
+      lShX = -1.5;
+      rShX = -1.4;
+      lShZ = -0.74;
+      rShZ = 0.74;
+      lHipX = -0.38;
+      rHipX = -0.26;
+      lKneeX = 0.72;
+      rKneeX = 0.62;
+    } else if (state.action === 'victory') {
+      // Triumphant Belan Queen celebration: raises belan proudly overhead, left hand on hip!
+      const hop = Math.abs(Math.sin(elapsed * 5.8));
+      pelvisY = basePelvisY + hop * 0.11;
+      pelvisRotZ = Math.sin(elapsed * 5.8) * 0.07;
+      torsoRotY = Math.sin(elapsed * 2.9) * 0.12;
+      rShX = -2.65 + Math.sin(elapsed * 6.4) * 0.18;
+      rShZ = 0.28;
+      rElbX = -0.25;
+      lShX = -0.22;
+      lShZ = -0.58;
+      lElbX = -1.45;
     }
   }
 

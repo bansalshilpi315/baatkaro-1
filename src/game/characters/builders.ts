@@ -2346,94 +2346,467 @@ function buildAndaBhai(rig: FighterRig): void {
   );
 }
 
+function createMausiSareeTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
+
+  // Rich matte teal / turquoise-blue saree base (#1F8E91)
+  ctx.fillStyle = '#1F8E91';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle woven cotton-silk matte cloth micro-texture
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+  for (let y = 0; y < 512; y += 6) {
+    ctx.fillRect(0, y, 512, 2);
+  }
+
+  // Crisp dark-teal draped vertical & slightly sweeping fold/pleat shadow lines
+  for (let i = 0; i < 16; i++) {
+    const x = i * 32 + 8;
+    const pleatGrad = ctx.createLinearGradient(x - 8, 0, x + 12, 0);
+    pleatGrad.addColorStop(0, 'rgba(13, 74, 79, 0.0)');
+    pleatGrad.addColorStop(0.35, 'rgba(11, 66, 71, 0.52)');
+    pleatGrad.addColorStop(0.6, 'rgba(46, 174, 178, 0.22)');
+    pleatGrad.addColorStop(1, 'rgba(13, 74, 79, 0.0)');
+    ctx.fillStyle = pleatGrad;
+    ctx.fillRect(x - 8, 0, 20, 466);
+
+    // Crisp hand-drawn comic fold crease line
+    ctx.strokeStyle = '#115A60';
+    ctx.lineWidth = i % 3 === 0 ? 4.2 : 2.6;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.quadraticCurveTo(x + (i % 2 === 0 ? 5 : -4), 240, x + 2, 468);
+    ctx.stroke();
+  }
+
+  // Subtle diagonal cross-drape accent folds across mid-waist
+  ctx.strokeStyle = 'rgba(14, 78, 84, 0.42)';
+  ctx.lineWidth = 3.2;
+  for (let k = 0; k < 5; k++) {
+    const yStart = 42 + k * 28;
+    ctx.beginPath();
+    ctx.moveTo(0, yStart);
+    ctx.quadraticCurveTo(256, yStart + 36, 512, yStart + 12);
+    ctx.stroke();
+  }
+
+  // Tasteful deep-teal woven lower border band with fine subtle geometric stripe
+  ctx.fillStyle = '#11585E';
+  ctx.fillRect(0, 464, 512, 48);
+  ctx.fillStyle = '#19757A';
+  ctx.fillRect(0, 474, 512, 6);
+  ctx.fillStyle = '#D4AF37';
+  ctx.fillRect(0, 464, 512, 4);
+  ctx.fillRect(0, 498, 512, 4);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function buildLaddooMausi(rig: FighterRig): void {
-  const cfg = FIGHTER_CONFIGS.mausi;
-  const sareeMat = makeMat(0xdb2777, 0.42, 0.12, rig.flashMaterials); // Rich magenta silk
-  const goldBorderMat = makeMat(0xf59e0b, 0.24, 0.75, rig.flashMaterials);
-  const blouseMat = makeMat(0xf59e0b, 0.5, 0.2, rig.flashMaterials);
+  // Heavyweight grounded proportions: noticeably wider & sturdier than the other 4 fighters
+  rig.pelvis.position.set(0, 0.88, 0);
+  rig.torso.position.set(0, 0.1, 0);
+  rig.head.position.set(0, 0.82, 0.02);
+  rig.leftShoulder.position.set(-0.56, 0.65, 0);
+  rig.rightShoulder.position.set(0.56, 0.65, 0);
+  rig.leftElbow.position.set(0, -0.32, 0);
+  rig.rightElbow.position.set(0, -0.32, 0);
+  rig.leftHip.position.set(-0.23, -0.02, 0);
+  rig.rightHip.position.set(0.23, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.4, 0);
+  rig.rightKnee.position.set(0, -0.4, 0);
+  rig.contactShadow.scale.set(1.24, 1.24, 1);
 
-  // Draped saree lower skirt
-  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.48, 0.72, 18), sareeMat);
-  skirt.position.y = -0.22;
-  skirt.castShadow = true;
-  rig.pelvis.add(skirt);
+  // Calibrated matte PBR materials (zero specular washout under bright stage spotlights)
+  const sareeTex = createMausiSareeTexture();
+  const sareeMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: sareeTex,
+    roughness: 0.88,
+    metalness: 0,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sareeMat);
 
-  const skirtHem = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.045, 8, 24), goldBorderMat);
-  skirtHem.rotation.x = Math.PI / 2;
-  skirtHem.position.y = -0.55;
-  rig.pelvis.add(skirtHem);
+  const sareeSolidMat = makeMat(0x1f8e91, 0.88, 0, rig.flashMaterials);
+  sareeSolidMat.envMapIntensity = 0.16;
+  const sareeDeepMat = makeMat(0x125e64, 0.9, 0, rig.flashMaterials);
+  sareeDeepMat.envMapIntensity = 0.14;
 
-  // Torso + Golden Blouse + Draped Saree Pallu across chest
-  const torsoMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.34, 0.7, 16), blouseMat);
-  torsoMesh.position.y = 0.35;
-  torsoMesh.castShadow = true;
-  rig.torso.add(torsoMesh);
+  const blouseMat = makeMat(0x1e5e3a, 0.86, 0, rig.flashMaterials);
+  blouseMat.envMapIntensity = 0.18;
 
-  const pallu = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.82, 0.46), sareeMat);
-  pallu.position.set(-0.08, 0.38, 0.04);
-  pallu.rotation.z = 0.34;
-  rig.torso.add(pallu);
+  const skinMat = makeMat(0xdfb48e, 0.85, 0, rig.flashMaterials);
+  skinMat.envMapIntensity = 0.16;
 
-  const palluGold = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.84, 0.48), goldBorderMat);
-  palluGold.position.set(0.07, 0.38, 0.04);
-  palluGold.rotation.z = 0.34;
-  rig.torso.add(palluGold);
+  const hairMat = makeMat(0x3a1412, 0.72, 0.04);
+  hairMat.envMapIntensity = 0.22;
+  const hairBandMat = makeMat(0x210a09, 0.78, 0.02);
 
-  // Head + Hair Bun + White Gajra Jasmine Ring
-  const headMesh = createHeadMesh(rig.face.texture, 0.35);
-  headMesh.position.y = 0.18;
-  rig.flashMaterials.push(headMesh.material as THREE.MeshStandardMaterial);
+  // Metallic gold jewelry (#F0C420, metalness 0.85, roughness 0.25)
+  const goldMat = makeMat(0xf0c420, 0.25, 0.85, rig.flashMaterials);
+  goldMat.envMapIntensity = 1.0;
+
+  const chappalMat = makeMat(0x4a2c1a, 0.78, 0.04, rig.flashMaterials);
+  const chappalStrapMat = makeMat(0x361e10, 0.72, 0.05);
+
+  const belanWoodMat = makeMat(0xc68b49, 0.56, 0.04);
+  const belanHandleMat = makeMat(0x9b642c, 0.5, 0.05);
+
+  // --- 1. PLUMP HEAVYWEIGHT DRAPED SAREE LOWER SKIRT (rig.pelvis) ---
+  // Smooth Lathe profile: ankle hem at y = -0.74 (world y = 0.14 so chappals peek beneath),
+  // curving generously outward over sturdy hips (r = 0.56) into plump waist!
+  const skirtPoints: THREE.Vector2[] = [
+    new THREE.Vector2(0.49, -0.74),
+    new THREE.Vector2(0.515, -0.58),
+    new THREE.Vector2(0.545, -0.34),
+    new THREE.Vector2(0.56, -0.08),
+    new THREE.Vector2(0.535, 0.11),
+    new THREE.Vector2(0.495, 0.2),
+  ];
+  const skirtGeo = new THREE.LatheGeometry(skirtPoints, 22);
+  const skirtMesh = new THREE.Mesh(skirtGeo, sareeMat);
+  skirtMesh.scale.set(1.06, 1.0, 0.96);
+  skirtMesh.castShadow = true;
+  skirtMesh.receiveShadow = true;
+  rig.pelvis.add(skirtMesh);
+
+  // Subtle sculpted front vertical saree pleats for tactile 3D silhouette depth
+  [-0.085, 0, 0.085].forEach((px, idx) => {
+    const pleat = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.058, 0.86, 8),
+      idx === 1 ? sareeSolidMat : sareeDeepMat,
+    );
+    pleat.position.set(px, -0.28, 0.495 - Math.abs(px) * 0.25);
+    pleat.scale.set(0.85, 1.0, 0.42);
+    pleat.castShadow = true;
+    rig.pelvis.add(pleat);
+  });
+
+  // Soft draped waist-tuck wrap band where saree meets torso
+  const waistFold = new THREE.Mesh(
+    new THREE.TorusGeometry(0.515, 0.068, 8, 22),
+    sareeSolidMat,
+  );
+  waistFold.rotation.x = Math.PI / 2;
+  waistFold.position.y = 0.14;
+  waistFold.scale.set(1.05, 0.95, 1.0);
+  rig.pelvis.add(waistFold);
+
+  // --- 2. PLUMP HEAVYWEIGHT TORSO + DARK FOREST-GREEN BLOUSE + DIAGONAL TEAL PALLU ---
+  // Plump lower torso & belly wrapped in teal saree (#1F8E91)
+  const lowerTorsoPoints: THREE.Vector2[] = [
+    new THREE.Vector2(0.51, -0.02),
+    new THREE.Vector2(0.535, 0.14),
+    new THREE.Vector2(0.525, 0.3),
+    new THREE.Vector2(0.49, 0.43),
+  ];
+  const lowerTorso = new THREE.Mesh(new THREE.LatheGeometry(lowerTorsoPoints, 20), sareeMat);
+  lowerTorso.scale.set(1.06, 1.0, 0.96);
+  lowerTorso.castShadow = true;
+  rig.torso.add(lowerTorso);
+
+  // Fitted Dark Forest-Green Blouse (#1E5E3A) across upper chest, broad shoulders & upper back
+  const blousePoints: THREE.Vector2[] = [
+    new THREE.Vector2(0.495, 0.34),
+    new THREE.Vector2(0.515, 0.48),
+    new THREE.Vector2(0.485, 0.63),
+    new THREE.Vector2(0.39, 0.74),
+    new THREE.Vector2(0.24, 0.77),
+  ];
+  const blouseMesh = new THREE.Mesh(new THREE.LatheGeometry(blousePoints, 20), blouseMat);
+  blouseMesh.scale.set(1.06, 1.0, 0.94);
+  blouseMesh.castShadow = true;
+  rig.torso.add(blouseMesh);
+
+  // Broad rounded blouse shoulder caps connecting seamlessly to half-sleeves
+  [-1, 1].forEach((side) => {
+    const shCap = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), blouseMat);
+    shCap.position.set(side * 0.48, 0.64, 0);
+    shCap.scale.set(1.12, 0.95, 0.95);
+    shCap.castShadow = true;
+    rig.torso.add(shCap);
+  });
+
+  // Warm wheatish-tan upper neckline/decolletage inset + sturdy neck
+  const necklineSkin = new THREE.Mesh(new THREE.SphereGeometry(0.27, 14, 12), skinMat);
+  necklineSkin.position.set(0, 0.69, 0.14);
+  necklineSkin.scale.set(1.08, 0.74, 0.92);
+  rig.torso.add(necklineSkin);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.21, 0.22, 14), skinMat);
+  neck.position.set(0, 0.78, 0.02);
+  rig.torso.add(neck);
+
+  // Sculpted Diagonal Teal Saree Pallu draped snugly from right hip across chest over LEFT shoulder (-X) and down back
+  const palluCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.41, 0.05, 0.34),
+    new THREE.Vector3(0.14, 0.25, 0.48),
+    new THREE.Vector3(-0.18, 0.5, 0.45),
+    new THREE.Vector3(-0.36, 0.72, 0.15),
+    new THREE.Vector3(-0.37, 0.7, -0.19),
+    new THREE.Vector3(-0.33, 0.33, -0.47),
+    new THREE.Vector3(-0.27, -0.08, -0.47),
+  ]);
+  const palluMain = new THREE.Mesh(new THREE.TubeGeometry(palluCurve, 26, 0.095, 10, false), sareeMat);
+  palluMain.scale.set(1.12, 1.0, 0.94);
+  palluMain.castShadow = true;
+  rig.torso.add(palluMain);
+
+  // Second adjacent folded pleat band for a wider, flatter cloth-drape feel (not a round tube)
+  const palluFold2Curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.35, 0.11, 0.41),
+    new THREE.Vector3(0.08, 0.32, 0.515),
+    new THREE.Vector3(-0.12, 0.56, 0.46),
+    new THREE.Vector3(-0.28, 0.73, 0.16),
+    new THREE.Vector3(-0.29, 0.71, -0.18),
+    new THREE.Vector3(-0.25, 0.34, -0.48),
+  ]);
+  const palluFold2 = new THREE.Mesh(
+    new THREE.TubeGeometry(palluFold2Curve, 24, 0.062, 8, false),
+    sareeSolidMat,
+  );
+  palluFold2.scale.set(1.06, 1.0, 0.94);
+  rig.torso.add(palluFold2);
+
+  // Subtle dark-teal folded pallu edge trim running parallel along the inner edge
+  const palluEdge = new THREE.Mesh(
+    new THREE.TubeGeometry(palluFold2Curve, 22, 0.024, 7, false),
+    sareeDeepMat,
+  );
+  palluEdge.position.set(0.03, 0.02, 0.03);
+  rig.torso.add(palluEdge);
+
+  // --- 3. SIGNATURE THICK V-SHAPED METALLIC GOLD NECKLACE (#F0C420) ---
+  const necklaceCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.19, 0.78, -0.12),
+    new THREE.Vector3(-0.24, 0.76, 0.15),
+    new THREE.Vector3(-0.16, 0.68, 0.4),
+    new THREE.Vector3(0, 0.53, 0.535),
+    new THREE.Vector3(0.16, 0.68, 0.4),
+    new THREE.Vector3(0.24, 0.76, 0.15),
+    new THREE.Vector3(0.19, 0.78, -0.12),
+  ]);
+  const necklaceMesh = new THREE.Mesh(
+    new THREE.TubeGeometry(necklaceCurve, 28, 0.044, 10, false),
+    goldMat,
+  );
+  necklaceMesh.castShadow = true;
+  rig.torso.add(necklaceMesh);
+
+  // Ornate central gold V-pendant drop & flanking beads
+  const pendant = new THREE.Mesh(new THREE.OctahedronGeometry(0.078, 1), goldMat);
+  pendant.position.set(0, 0.475, 0.55);
+  pendant.scale.set(0.88, 1.24, 0.55);
+  rig.torso.add(pendant);
+
+  [-0.09, 0.09].forEach((bx) => {
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), goldMat);
+    bead.position.set(bx, 0.59, 0.485);
+    rig.torso.add(bead);
+  });
+
+  // --- 4. ROUND CHUBBY HEAD, CENTER-PARTED DARK REDDISH-BROWN HAIR, BACK BUN & GOLD EARRINGS ---
+  const headMesh = createHeadMesh(rig.face.texture, 0.385);
+  const headMat = headMesh.material as THREE.MeshStandardMaterial;
+  headMat.roughness = 0.85;
+  headMat.metalness = 0;
+  headMat.envMapIntensity = 0.16;
+  rig.flashMaterials.push(headMat);
+  headMesh.position.set(0, 0.22, 0);
+  headMesh.scale.set(1.07, 0.97, 1.03);
   rig.head.add(headMesh);
 
-  const hairMat = makeMat(0x18181b, 0.55, 0.05);
-  const hairCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.365, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.52),
+  // Cute round sculpted nose bump for crisp 2.5D side-profile silhouette
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.048, 10, 8), skinMat);
+  nose.position.set(0, 0.195, 0.39);
+  nose.scale.set(1.05, 0.92, 0.95);
+  rig.head.add(nose);
+
+  // Sculpted ears + shiny small round metallic gold earrings (#F0C420)
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 8), skinMat);
+    ear.position.set(side * 0.4, 0.2, 0.01);
+    ear.scale.set(0.62, 1.12, 0.86);
+    rig.head.add(ear);
+
+    const earring = new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 10), goldMat);
+    earring.position.set(side * 0.418, 0.125, 0.035);
+    rig.head.add(earring);
+
+    const earringStud = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), goldMat);
+    earringStud.position.set(side * 0.412, 0.175, 0.042);
+    rig.head.add(earringStud);
+  });
+
+  // Dark reddish-brown hair (#3A1412): back crown cap tilted slightly back so forehead + red bindi stay wide open
+  const hairBackCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.405, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.58),
     hairMat,
   );
-  hairCap.position.set(0, 0.21, -0.02);
-  rig.head.add(hairCap);
+  hairBackCap.position.set(0, 0.25, -0.045);
+  hairBackCap.rotation.x = -0.38;
+  hairBackCap.scale.set(1.06, 0.98, 1.04);
+  hairBackCap.castShadow = true;
+  rig.head.add(hairBackCap);
 
-  const bun = new THREE.Mesh(new THREE.SphereGeometry(0.19, 14, 12), hairMat);
-  bun.position.set(0, 0.3, -0.34);
+  // Center-parted front hair waves sweeping smoothly around both temples (lifted cleanly above red bindi!)
+  [-1, 1].forEach((side) => {
+    const hairWave = new THREE.Mesh(new THREE.SphereGeometry(0.23, 14, 12), hairMat);
+    hairWave.position.set(side * 0.23, 0.46, 0.085);
+    hairWave.scale.set(1.06, 0.68, 1.12);
+    hairWave.rotation.z = -side * 0.46;
+    hairWave.rotation.y = side * 0.22;
+    hairWave.castShadow = true;
+    rig.head.add(hairWave);
+
+    // Side temple sweep tucking cleanly behind each ear
+    const sideLock = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.2, 6, 10), hairMat);
+    sideLock.position.set(side * 0.36, 0.27, -0.025);
+    sideLock.rotation.z = side * 0.22;
+    sideLock.rotation.x = -0.18;
+    rig.head.add(sideLock);
+  });
+
+  // Neat round hair bun (juda) perched proudly at the upper-back of the head (clear in both side & 3/4 view!)
+  const bun = new THREE.Mesh(new THREE.SphereGeometry(0.225, 16, 14), hairMat);
+  bun.position.set(0, 0.34, -0.425);
+  bun.scale.set(1.05, 0.96, 0.9);
+  bun.castShadow = true;
   rig.head.add(bun);
 
-  const gajra = new THREE.Mesh(
-    new THREE.TorusGeometry(0.18, 0.045, 8, 16),
-    makeMat(0xfefce8, 0.65, 0),
-  );
-  gajra.position.set(0, 0.3, -0.28);
-  rig.head.add(gajra);
+  const hairBand = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.028, 8, 16), hairBandMat);
+  hairBand.position.set(0, 0.34, -0.335);
+  rig.head.add(hairBand);
 
-  addStandardLimbs(rig, {
-    sleeveColor: 0xf59e0b,
-    skinColor: cfg.skinHex,
-    pantColor: 0xbe185d,
-    shoeColor: 0xb45309,
-    limbScale: 0.94,
-    sleeveRoughness: 0.45,
-    shoeAccentColor: 0xfde047,
+  // --- 5. STURDY ARMS: DARK FOREST-GREEN HALF-SLEEVES + BARE ARMS + CHUNKY GOLD KADAS ---
+  const halfSleeveGeo = new THREE.CylinderGeometry(0.158, 0.142, 0.25, 14);
+  const sleeveTrimGeo = new THREE.TorusGeometry(0.142, 0.018, 6, 14);
+  const upperBareGeo = new THREE.CapsuleGeometry(0.122, 0.12, 6, 12);
+  const forearmGeo = new THREE.CapsuleGeometry(0.115, 0.19, 6, 12);
+  const handGeo = new THREE.SphereGeometry(0.135, 12, 10);
+  const kadaGeo = new THREE.TorusGeometry(0.118, 0.026, 8, 16);
+
+  [
+    [rig.leftShoulder, rig.leftElbow],
+    [rig.rightShoulder, rig.rightElbow],
+  ].forEach(([shoulder, elbow]) => {
+    // Dark forest-green half-sleeve
+    const sleeve = new THREE.Mesh(halfSleeveGeo, blouseMat);
+    sleeve.position.y = -0.11;
+    sleeve.castShadow = true;
+    shoulder.add(sleeve);
+
+    const cuff = new THREE.Mesh(sleeveTrimGeo, blouseMat);
+    cuff.rotation.x = Math.PI / 2;
+    cuff.position.y = -0.23;
+    shoulder.add(cuff);
+
+    // Sturdy bare upper-elbow skin
+    const upperBare = new THREE.Mesh(upperBareGeo, skinMat);
+    upperBare.position.y = -0.25;
+    upperBare.castShadow = true;
+    shoulder.add(upperBare);
+
+    // Sturdy bare forearm + chubby fist
+    const forearm = new THREE.Mesh(forearmGeo, skinMat);
+    forearm.position.y = -0.15;
+    forearm.castShadow = true;
+    elbow.add(forearm);
+
+    const hand = new THREE.Mesh(handGeo, skinMat);
+    hand.position.y = -0.31;
+    hand.scale.set(1.04, 0.96, 1.08);
+    hand.castShadow = true;
+    elbow.add(hand);
+
+    // Chunky stacked metallic gold bangles (kadas) around both wrists!
+    [-0.195, -0.248].forEach((by) => {
+      const kada = new THREE.Mesh(kadaGeo, goldMat);
+      kada.rotation.x = Math.PI / 2;
+      kada.position.y = by;
+      elbow.add(kada);
+    });
   });
 
-  // Golden bangles on wrists
-  [rig.leftElbow, rig.rightElbow].forEach((elbow) => {
-    const bangle = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.024, 8, 16), goldBorderMat);
-    bangle.rotation.x = Math.PI / 2;
-    bangle.position.y = -0.23;
-    elbow.add(bangle);
+  // --- 6. GROUNDED LEGS & DARK-BROWN DESI CHAPPALS PEEKING BENEATH SAREE HEM ---
+  // Knee sits at world y = 0.88 - 0.02 - 0.40 = 0.46; chappal bottom rests at local y = -0.46 -> exact floor y = 0.0!
+  const thighGeo = new THREE.CapsuleGeometry(0.145, 0.22, 6, 10);
+  const ankleGeo = new THREE.CapsuleGeometry(0.098, 0.18, 6, 10);
+  const footGeo = new THREE.BoxGeometry(0.185, 0.088, 0.31);
+  const chappalSoleGeo = new THREE.BoxGeometry(0.235, 0.048, 0.385);
+  const chappalStrapGeo = new THREE.TorusGeometry(0.095, 0.022, 6, 12, Math.PI);
+
+  [
+    [rig.leftHip, rig.leftKnee],
+    [rig.rightHip, rig.rightKnee],
+  ].forEach(([hip, knee]) => {
+    // Inner saree petticoat thigh (prevents skin gap during kicks)
+    const thigh = new THREE.Mesh(thighGeo, sareeDeepMat);
+    thigh.position.y = -0.2;
+    hip.add(thigh);
+
+    // Bare wheatish-tan lower ankle & foot peeking cleanly below saree hem
+    const ankle = new THREE.Mesh(ankleGeo, skinMat);
+    ankle.position.y = -0.26;
+    ankle.castShadow = true;
+    knee.add(ankle);
+
+    const foot = new THREE.Mesh(footGeo, skinMat);
+    foot.position.set(0, -0.375, 0.065);
+    foot.castShadow = true;
+    knee.add(foot);
+
+    // Simple dark-brown desi chappal resting flush on y = 0
+    const sole = new THREE.Mesh(chappalSoleGeo, chappalMat);
+    sole.position.set(0, -0.436, 0.072);
+    sole.castShadow = true;
+    knee.add(sole);
+
+    const strap = new THREE.Mesh(chappalStrapGeo, chappalStrapMat);
+    strap.position.set(0, -0.365, 0.11);
+    strap.rotation.x = 0.22;
+    knee.add(strap);
   });
 
-  // Signature 3D Turned Wooden Belan (Rolling Pin) in right hand!
+  // --- 7. CLASSIC WOODEN ROLLING PIN (BELAN, #C68B49) IN RIGHT HAND ---
   const belan = new THREE.Group();
-  const woodMat = makeMat(0xb45309, 0.52, 0.05);
-  const handleMat = makeMat(0x78350f, 0.42, 0.05);
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.64, 12), woodMat);
-  const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.22, 8), handleMat);
-  h1.position.y = 0.4;
-  const h2 = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.22, 8), handleMat);
-  h2.position.y = -0.4;
-  belan.add(barrel, h1, h2);
-  belan.position.set(0, -0.32, 0.24);
-  belan.rotation.x = Math.PI * 0.5;
+  const belanPoints: THREE.Vector2[] = [
+    new THREE.Vector2(0.002, -0.47),
+    new THREE.Vector2(0.036, -0.45),
+    new THREE.Vector2(0.032, -0.32),
+    new THREE.Vector2(0.062, -0.28),
+    new THREE.Vector2(0.072, -0.14),
+    new THREE.Vector2(0.075, 0.0),
+    new THREE.Vector2(0.072, 0.14),
+    new THREE.Vector2(0.062, 0.28),
+    new THREE.Vector2(0.032, 0.32),
+    new THREE.Vector2(0.036, 0.45),
+    new THREE.Vector2(0.002, 0.47),
+  ];
+  const barrel = new THREE.Mesh(new THREE.LatheGeometry(belanPoints, 14), belanWoodMat);
+  barrel.castShadow = true;
+  belan.add(barrel);
+
+  // Darker turned wood handle sleeves on both ends for unmistakable rolling-pin readability
+  [-0.385, 0.385].forEach((hy) => {
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.037, 0.035, 0.15, 10), belanHandleMat);
+    grip.position.y = hy;
+    belan.add(grip);
+  });
+
+  belan.position.set(0.02, -0.32, 0.28);
+  belan.rotation.x = Math.PI * 0.48;
   rig.rightElbow.add(belan);
   rig.handProp = belan;
 }
