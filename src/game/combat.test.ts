@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import {
   buildMatchResultSnapshot,
   computeCpuInput,
+  computeSignatureDamage,
   createEmptyInput,
   createMatchState,
+  SIGNATURE_MOVE_COOLDOWN,
   stepMatch,
 } from './combat';
+import { FIGHTER_LIST } from './characters/configs';
 
 function stepFrames(
   state: ReturnType<typeof createMatchState>,
@@ -144,38 +147,67 @@ test('low sweep knocks opponent flat onto floor, triggers knockdown_land dust ev
   }
 });
 
-test('Laddoo Mausi Belan Throw spawns spinning projectile and hits at mid-range', () => {
+test('Laddoo Mausi Belan Throw spawns spinning projectile, sets 3.5s cooldown, and deals 11%-13% maxHP', () => {
   const state = createMatchState('mausi', 'anda', true);
   state.fighters[0].x = -2.2;
   state.fighters[1].x = 1.8;
   const startHp = state.fighters[1].hp;
+  const oppMaxHp = state.fighters[1].maxHp;
 
   const specialIn = { ...createEmptyInput(), special: true };
   stepMatch(state, [specialIn, createEmptyInput()], 1 / 60);
-  assert.ok(state.fighters[0].specialCooldown > 4.0, 'Specialised move sets 4-5s cooldown');
+  assert.ok(
+    state.fighters[0].specialCooldown >= 3.45 && state.fighters[0].specialCooldown <= SIGNATURE_MOVE_COOLDOWN,
+    `Signature move should set ~3.5s cooldown, got ${state.fighters[0].specialCooldown}`,
+  );
 
-  stepFrames(state, createEmptyInput(), createEmptyInput(), 40);
-  assert.ok(state.fighters[1].hp < startHp, 'Belan projectile should travel and hit opponent');
+  const events = stepFrames(state, createEmptyInput(), createEmptyInput(), 40);
+  const dmg = startHp - state.fighters[1].hp;
+  assert.equal(dmg, computeSignatureDamage(oppMaxHp), 'Belan Throw should deal exact signature damage');
+  assert.ok(dmg >= oppMaxHp * 0.11 && dmg <= oppMaxHp * 0.13, `Damage ${dmg}/${oppMaxHp} must be 11%-13%`);
+  assert.ok(
+    events.some((e) => e.moveCallout === 'BELAN THROW!'),
+    'Belan Throw impact should emit BELAN THROW! callout',
+  );
 });
 
-test('Garib Sena Neta Dharna Shield reduces damage and counters melee attacker', () => {
+test('Garib Sena Neta Dharna Shield negates melee damage (0 taken), counters for 11%-13% HP, and bursts sonic wave when unhit', () => {
   const state = createMatchState('sheru', 'neta', true);
   state.fighters[0].x = -0.65;
   state.fighters[1].x = 0.65;
   const p1StartHp = state.fighters[0].hp;
+  const p1MaxHp = state.fighters[0].maxHp;
   const p2StartHp = state.fighters[1].hp;
 
   // Neta activates Dharna Shield
   stepMatch(state, [createEmptyInput(), { ...createEmptyInput(), special: true }], 1 / 60);
   assert.ok(state.fighters[1].dharnaShieldTimer > 0.5, 'Dharna shield should be active');
 
-  // Sheru punches into Dharna Shield
+  // Sheru punches into Dharna Shield -> negated (0 dmg to Neta) + counter pushback (11%-13% to Sheru)
   stepMatch(state, [{ ...createEmptyInput(), punch: true }, createEmptyInput()], 1 / 60);
   const events = stepFrames(state, createEmptyInput(), createEmptyInput(), 12);
 
   assert.ok(events.some((e) => e.type === 'dharna_counter'), 'Dharna Shield should emit counter event');
-  assert.ok(state.fighters[0].hp < p1StartHp, 'Attacker should take counter damage');
-  assert.ok(p2StartHp - state.fighters[1].hp <= 4, 'Neta should take reduced damage');
+  assert.equal(state.fighters[1].hp, p2StartHp, 'Dharna Shield should completely negate incoming non-Super hit');
+  const counterDmg = p1StartHp - state.fighters[0].hp;
+  assert.equal(counterDmg, computeSignatureDamage(p1MaxHp), 'Dharna counter should deal exact signature damage');
+  assert.ok(counterDmg >= p1MaxHp * 0.11 && counterDmg <= p1MaxHp * 0.13);
+
+  // Separate check: unhit Dharna Shield emits outward sonic pushback wave at ~0.42s
+  const waveState = createMatchState('neta', 'billa', true);
+  waveState.fighters[0].x = -1.1;
+  waveState.fighters[1].x = 1.1;
+  const billaStartHp = waveState.fighters[1].hp;
+  const billaMaxHp = waveState.fighters[1].maxHp;
+  stepMatch(waveState, [{ ...createEmptyInput(), special: true }, createEmptyInput()], 1 / 60);
+  const waveEvents = stepFrames(waveState, createEmptyInput(), createEmptyInput(), 35);
+  assert.ok(
+    waveEvents.some((e) => e.moveCallout === 'DHARNA SHIELD!'),
+    'Dharna Shield outward sonic wave should emit DHARNA SHIELD! callout',
+  );
+  const waveDmg = billaStartHp - waveState.fighters[1].hp;
+  assert.equal(waveDmg, computeSignatureDamage(billaMaxHp));
+  assert.ok(waveDmg >= billaMaxHp * 0.11 && waveDmg <= billaMaxHp * 0.13);
 });
 
 test('Best-of-3 KO transitions Round 1 into Round 2, then 2nd round win finishes match and builds BREAKING BAKWAS result', () => {
@@ -265,10 +297,12 @@ test('CPU AI produces valid inputs across easy, normal, and hard', () => {
   assert.equal(typeof hardIn.punch, 'boolean');
 });
 
-test('Anda Bhai Deewar Drop launches airborne and lands with CRACK! shockwave event', () => {
+test('Anda Bhai Anda Squash hops onto opponent, flattens them for comedic beat, and deals 11%-13% maxHP', () => {
   const state = createMatchState('anda', 'sheru', true);
-  state.fighters[0].x = -1.2;
-  state.fighters[1].x = 1.2;
+  state.fighters[0].x = -1.1;
+  state.fighters[1].x = 1.1;
+  const startHp = state.fighters[1].hp;
+  const oppMaxHp = state.fighters[1].maxHp;
 
   const launchEvents = stepMatch(
     state,
@@ -276,16 +310,29 @@ test('Anda Bhai Deewar Drop launches airborne and lands with CRACK! shockwave ev
     1 / 60,
   );
   assert.ok(
-    launchEvents.some((e) => e.type === 'special' && e.word === 'DEEWAR DROP!'),
-    'Deewar Drop should trigger special callout',
+    launchEvents.some((e) => e.type === 'special' && e.word === 'ANDA SQUASH!'),
+    'Anda Squash should trigger ANDA SQUASH! callout',
   );
-  assert.ok(state.fighters[0].y > 0, 'Anda Bhai should launch into the air for Deewar Drop');
+  assert.ok(state.fighters[0].y > 0, 'Anda Bhai should hop into the air for Anda Squash');
 
-  const allEvents = stepFrames(state, createEmptyInput(), createEmptyInput(), 48);
+  let sawSquashHold = false;
+  let sawSquashedOpp = false;
+  const allEvents = [];
+  for (let i = 0; i < 60; i++) {
+    const ev = stepMatch(state, [createEmptyInput(), createEmptyInput()], 1 / 60);
+    allEvents.push(...ev);
+    if (state.fighters[0].squashHoldTimer > 0) sawSquashHold = true;
+    if (state.fighters[1].squashedTimer > 0) sawSquashedOpp = true;
+  }
   assert.ok(
-    allEvents.some((e) => e.type === 'land' && e.word === 'CRACK!'),
-    'Deewar Drop slam landing should emit CRACK! shockwave event',
+    allEvents.some((e) => e.type === 'land' && e.word === 'SQUASH!'),
+    'Anda Squash landing should emit SQUASH! shockwave event',
   );
+  assert.ok(sawSquashHold, 'Anda Bhai should hold flat-on-top flop pose on landing');
+  assert.ok(sawSquashedOpp, 'Opponent should enter flattened squashedTimer state');
+  const dmg = startHp - state.fighters[1].hp;
+  assert.equal(dmg, computeSignatureDamage(oppMaxHp));
+  assert.ok(dmg >= oppMaxHp * 0.11 && dmg <= oppMaxHp * 0.13);
 });
 
 test('interrupting opponent attack startup triggers COUNTER! callout and bonus damage', () => {
@@ -361,5 +408,98 @@ test('Kick 3-hit combo executes High Snap Kick -> Low Sweep -> Jump-Kick Finishe
   );
   assert.equal(state3.fighters[1].action, 'knockdown', '3rd kick finisher should launch opponent into knockdown');
 });
+
+test('All 5 fighters have custom named Signature Moves (never SPECIAL), 3.5s cooldown, and 11%-13% HP damage tier', () => {
+  const expectedLabels: Record<string, string> = {
+    sheru: 'PAISA FLEX',
+    billa: 'SWATTER THROW',
+    neta: 'DHARNA SHIELD',
+    anda: 'ANDA SQUASH',
+    mausi: 'BELAN THROW',
+  };
+
+  for (const cfg of FIGHTER_LIST) {
+    const id = cfg.id;
+    assert.equal(cfg.special.shortLabel, expectedLabels[id], `${id} shortLabel mismatch`);
+    assert.ok(
+      !cfg.special.shortLabel.toUpperCase().includes('SPECIAL'),
+      `${id} button label must never say SPECIAL`,
+    );
+    assert.equal(cfg.special.cooldown, SIGNATURE_MOVE_COOLDOWN, `${id} cooldown must be 3.5s`);
+
+    const sigDmg = computeSignatureDamage(cfg.maxHp);
+    const pct = sigDmg / cfg.maxHp;
+    assert.ok(
+      pct >= 0.11 && pct <= 0.13,
+      `Signature damage against ${id} (maxHp ${cfg.maxHp}) = ${sigDmg} (${(pct * 100).toFixed(2)}%) must be 11%-13%`,
+    );
+  }
+});
+
+test('Sheru Bhai PAISA FLEX fans flying currency bills and caps single-activation damage at 11%-13% maxHP', () => {
+  const state = createMatchState('sheru', 'mausi', true);
+  state.fighters[0].x = -0.8;
+  state.fighters[1].x = 0.8;
+  const startHp = state.fighters[1].hp;
+  const oppMaxHp = state.fighters[1].maxHp;
+
+  const triggerEvents = stepMatch(
+    state,
+    [{ ...createEmptyInput(), special: true }, createEmptyInput()],
+    1 / 60,
+  );
+  assert.ok(
+    triggerEvents.some((e) => e.type === 'special' && e.word === 'PAISA FLEX!'),
+    'PAISA FLEX should emit PAISA FLEX! callout',
+  );
+
+  let maxNotesSpawned = 0;
+  const events = [];
+  for (let i = 0; i < 45; i++) {
+    events.push(...stepMatch(state, [createEmptyInput(), createEmptyInput()], 1 / 60));
+    const activeNotes = state.projectiles.filter((p) => p.active && p.kind === 'notes').length;
+    if (activeNotes > maxNotesSpawned) maxNotesSpawned = activeNotes;
+  }
+
+  assert.ok(maxNotesSpawned >= 3, `PAISA FLEX should fan multiple currency bills, saw ${maxNotesSpawned}`);
+  const dmg = startHp - state.fighters[1].hp;
+  assert.equal(dmg, computeSignatureDamage(oppMaxHp), 'PAISA FLEX bills must never multi-hit stack past signature damage');
+  assert.ok(dmg >= oppMaxHp * 0.11 && dmg <= oppMaxHp * 0.13);
+  assert.ok(events.some((e) => e.moveCallout === 'PAISA FLEX!'));
+});
+
+test('Blue Billa SWATTER THROW hurls spinning swatter projectile across mid-range for 11%-13% maxHP', () => {
+  const state = createMatchState('billa', 'sheru', true);
+  state.fighters[0].x = -2.2;
+  state.fighters[1].x = 1.6;
+  const startHp = state.fighters[1].hp;
+  const oppMaxHp = state.fighters[1].maxHp;
+
+  const triggerEvents = stepMatch(
+    state,
+    [{ ...createEmptyInput(), special: true }, createEmptyInput()],
+    1 / 60,
+  );
+  assert.ok(
+    triggerEvents.some((e) => e.type === 'special' && e.word === 'SWATTER THROW!'),
+    'SWATTER THROW should emit SWATTER THROW! callout',
+  );
+
+  let sawSwatterProjectile = false;
+  const events = [];
+  for (let i = 0; i < 45; i++) {
+    events.push(...stepMatch(state, [createEmptyInput(), createEmptyInput()], 1 / 60));
+    if (state.projectiles.some((p) => p.active && p.kind === 'swatter')) {
+      sawSwatterProjectile = true;
+    }
+  }
+
+  assert.ok(sawSwatterProjectile, 'SWATTER THROW must spawn a spinning swatter projectile');
+  const dmg = startHp - state.fighters[1].hp;
+  assert.equal(dmg, computeSignatureDamage(oppMaxHp));
+  assert.ok(dmg >= oppMaxHp * 0.11 && dmg <= oppMaxHp * 0.13);
+  assert.ok(events.some((e) => e.moveCallout === 'SWATTER THROW!'));
+});
+
 
 

@@ -559,7 +559,7 @@ export function FightHud({
           />
         </div>
 
-        {/* Bottom-Right: 4 Translucent Circular Arcade Buttons in an Ergonomic Thumb Arc */}
+          {/* Bottom-Right: 5 Translucent Circular Arcade Buttons in an Ergonomic Thumb Arc */}
         <div
           data-testid="touch-action-arc"
           className={`hud-thumb-arc ${controlsHidden ? 'pointer-events-none' : 'pointer-events-auto'}`}
@@ -608,6 +608,75 @@ export function FightHud({
               GRAB
             </span>
           </button>
+
+          {/* SIGNATURE MOVE (5th Button) — Vibrant Purple/Violet Tint + Dynamic 2-Line Move Name + 3.5s Radial Cooldown Ring */}
+          {(() => {
+            const maxCd = Math.max(0.5, hud.p1SpecialMaxCd || 3.5);
+            const cdRemaining = Math.max(0, hud.p1SpecialCd);
+            const sigReady = cdRemaining <= 0.01;
+            const fillRatio = sigReady ? 1 : Math.max(0, Math.min(1, 1 - cdRemaining / maxCd));
+            const ringRadius = 29;
+            const ringCirc = 2 * Math.PI * ringRadius;
+            const dashOffset = ringCirc * (1 - fillRatio);
+            const words = p1Cfg.special.shortLabel.split(' ');
+            const line1 = words[0] ?? p1Cfg.special.shortLabel;
+            const line2 = words.slice(1).join(' ');
+            return (
+              <button
+                type="button"
+                data-testid="btn-signature"
+                data-ready={sigReady ? 'true' : 'false'}
+                aria-label={`${p1Cfg.special.shortLabel}${sigReady ? ' ready' : ` cooling down ${cdRemaining.toFixed(1)} seconds`}`}
+                disabled={!sigReady}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  if (sigReady) onTouchAction('special');
+                }}
+                className={`hud-arc-btn hud-arc-signature relative overflow-hidden ${
+                  sigReady
+                    ? 'cursor-pointer border-violet-300/90 bg-purple-600/45 text-purple-50 shadow-[0_0_20px_rgba(168,85,247,0.68),inset_0_1px_5px_rgba(255,255,255,0.4)] hover:bg-purple-500/55'
+                    : 'cursor-not-allowed border-purple-400/35 bg-purple-950/60 text-purple-200/60'
+                }`}
+              >
+                {/* 3.5-Second Radial Cooldown Progress Ring */}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 64 64"
+                  className="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
+                >
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r={ringRadius}
+                    fill="none"
+                    stroke="rgba(216, 180, 254, 0.22)"
+                    strokeWidth="3.5"
+                  />
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r={ringRadius}
+                    fill="none"
+                    stroke={sigReady ? '#e9d5ff' : '#a855f7'}
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeDasharray={ringCirc}
+                    strokeDashoffset={dashOffset}
+                  />
+                </svg>
+
+                <span className="hud-arc-sig-label relative z-10 flex flex-col items-center justify-center px-1 text-center font-display text-[11px] font-extrabold uppercase leading-[0.98] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
+                  <span>{line1}</span>
+                  {line2 && <span>{line2}</span>}
+                </span>
+                {!sigReady && (
+                  <span className="hud-arc-sig-cd relative z-10 mt-0.5 font-mono-num text-[9px] font-bold leading-none text-purple-200">
+                    {cdRemaining.toFixed(1)}s
+                  </span>
+                )}
+              </button>
+            );
+          })()}
 
           {/* SUPER — Muted Translucent Grey While Charging; Bright Glowing Gold at 100% Shakti */}
           <button

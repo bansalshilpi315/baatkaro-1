@@ -138,7 +138,7 @@ export function SelectScreen({
           <div className="select-strip-footer mt-2 border-t border-white/15 pt-1.5 text-[10px] leading-tight text-[#e7e5e4]">
             <div className="font-bold uppercase text-[#facc15]">{p1Cfg.name}</div>
             <div className="mt-0.5 text-[#d6d3d1]">
-              <strong className="text-white">[B]</strong> {p1Cfg.special.name}
+              <strong className="text-white">[E]</strong> {p1Cfg.special.name}
             </div>
           </div>
         </aside>

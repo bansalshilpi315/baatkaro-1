@@ -41,9 +41,9 @@ export type FaceExpression = 'idle' | 'attack' | 'hit' | 'block' | 'ko' | 'victo
 
 export type SpecialMoveKind =
   | 'currency_burst'
-  | 'swatter_smash'
+  | 'swatter_throw'
   | 'dharna_shield'
-  | 'deewar_drop'
+  | 'anda_squash'
   | 'belan_throw';
 
 export interface SpecialMoveConfig {
@@ -123,6 +123,9 @@ export interface FighterState {
   specialCooldown: number;
   specialMaxCooldown: number;
   dharnaShieldTimer: number;
+  dharnaWaveFired: boolean;
+  squashHoldTimer: number;
+  squashedTimer: number;
   invulnTimer: number;
   comboCount: number;
   comboTimer: number;
@@ -147,7 +150,7 @@ export interface FighterState {
 export interface ProjectileState {
   uid: number;
   ownerSlot: 0 | 1;
-  kind: 'notes' | 'belan' | 'shockwave';
+  kind: 'notes' | 'swatter' | 'belan' | 'shockwave';
   x: number;
   y: number;
   vx: number;

@@ -266,27 +266,37 @@ export function animateFighterRig(
     mat.emissiveIntensity = flashVal;
   }
 
-  // Dharna Shield & Super aura visibility
+  // Dharna Shield & Super / Paisa Flex golden aura visibility
   rig.shieldAura.visible = state.dharnaShieldTimer > 0;
   if (rig.shieldAura.visible) {
-    const s = 1 + Math.sin(elapsed * 14) * 0.04;
-    rig.shieldAura.scale.set(s, s, s);
+    const wavePulse =
+      state.action === 'special' && state.dharnaWaveFired
+        ? 1.24 + Math.sin(elapsed * 26) * 0.06
+        : 1.0 + Math.sin(elapsed * 14) * 0.05;
+    rig.shieldAura.scale.set(wavePulse, wavePulse, wavePulse);
     if (rig.dharnaRing) {
-      rig.dharnaRing.rotation.y = elapsed * 1.65;
+      rig.dharnaRing.rotation.y = elapsed * (state.dharnaWaveFired ? 3.2 : 1.65);
     }
   }
+  const isSheruPaisaFlex = state.id === 'sheru' && state.action === 'special';
   rig.superAura.visible =
-    (state.action === 'super' && state.id !== 'sheru') || state.shakti >= 100;
+    (state.action === 'super' && state.id !== 'sheru') ||
+    state.shakti >= 100 ||
+    isSheruPaisaFlex;
   if (rig.superAura.visible) {
-    rig.superAura.rotation.z = elapsed * 5;
-    const sc = state.action === 'super' ? 1.35 : 0.88 + Math.sin(elapsed * 6) * 0.06;
+    rig.superAura.rotation.z = elapsed * (isSheruPaisaFlex ? 8.5 : 5);
+    const sc = isSheruPaisaFlex
+      ? 1.15 + Math.sin(Math.min(1, state.actionTimer / Math.max(0.2, state.actionDuration)) * Math.PI) * 0.65
+      : state.action === 'super'
+        ? 1.35
+        : 0.88 + Math.sin(elapsed * 6) * 0.06;
     rig.superAura.scale.set(sc, sc, sc);
-    rig.superAura.position.y = state.action === 'super' ? 1.05 : 0.16;
+    rig.superAura.position.y = isSheruPaisaFlex ? 1.15 : state.action === 'super' ? 1.05 : 0.16;
   }
 
   if (rig.handProp) {
     if (state.id === 'billa') {
-      rig.handProp.visible = state.action === 'special';
+      rig.handProp.visible = state.action === 'special' && !hideHandProp;
     } else if (state.id === 'mausi') {
       rig.handProp.visible = !hideHandProp;
     } else if (state.id === 'sheru') {
@@ -335,21 +345,29 @@ export function animateFighterRig(
   // and living secondary props (tail, shades, eyes, jhola, top hat)
   if (state.id === 'sheru') {
     if (state.action === 'special') {
-      // Paisa Flex: cool lean-back windup, then slick ringed-paw flick forward
-      const flick = atkProgress < 0.26 ? 0 : Math.min(1, (atkProgress - 0.26) / 0.32);
-      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
-      const snap = flick * (1 - settle * 0.45);
-      pelvisRotY = 0;
-      headRotY = 0;
-      torsoRotX = -0.24 * (1 - snap) - 0.08 * snap;
-      torsoRotY = 0.35 * (1 - snap) - 0.52 * snap;
-      headRotX = -0.1 * (1 - snap) + 0.06 * snap;
-      rShX = -0.95 * (1 - snap) - 1.72 * snap;
-      rShZ = 0.48 * (1 - snap) + 0.12 * snap;
-      rElbX = -1.35 * (1 - snap) - 0.12 * snap;
-      lShX = -0.22;
-      lShZ = -0.42;
-      lElbX = -1.05;
+      // PAISA FLEX: cocky chest-puff double-flex pose -> explosive forward golden aura burst!
+      const isWindup = atkProgress < 0.28;
+      const burst = isWindup ? 0 : Math.min(1, (atkProgress - 0.28) / 0.3);
+      const settle = atkProgress > 0.7 ? (atkProgress - 0.7) / 0.3 : 0;
+      const flexPeak = burst * (1 - settle * 0.45);
+      pelvisX = 0.22 * flexPeak;
+      pelvisY = basePelvisY + (isWindup ? -0.05 : 0.06 * flexPeak);
+      pelvisRotY = -0.18 * state.facing;
+      torsoRotX = isWindup ? 0.14 : -0.32 * flexPeak;
+      torsoRotY = -0.24 * state.facing * (1 - flexPeak);
+      headRotX = isWindup ? 0.06 : -0.16 * flexPeak;
+      headRotY = 0.24 * state.facing;
+      // Wide cocky double-bicep chest-puff flex!
+      lShX = -0.82 - 0.55 * flexPeak;
+      lShZ = -0.95 - 0.25 * flexPeak;
+      lElbX = -1.72 + 0.25 * flexPeak;
+      rShX = -0.82 - 0.55 * flexPeak;
+      rShZ = 0.95 + 0.25 * flexPeak;
+      rElbX = -1.72 + 0.25 * flexPeak;
+      lHipX = -0.42;
+      lKneeX = 0.48;
+      rHipX = 0.42;
+      rKneeX = 0.36;
     } else if (state.action === 'super') {
       // Choreographed 7.5s "TRILLION DOLLAR BEATDOWN" 4-phase animation (unchanged!)
       const t = state.actionTimer;
@@ -529,24 +547,26 @@ export function animateFighterRig(
     }
   } else if (state.id === 'billa') {
     if (state.action === 'special') {
-      // Swatter Smash: huge cartoon windup whipping giant neon-green flyswatter forward!
+      // SWATTER THROW: big cartoon side-arm windup -> snappy whip-throw launching spinning 3D fly-swatter!
       const isWindup = atkProgress < 0.28;
-      const slamT = isWindup ? 0 : Math.min(1, (atkProgress - 0.28) / 0.36);
+      const wind = isWindup ? atkProgress / 0.28 : 1;
+      const throwT = isWindup ? 0 : Math.min(1, (atkProgress - 0.28) / 0.36);
       const followT = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
-      const arc = slamT * (1 - followT * 0.32);
+      const arc = throwT * (1 - followT * 0.4);
 
+      pelvisX = 0.18 * arc;
       pelvisRotY = 0;
       headRotY = 0;
-      pelvisY = basePelvisY + (isWindup ? 0.1 : -0.06 * arc);
-      torsoRotX = isWindup ? -0.32 : 0.48 * arc;
-      torsoRotY = isWindup ? 0.54 : -0.68 * arc;
-      headRotX = isWindup ? -0.18 : 0.16 * arc;
-      rShX = isWindup ? -2.95 : -2.95 + arc * 2.75;
-      rShZ = isWindup ? 0.45 : 0.18 - arc * 0.35;
-      rElbX = isWindup ? -0.45 : -0.08;
-      lShX = -0.95;
+      pelvisY = basePelvisY + (isWindup ? 0.06 * wind : -0.05 * arc);
+      torsoRotX = isWindup ? -0.18 * wind : 0.34 * arc;
+      torsoRotY = isWindup ? 0.65 * wind : -0.82 * arc;
+      headRotX = isWindup ? -0.08 : 0.12 * arc;
+      rShX = isWindup ? -1.1 - 1.45 * wind : -2.45 + arc * 1.55;
+      rShZ = isWindup ? 0.55 + 0.35 * wind : 0.55 - arc * 0.72;
+      rElbX = isWindup ? -1.25 : -0.1;
+      lShX = -0.85;
       lShZ = -0.58;
-      lElbX = -0.7;
+      lElbX = -0.95;
     } else if (state.action === 'victory') {
       const hop = Math.sin(elapsed * 8.5);
       pelvisY = basePelvisY + Math.abs(hop) * 0.2;
@@ -666,27 +686,62 @@ export function animateFighterRig(
     }
   } else if (state.id === 'anda') {
     if (state.action === 'special') {
-      // Deewar Drop: hops high, tucks striped arms & teal boots tightly into a cannonball egg, then slams forward!
-      const isAir = state.y > 0.14 || atkProgress < 0.68;
-      const tuck = isAir ? Math.sin(Math.min(1, atkProgress / 0.72) * Math.PI) : 0;
-      const slam = atkProgress >= 0.68 ? 1 - (atkProgress - 0.68) / 0.32 : 0;
+      // ANDA SQUASH: hops forward in belly-flop arc -> lies COMPLETELY FLAT on top of opponent -> bounces back up!
+      const isAir = state.y > 0.12 && state.squashHoldTimer <= 0;
+      const isFloppedFlat = state.squashHoldTimer > 0;
       pelvisX = 0;
       pelvisRotY = 0;
       torsoRotY = 0;
       headRotY = 0;
-      pelvisY = isAir ? basePelvisY + 0.08 : basePelvisY - 0.16 * slam;
-      pelvisRotX = isAir ? 0.58 * tuck : 0.22 * slam;
-      torsoRotX = isAir ? 0.42 * tuck : 0.28 * slam;
-      lShX = isAir ? -0.95 : -0.35;
-      rShX = isAir ? -0.95 : -0.35;
-      lShZ = isAir ? 0.55 : -0.65;
-      rShZ = isAir ? -0.55 : 0.65;
-      lElbX = isAir ? -1.65 : -0.6;
-      rElbX = isAir ? -1.65 : -0.6;
-      lHipX = isAir ? -1.35 : -0.35;
-      rHipX = isAir ? -1.35 : -0.35;
-      lKneeX = isAir ? 1.75 : 0.65;
-      rKneeX = isAir ? 1.75 : 0.65;
+      if (isAir) {
+        // Diving belly-flop launch arc toward opponent!
+        const dive = Math.min(1, atkProgress / 0.45);
+        pelvisY = basePelvisY + 0.08;
+        pelvisRotX = 0.45 + 0.92 * dive;
+        torsoRotX = 0.22;
+        lShX = -0.65;
+        rShX = -0.65;
+        lShZ = -0.92;
+        rShZ = 0.92;
+        lElbX = -0.35;
+        rElbX = -0.35;
+        lHipX = 0.52;
+        rHipX = 0.52;
+        lKneeX = 0.48;
+        rKneeX = 0.48;
+      } else if (isFloppedFlat) {
+        // Completely horizontal belly-flop lying flat on top of squashed opponent!
+        pelvisY = 0.58;
+        pelvisRotX = Math.PI * 0.48;
+        pelvisRotZ = 0.06 * Math.sin(elapsed * 22);
+        torsoRotX = 0.04;
+        headRotX = -0.18;
+        lShX = -0.25;
+        rShX = -0.25;
+        lShZ = -1.28;
+        rShZ = 1.28;
+        lElbX = -0.15;
+        rElbX = -0.15;
+        lHipX = 0.12;
+        rHipX = 0.12;
+        lHipZ = -0.36;
+        rHipZ = 0.36;
+        lKneeX = 0.12;
+        rKneeX = 0.12;
+      } else {
+        // Cheerful bounce back up into athletic fighting guard!
+        const bounceT = Math.min(1, Math.max(0, (atkProgress - 0.72) / 0.28));
+        const pop = Math.sin(bounceT * Math.PI) * 0.22;
+        pelvisY = basePelvisY + pop;
+        pelvisRotX = (1 - bounceT) * 0.65;
+        torsoRotX = (1 - bounceT) * 0.25;
+        lShZ = -0.38 - (1 - bounceT) * 0.5;
+        rShZ = 0.38 + (1 - bounceT) * 0.5;
+        lHipX = -0.34;
+        rHipX = 0.32;
+        lKneeX = 0.42;
+        rKneeX = 0.38;
+      }
     } else if (state.action === 'victory') {
       const hop = Math.abs(Math.sin(elapsed * 6.8));
       pelvisY = basePelvisY + hop * 0.16;
@@ -754,6 +809,30 @@ export function animateFighterRig(
       lShZ = -0.58;
       lElbX = -1.45;
     }
+  }
+
+  // Opponent flattened horizontally on the arena floor underneath Anda Bhai's ANDA SQUASH!
+  if (state.squashedTimer > 0 && state.hp > 0) {
+    pelvisX = 0;
+    pelvisY = 0.22;
+    pelvisRotX = -Math.PI * 0.48;
+    pelvisRotY = 0;
+    pelvisRotZ = 0;
+    torsoRotX = 0;
+    torsoRotY = 0;
+    headRotX = 0.1;
+    headRotY = 0;
+    lShX = -1.6;
+    lShZ = -0.95;
+    lElbX = -0.2;
+    rShX = -1.6;
+    rShZ = 0.95;
+    rElbX = -0.2;
+    lHipX = 0.1;
+    rHipX = -0.1;
+    lKneeX = 0.12;
+    rKneeX = 0.12;
+    jointAlpha = 1 - Math.exp(-32 * Math.max(dt, 0.008));
   }
 
   rig.pelvis.position.z = lerpAngle(rig.pelvis.position.z, pelvisX, jointAlpha);

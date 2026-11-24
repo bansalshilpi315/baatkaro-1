@@ -207,6 +207,13 @@ export class DesiShowdownEngine {
   private belanBarrelMat: THREE.MeshStandardMaterial;
   private belanHandleGeo: THREE.CylinderGeometry;
   private belanHandleMat: THREE.MeshStandardMaterial;
+  private swatterMeshTex: THREE.CanvasTexture;
+  private swatterHandleGeo: THREE.CylinderGeometry;
+  private swatterGripGeo: THREE.CylinderGeometry;
+  private swatterPaddleGeo: THREE.BoxGeometry;
+  private swatterHandleMat: THREE.MeshStandardMaterial;
+  private swatterGripMat: THREE.MeshStandardMaterial;
+  private swatterPaddleMat: THREE.MeshStandardMaterial;
 
   // Loop & lifecycle
   private frameId = 0;
@@ -393,6 +400,21 @@ export class DesiShowdownEngine {
     this.belanHandleGeo = new THREE.CylinderGeometry(0.04, 0.038, 0.16, 8);
     this.belanHandleMat = new THREE.MeshStandardMaterial({ color: 0x9b642c, roughness: 0.48 });
 
+    // Low-poly composite 3D cartoon fly-swatter projectile (long handle + dark grip + perforated paddle)
+    this.swatterMeshTex = this.createSwatterPaddleTexture();
+    this.swatterHandleGeo = new THREE.CylinderGeometry(0.028, 0.034, 0.62, 8);
+    this.swatterGripGeo = new THREE.CylinderGeometry(0.042, 0.038, 0.18, 8);
+    this.swatterPaddleGeo = new THREE.BoxGeometry(0.42, 0.46, 0.032);
+    this.swatterHandleMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.42 });
+    this.swatterGripMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.65 });
+    this.swatterPaddleMat = new THREE.MeshStandardMaterial({
+      map: this.swatterMeshTex,
+      color: 0xffffff,
+      emissive: 0x22c55e,
+      emissiveIntensity: 0.25,
+      roughness: 0.35,
+    });
+
     this.matchState = createMatchState(this.p1Id, this.p2Id, false);
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
@@ -492,6 +514,7 @@ export class DesiShowdownEngine {
         code === 'KeyJ' ||
         code === 'KeyK' ||
         code === 'KeyI' ||
+        code === 'KeyE' ||
         code === 'KeyB' ||
         code === 'KeyL'
       ) {
@@ -501,7 +524,7 @@ export class DesiShowdownEngine {
       if (code === 'KeyJ') this.oneShotQueue.punch = true;
       if (code === 'KeyK') this.oneShotQueue.kick = true;
       if (code === 'KeyI') this.oneShotQueue.grab = true;
-      if (code === 'KeyB') this.oneShotQueue.special = true;
+      if (code === 'KeyE' || code === 'KeyB') this.oneShotQueue.special = true;
       if (code === 'KeyL') this.oneShotQueue.superMove = true;
     }
     this.keysHeld.add(code);
@@ -834,6 +857,28 @@ export class DesiShowdownEngine {
     return tex;
   }
 
+  private createSwatterPaddleTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const ctx = c.getContext('2d')!;
+    // Neon-green cartoon fly-swatter paddle with dark rim and perforated mesh grid
+    ctx.fillStyle = '#4ADE80';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = '#15803D';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(5, 5, 118, 118);
+    ctx.fillStyle = '#14532D';
+    for (let gx = 20; gx <= 104; gx += 16) {
+      for (let gy = 20; gy <= 104; gy += 16) {
+        ctx.fillRect(gx, gy, 9, 9);
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   private syncProjectiles(): void {
     const activeIds = this.activeProjectileIds;
     activeIds.clear();
@@ -850,6 +895,16 @@ export class DesiShowdownEngine {
           h2.position.y = -0.41;
           grp.add(barrel, h1, h2);
           mesh = grp;
+        } else if (proj.kind === 'swatter') {
+          const grp = new THREE.Group();
+          const handle = new THREE.Mesh(this.swatterHandleGeo, this.swatterHandleMat);
+          handle.position.y = -0.14;
+          const grip = new THREE.Mesh(this.swatterGripGeo, this.swatterGripMat);
+          grip.position.y = -0.44;
+          const paddle = new THREE.Mesh(this.swatterPaddleGeo, this.swatterPaddleMat);
+          paddle.position.y = 0.34;
+          grp.add(handle, grip, paddle);
+          mesh = grp;
         } else {
           mesh = new THREE.Mesh(this.currencyNoteGeo, this.currencyNoteMat);
         }
@@ -862,6 +917,12 @@ export class DesiShowdownEngine {
         // Golden flour & laddoo sparkle trail along the spinning belan's flight path
         this.spawnParticles(proj.x, proj.y, 1, 0xfff5d6, 2.2);
         this.spawnParticles(proj.x, proj.y, 1, 0xf0c420, 2.8);
+      } else if (proj.kind === 'swatter') {
+        mesh.rotation.z = -proj.spin;
+        mesh.rotation.y = Math.sin(proj.spin * 0.5) * 0.25;
+        // Comic star-spark trail behind the fast-spinning fly-swatter!
+        this.spawnParticles(proj.x, proj.y, 1, 0x4ade80, 2.5);
+        this.spawnParticles(proj.x, proj.y, 1, 0xfef08a, 3.0);
       } else {
         mesh.rotation.z = Math.sin(proj.spin * 1.4) * 0.65;
         mesh.rotation.y = proj.spin * 1.15;
@@ -909,9 +970,21 @@ export class DesiShowdownEngine {
         ev.type === 'dharna_counter'
       ) {
         const attacker = this.matchState.fighters[ev.attackerSlot];
-        if (ev.type === 'heavy_hit' && attacker?.id === 'mausi' && ev.headline?.includes('BELAN THROW')) {
+        if (ev.type === 'heavy_hit' && attacker?.id === 'mausi' && ev.moveCallout === 'BELAN THROW!') {
           audioEngine.playBelanBonk();
-          this.spawnParticles(ev.x, ev.y, 10, 0xf0c420, 6.4);
+          this.spawnParticles(ev.x, ev.y, 12, 0xf0c420, 6.4);
+          this.spawnParticles(ev.x, ev.y, 8, 0xfff5d6, 5.2);
+        } else if (ev.type === 'heavy_hit' && attacker?.id === 'billa' && ev.moveCallout === 'SWATTER THROW!') {
+          audioEngine.playSwatterSlap();
+          this.spawnParticles(ev.x, ev.y, 12, 0x4ade80, 6.4);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfef08a, 5.8);
+        } else if (ev.type === 'dharna_counter') {
+          audioEngine.playHeavyHit();
+          this.shockwaveRing.position.set(ev.x, 0.06, 0);
+          this.shockwaveRing.scale.set(0.75, 0.75, 1);
+          this.shockwaveRing.visible = true;
+          this.shockwaveTimer = this.shockwaveDuration;
+          this.spawnParticles(ev.x, ev.y, 14, 0xf97316, 6.2);
         } else {
           audioEngine.playHeavyHit();
         }
@@ -934,12 +1007,13 @@ export class DesiShowdownEngine {
         }
         this.stage?.triggerExcitement(1.5);
         if (caster?.id === 'sheru') {
-          // Golden sparkle burst + emerald cash glint for Paisa Flex!
-          this.spawnParticles(ev.x, ev.y, 14, 0xfde047, 5.8);
-          this.spawnParticles(ev.x, ev.y + 0.1, 8, 0x4ade80, 4.4);
+          // Golden aura shockwave burst + emerald cash glint for PAISA FLEX!
+          this.spawnImpactRing(ev.x, ev.y, true);
+          this.spawnParticles(ev.x, ev.y, 16, 0xfde047, 6.2);
+          this.spawnParticles(ev.x, ev.y + 0.1, 10, 0x4ade80, 4.8);
         } else if (caster?.id === 'billa') {
-          // Neon-green & bright-yellow giant flyswatter slap sparks!
-          this.spawnParticles(ev.x, ev.y, 14, 0x4ade80, 6.2);
+          // Neon-green & bright-yellow giant flyswatter launch sparks!
+          this.spawnParticles(ev.x, ev.y, 12, 0x4ade80, 5.8);
           this.spawnParticles(ev.x, ev.y + 0.12, 10, 0xfde047, 5.0);
         } else if (caster?.id === 'mausi') {
           // Golden flour & laddoo sparkle burst on Belan Throw launch!
@@ -990,8 +1064,8 @@ export class DesiShowdownEngine {
         audioEngine.playJump();
         this.spawnParticles(ev.x, 0.12, 5, 0xe7e5e4, 2.5);
       } else if (ev.type === 'land') {
-        if (ev.word === 'CRACK!') {
-          // Anda Bhai Deewar Drop slam shockwave + comic CRACK! eggshell & gold sparks!
+        if (ev.word === 'SQUASH!' || ev.word === 'CRACK!') {
+          // Anda Bhai ANDA SQUASH flat-flop shockwave + comedic dust & eggshell sparks!
           audioEngine.playHeavyHit();
           this.trauma = Math.min(1, this.trauma + 0.42);
           this.stage?.triggerExcitement(1.5);
@@ -999,8 +1073,9 @@ export class DesiShowdownEngine {
           this.shockwaveRing.scale.set(0.65, 0.65, 1);
           this.shockwaveRing.visible = true;
           this.shockwaveTimer = this.shockwaveDuration;
+          this.spawnImpactRing(ev.x, 0.42, true);
           this.spawnParticles(ev.x, 0.16, 16, 0xffd426, 6.4);
-          this.spawnParticles(ev.x, 0.22, 12, 0xfbe0c3, 5.4);
+          this.spawnParticles(ev.x, 0.22, 14, 0xfbe0c3, 5.4);
         } else {
           this.spawnParticles(ev.x, 0.1, 6, 0xd6d3d1, 2.8);
         }
@@ -1176,13 +1251,13 @@ export class DesiShowdownEngine {
         p1Hp: Math.round(p1.hp),
         p1MaxHp: p1.maxHp,
         p1Shakti: Math.round(p1.shakti),
-        p1SpecialCd: Number(p1.specialCooldown.toFixed(1)),
+        p1SpecialCd: Number(p1.specialCooldown.toFixed(2)),
         p1SpecialMaxCd: p1.specialMaxCooldown,
         p1Combo: p1.comboCount,
         p2Hp: Math.round(p2.hp),
         p2MaxHp: p2.maxHp,
         p2Shakti: Math.round(p2.shakti),
-        p2SpecialCd: Number(p2.specialCooldown.toFixed(1)),
+        p2SpecialCd: Number(p2.specialCooldown.toFixed(2)),
         p2SpecialMaxCd: p2.specialMaxCooldown,
         p2Combo: p2.comboCount,
         roundNumber: this.matchState.roundNumber,
@@ -1429,13 +1504,13 @@ export class DesiShowdownEngine {
         }
       }
 
-      // Animate 3D fighter rigs (zero per-frame Set allocation)
-      let p1HasBelan = false;
-      let p2HasBelan = false;
+      // Animate 3D fighter rigs (hide held belan/swatter while thrown projectile is airborne)
+      let p1PropThrown = false;
+      let p2PropThrown = false;
       for (const proj of this.matchState.projectiles) {
-        if (proj.kind === 'belan') {
-          if (proj.ownerSlot === 0) p1HasBelan = true;
-          else p2HasBelan = true;
+        if (proj.kind === 'belan' || proj.kind === 'swatter') {
+          if (proj.ownerSlot === 0) p1PropThrown = true;
+          else p2PropThrown = true;
         }
       }
       for (let i = 0; i < 2; i++) {
@@ -1446,7 +1521,7 @@ export class DesiShowdownEngine {
             this.matchState.fighters[i],
             this.elapsed,
             dt,
-            i === 0 ? p1HasBelan : p2HasBelan,
+            i === 0 ? p1PropThrown : p2PropThrown,
           );
         }
       }
@@ -1538,6 +1613,13 @@ export class DesiShowdownEngine {
     this.belanBarrelMat.dispose();
     this.belanHandleGeo.dispose();
     this.belanHandleMat.dispose();
+    this.swatterMeshTex.dispose();
+    this.swatterHandleGeo.dispose();
+    this.swatterGripGeo.dispose();
+    this.swatterPaddleGeo.dispose();
+    this.swatterHandleMat.dispose();
+    this.swatterGripMat.dispose();
+    this.swatterPaddleMat.dispose();
     this.pmremTexture.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {

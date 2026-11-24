@@ -275,11 +275,11 @@
   animation: shaktiReadyPulse 1.25s ease-in-out infinite;
 }
 
-/* Ergonomic 4-button arcade thumb arc (Desktop default) */
+/* Ergonomic 5-button arcade thumb arc (Desktop default, zero overlap) */
 .hud-thumb-arc {
   position: relative;
-  width: 12rem;
-  height: 9rem;
+  width: 14.2rem;
+  height: 9.2rem;
 }
 
 .hud-arc-btn {
@@ -300,31 +300,38 @@
 }
 
 .hud-arc-punch {
-  left: 0.25rem;
-  bottom: 0.9rem;
-  width: 3.95rem;
-  height: 3.95rem;
+  left: 1.5rem;
+  bottom: 0.7rem;
+  width: 3.9rem;
+  height: 3.9rem;
 }
 
 .hud-arc-kick {
-  left: 4.85rem;
+  left: 6.1rem;
   bottom: 0;
-  width: 3.95rem;
-  height: 3.95rem;
+  width: 3.9rem;
+  height: 3.9rem;
 }
 
 .hud-arc-grab {
-  left: 2.75rem;
-  bottom: 4.95rem;
-  width: 3.6rem;
-  height: 3.6rem;
+  left: 0;
+  bottom: 5.15rem;
+  width: 3.55rem;
+  height: 3.55rem;
+}
+
+.hud-arc-signature {
+  left: 4.55rem;
+  bottom: 4.75rem;
+  width: 4.25rem;
+  height: 4.25rem;
 }
 
 .hud-arc-super {
-  left: 7.45rem;
-  bottom: 4.25rem;
-  width: 4.2rem;
-  height: 4.2rem;
+  left: 9.75rem;
+  bottom: 3.95rem;
+  width: 4.3rem;
+  height: 4.3rem;
 }
 
 /* =========================================================================
@@ -566,40 +573,56 @@
   }
 
   .hud-thumb-arc {
-    width: 9.85rem;
-    height: 7.35rem;
+    width: 11.4rem;
+    height: 7.45rem;
   }
 
   .hud-arc-punch {
-    left: 0.15rem;
-    bottom: 0.7rem;
-    width: 3.2rem;
-    height: 3.2rem;
+    left: 1.2rem;
+    bottom: 0.55rem;
+    width: 3.15rem;
+    height: 3.15rem;
   }
 
   .hud-arc-kick {
-    left: 3.95rem;
+    left: 4.9rem;
     bottom: 0;
-    width: 3.2rem;
-    height: 3.2rem;
+    width: 3.15rem;
+    height: 3.15rem;
   }
 
   .hud-arc-grab {
-    left: 2.2rem;
-    bottom: 4.05rem;
-    width: 2.95rem;
-    height: 2.95rem;
+    left: 0;
+    bottom: 4.15rem;
+    width: 2.85rem;
+    height: 2.85rem;
   }
 
-  .hud-arc-super {
-    left: 6.1rem;
-    bottom: 3.45rem;
+  .hud-arc-signature {
+    left: 3.65rem;
+    bottom: 3.8rem;
     width: 3.45rem;
     height: 3.45rem;
   }
 
+  .hud-arc-super {
+    left: 7.8rem;
+    bottom: 3.2rem;
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
   .hud-arc-label {
     font-size: 0.68rem;
+  }
+
+  .hud-arc-sig-label {
+    font-size: 0.56rem;
+    line-height: 0.96;
+  }
+
+  .hud-arc-sig-cd {
+    font-size: 0.48rem;
   }
 
   .hud-arcade-banner {

@@ -95,6 +95,9 @@ export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
     specialCooldown: 0,
     specialMaxCooldown: cfg.special.cooldown,
     dharnaShieldTimer: 0,
+    dharnaWaveFired: false,
+    squashHoldTimer: 0,
+    squashedTimer: 0,
     invulnTimer: 0,
     comboCount: 0,
     comboTimer: 0,
@@ -217,6 +220,9 @@ function resetFighterForNextRound(f: FighterState): void {
   f.blockstunTimer = 0;
   f.specialCooldown = 0;
   f.dharnaShieldTimer = 0;
+  f.dharnaWaveFired = false;
+  f.squashHoldTimer = 0;
+  f.squashedTimer = 0;
   f.invulnTimer = 0;
   f.comboCount = 0;
   f.comboTimer = 0;
@@ -449,8 +455,8 @@ export function getAttackTiming(fighter: FighterState): {
         isGrab: false,
         isSpecial: true,
         isSuper: false,
-        causesKnockdown: sp.id === 'swatter_smash' || sp.id === 'deewar_drop',
-        moveCallout: `${sp.name.toUpperCase()}!`,
+        causesKnockdown: false,
+        moveCallout: `${sp.shortLabel}!`,
       };
     }
     case 'super':
@@ -531,9 +537,15 @@ function startAction(
   fighter.actionDuration = timing.windup + timing.active + timing.recovery;
 
   if (action === 'special') {
+    const opp = state.fighters[1 - fighter.slot];
     fighter.specialCooldown = cfg.special.cooldown;
+    fighter.specialMaxCooldown = cfg.special.cooldown;
+    fighter.hitFlashTimer = 0.09; // Crisp startup flash on all 5 Signature Moves
+    fighter.dharnaWaveFired = false;
+    fighter.squashHoldTimer = 0;
+
     if (cfg.special.id === 'dharna_shield') {
-      fighter.dharnaShieldTimer = cfg.special.active;
+      fighter.dharnaShieldTimer = cfg.special.active; // ~0.9s translucent protest shield dome
       fighter.vx = 0;
       events.push({
         type: 'special',
@@ -544,23 +556,39 @@ function startAction(
         word: 'DHARNA!',
         moveCallout: 'DHARNA SHIELD!',
         color: '#F97316',
-        headline: `${cfg.name.toUpperCase()} SITS IN DHARNA PROTEST MID-MATCH!`,
+        headline: `${cfg.name.toUpperCase()} PROJECTS DHARNA SHIELD PROTEST DOME!`,
       });
-    } else if (cfg.special.id === 'deewar_drop') {
-      fighter.vx = fighter.facing * 6.5;
-      fighter.vy = 9.0;
-      fighter.y = Math.max(fighter.y, 0.04);
+    } else if (cfg.special.id === 'anda_squash') {
+      // Hop forward cleanly onto opponent's position to flop completely flat on top of them!
+      const rawDist = Math.abs(opp.x - fighter.x);
+      const targetSpeed = Math.max(4.6, Math.min(8.8, rawDist * 2.15 + 1.4));
+      fighter.vx = fighter.facing * targetSpeed;
+      fighter.vy = 8.4;
+      fighter.y = Math.max(fighter.y, 0.05);
       fighter.squashX = 0.84;
-      fighter.squashY = 1.2;
+      fighter.squashY = 1.22;
       events.push({
         type: 'special',
         attackerSlot: fighter.slot,
         x: fighter.x,
         y: fighter.y + 1.4,
         damage: 0,
-        word: 'DEEWAR DROP!',
-        moveCallout: 'DEEWAR DROP!',
+        word: 'ANDA SQUASH!',
+        moveCallout: 'ANDA SQUASH!',
         color: '#FFD426',
+      });
+    } else if (cfg.special.id === 'currency_burst') {
+      // Cocky chest-puff flex burst forward with golden aura shockwave!
+      fighter.vx = fighter.facing * 6.4;
+      events.push({
+        type: 'special',
+        attackerSlot: fighter.slot,
+        x: fighter.x + fighter.facing * 0.45,
+        y: fighter.y + 1.35,
+        damage: 0,
+        word: 'PAISA FLEX!',
+        moveCallout: 'PAISA FLEX!',
+        color: '#FACC15',
       });
     } else {
       events.push({
@@ -570,7 +598,7 @@ function startAction(
         y: fighter.y + 1.4,
         damage: 0,
         word: cfg.special.shortLabel + '!',
-        moveCallout: `${cfg.special.name.toUpperCase()}!`,
+        moveCallout: `${cfg.special.shortLabel}!`,
         color: cfg.special.accentColor,
       });
     }
@@ -672,30 +700,34 @@ function applyHit(
     if (effectiveDamage <= 0) return;
   }
 
-  // Check Dharna Shield counter on defender!
+  // Check Dharna Shield negate & sonic counter on defender!
   if (defender.dharnaShieldTimer > 0 && !params.isGrab) {
-    const reducedDamage = Math.max(1, Math.round(effectiveDamage * 0.3));
+    // Negates incoming non-Super attacks during Dharna Shield startup/active window!
     const appliedReduced = params.isSuper
-      ? Math.min(reducedDamage, Math.max(0, attacker.superDamageBudget - attacker.superDamageDealt))
-      : reducedDamage;
-    defender.hp = Math.max(0, defender.hp - appliedReduced);
-    if (params.isSuper) {
+      ? Math.min(
+          Math.max(1, Math.round(effectiveDamage * 0.3)),
+          Math.max(0, attacker.superDamageBudget - attacker.superDamageDealt),
+        )
+      : 0;
+    if (appliedReduced > 0) {
+      defender.hp = Math.max(0, defender.hp - appliedReduced);
       attacker.superDamageDealt += appliedReduced;
     }
-    defender.shakti = Math.min(100, defender.shakti + 10);
+    defender.shakti = Math.min(100, defender.shakti + 12);
     defender.hitFlashTimer = 0.08;
+    defender.dharnaWaveFired = true;
 
-    // Push melee attacker back with counter damage
+    // Push melee attacker back with 11%-13% maxHP sonic counter damage
     if (!params.isProjectile) {
-      const counterDmg = defCfg.special.damage;
+      const counterDmg = Math.min(computeSignatureDamage(attacker.maxHp), attacker.hp);
       attacker.hp = Math.max(0, attacker.hp - counterDmg);
       attacker.vx = -attacker.facing * defCfg.special.knockbackX;
       attacker.vy = defCfg.special.knockbackY;
       attacker.hitstunTimer = defCfg.special.stunDuration;
-      attacker.action = 'hit';
+      attacker.action = attacker.hp <= 0 ? 'ko' : 'hit';
       attacker.actionTimer = 0;
-      attacker.expression = 'hit';
-      attacker.hitFlashTimer = 0.12;
+      attacker.expression = attacker.hp <= 0 ? 'ko' : 'hit';
+      attacker.hitFlashTimer = 0.14;
       defender.damageDealt += counterDmg;
       defender.specialsLanded += 1;
     }
@@ -707,9 +739,10 @@ function applyHit(
       x: params.hitX,
       y: params.hitY,
       damage: appliedReduced,
-      word: 'DHARNA BLOCK!',
+      word: 'DHARNA WAVE!',
+      moveCallout: 'DHARNA SHIELD!',
       color: '#FB923C',
-      headline: `${defCfg.name.toUpperCase()} COUNTERED WITH PEACEFUL DHARNA!`,
+      headline: `${defCfg.name.toUpperCase()} NEGATED THE ATTACK WITH DHARNA SHIELD!`,
     });
     return;
   }
@@ -862,45 +895,82 @@ function applyHit(
   });
 }
 
+export const SIGNATURE_MOVE_COOLDOWN = 3.5;
+
+/**
+ * Computes mid-tier Signature Move damage strictly within 11%-13% of opponent's maxHP
+ * across all roster maxHP values (100..120): noticeably stronger than normal attacks,
+ * well below the 33% Super Power cap.
+ */
+export function computeSignatureDamage(opponentMaxHp: number): number {
+  return Math.round(opponentMaxHp * 0.125);
+}
+
 function spawnSpecialProjectileIfNeeded(
   state: MatchState,
   fighter: FighterState,
 ): void {
   const cfg = FIGHTER_CONFIGS[fighter.id];
+  const opp = state.fighters[1 - fighter.slot];
+  const sigDamage = computeSignatureDamage(opp.maxHp);
+
   if (cfg.special.id === 'currency_burst') {
-    // 3 short-range flying notes fanned slightly
-    for (let i = 0; i < 3; i++) {
+    // 5 fanned 3D currency bills bursting forward with Sheru's golden aura flex!
+    for (let i = 0; i < 5; i++) {
+      const spread = i - 2;
       const proj: ProjectileState = {
         uid: state.nextProjectileUid++,
         ownerSlot: fighter.slot,
         kind: 'notes',
-        x: fighter.x + fighter.facing * (0.75 + i * 0.16),
-        y: fighter.y + 1.18 + (i - 1) * 0.22,
-        vx: fighter.facing * (7.6 + i * 0.9),
-        vy: (i - 1) * 0.55,
-        radius: 0.42,
-        damage: i === 1 ? cfg.special.damage : 5,
+        x: fighter.x + fighter.facing * (0.7 + Math.abs(spread) * 0.12),
+        y: fighter.y + 1.2 + spread * 0.16,
+        vx: fighter.facing * (8.4 + (2 - Math.abs(spread)) * 0.75),
+        vy: spread * 0.45,
+        radius: 0.46,
+        damage: sigDamage,
         stunDuration: cfg.special.stunDuration,
         knockbackX: cfg.special.knockbackX,
         knockbackY: cfg.special.knockbackY,
         life: 0,
-        maxLife: 0.48,
-        spin: i * 1.4,
+        maxLife: 0.46,
+        spin: i * 1.25,
         active: true,
       };
       state.projectiles.push(proj);
     }
+  } else if (cfg.special.id === 'swatter_throw') {
+    // Fast-spinning 3D cartoon fly-swatter mid-range projectile!
+    const proj: ProjectileState = {
+      uid: state.nextProjectileUid++,
+      ownerSlot: fighter.slot,
+      kind: 'swatter',
+      x: fighter.x + fighter.facing * 0.85,
+      y: fighter.y + 1.28,
+      vx: fighter.facing * 11.2,
+      vy: 0,
+      radius: 0.52,
+      damage: sigDamage,
+      stunDuration: cfg.special.stunDuration,
+      knockbackX: cfg.special.knockbackX,
+      knockbackY: cfg.special.knockbackY,
+      life: 0,
+      maxLife: 0.7,
+      spin: 0,
+      active: true,
+    };
+    state.projectiles.push(proj);
   } else if (cfg.special.id === 'belan_throw') {
+    // Fast-spinning 3D wooden rolling pin (belan) mid-range projectile!
     const proj: ProjectileState = {
       uid: state.nextProjectileUid++,
       ownerSlot: fighter.slot,
       kind: 'belan',
       x: fighter.x + fighter.facing * 0.85,
       y: fighter.y + 1.25,
-      vx: fighter.facing * 10.2,
+      vx: fighter.facing * 10.6,
       vy: 0,
-      radius: 0.48,
-      damage: cfg.special.damage,
+      radius: 0.5,
+      damage: sigDamage,
       stunDuration: cfg.special.stunDuration,
       knockbackX: cfg.special.knockbackX,
       knockbackY: cfg.special.knockbackY,
@@ -1086,6 +1156,12 @@ export function stepMatch(
 
     if (f.specialCooldown > 0) f.specialCooldown = Math.max(0, f.specialCooldown - dt);
     if (f.dharnaShieldTimer > 0) f.dharnaShieldTimer = Math.max(0, f.dharnaShieldTimer - dt);
+    if (f.squashHoldTimer > 0) f.squashHoldTimer = Math.max(0, f.squashHoldTimer - dt);
+    if (f.squashedTimer > 0) {
+      f.squashedTimer = Math.max(0, f.squashedTimer - dt);
+      f.squashX = 1.48;
+      f.squashY = 0.36;
+    }
     if (f.invulnTimer > 0) f.invulnTimer = Math.max(0, f.invulnTimer - dt);
     if (f.comboTimer > 0) {
       f.comboTimer -= dt;
@@ -1184,8 +1260,8 @@ export function stepMatch(
       f.actionTimer += dt;
       const timing = getAttackTiming(f);
 
-      // Slow horizontal momentum during grounded attacks (except Deewar Drop / Super lunge)
-      const isDeewarDrop = f.action === 'special' && cfg.special.id === 'deewar_drop';
+      // Slow horizontal momentum during grounded attacks (except Anda Squash hop / Super lunge)
+      const isAndaSquash = f.action === 'special' && cfg.special.id === 'anda_squash';
       if (f.action === 'super' && f.id !== 'sheru') {
         // Non-Sheru Super: hold dramatic pose during startup close-up, then lunge forward at windup!
         if (prevTime < timing.windup && f.actionTimer >= timing.windup) {
@@ -1193,8 +1269,57 @@ export function stepMatch(
         } else if (f.actionTimer > timing.windup + timing.active) {
           f.vx *= Math.max(0, 1 - dt * 8);
         }
-      } else if (!isDeewarDrop && f.action !== 'super') {
+      } else if (isAndaSquash) {
+        if (f.y <= GROUND_Y + 0.04) {
+          f.vx *= Math.max(0, 1 - dt * 16);
+        }
+      } else if (f.action !== 'super') {
         f.vx *= Math.max(0, 1 - dt * 10);
+      }
+
+      // Garib Sena Neta DHARNA SHIELD sonic pushback wave burst at peak pulse (~0.42s)
+      if (
+        f.action === 'special' &&
+        cfg.special.id === 'dharna_shield' &&
+        !f.dharnaWaveFired &&
+        f.actionTimer >= 0.42
+      ) {
+        f.dharnaWaveFired = true;
+        events.push({
+          type: 'dharna_counter',
+          attackerSlot: f.slot,
+          x: f.x,
+          y: f.y + 1.0,
+          damage: 0,
+          word: 'DHARNA WAVE!',
+          moveCallout: 'DHARNA SHIELD!',
+          color: '#FB923C',
+        });
+        const waveDist = Math.abs(opp.x - f.x);
+        if (waveDist <= cfg.special.range && Math.abs(opp.y - f.y) <= 1.8) {
+          applyHit(
+            state,
+            f,
+            opp,
+            inputs[1 - i],
+            {
+              damage: computeSignatureDamage(opp.maxHp),
+              knockbackX: cfg.special.knockbackX,
+              knockbackY: cfg.special.knockbackY,
+              hitstop: 0.05,
+              stun: cfg.special.stunDuration,
+              isHeavy: true,
+              isGrab: false,
+              isSpecial: true,
+              isSuper: false,
+              causesKnockdown: false,
+              moveCallout: 'DHARNA SHIELD!',
+              hitX: (f.x + opp.x) * 0.5,
+              hitY: opp.y + 1.15,
+            },
+            events,
+          );
+        }
       }
 
       // Active close-range Grab Hold & Throw choreography
@@ -1240,10 +1365,12 @@ export function stepMatch(
           );
         }
       } else {
-        // Trigger projectile at start of active window
+        // Trigger projectile at start of active window (Paisa Flex, Swatter Throw, Belan Throw)
         if (
           f.action === 'special' &&
-          (cfg.special.id === 'currency_burst' || cfg.special.id === 'belan_throw') &&
+          (cfg.special.id === 'currency_burst' ||
+            cfg.special.id === 'swatter_throw' ||
+            cfg.special.id === 'belan_throw') &&
           prevTime < timing.windup &&
           f.actionTimer >= timing.windup
         ) {
@@ -1261,10 +1388,9 @@ export function stepMatch(
         if (inActiveWindow && !f.hasHitCurrentAttack && !isDharnaOnly) {
           const dx = (opp.x - f.x) * f.facing;
           const dy = Math.abs(opp.y - f.y);
-          const withinRange =
-            dx >= -0.4 &&
-            dx <= timing.range &&
-            dy <= (isDeewarDrop ? 1.85 : 1.35);
+          const withinRange = isAndaSquash
+            ? Math.abs(opp.x - f.x) <= timing.range && dy <= 1.95 && f.vy <= 1.2
+            : dx >= -0.4 && dx <= timing.range && dy <= 1.35;
 
           if (withinRange) {
             if (f.action === 'grab') {
@@ -1317,11 +1443,15 @@ export function stepMatch(
                 opp,
                 inputs[1 - i],
                 {
-                  damage: timing.isSuper ? computeTotalSuperDamage(opp.maxHp) : timing.damage,
-                  knockbackX: timing.knockbackX,
-                  knockbackY: timing.knockbackY,
+                  damage: timing.isSuper
+                    ? computeTotalSuperDamage(opp.maxHp)
+                    : timing.isSpecial
+                      ? computeSignatureDamage(opp.maxHp)
+                      : timing.damage,
+                  knockbackX: isAndaSquash ? 1.6 : timing.knockbackX,
+                  knockbackY: isAndaSquash ? 0 : timing.knockbackY,
                   hitstop: timing.hitstop,
-                  stun: timing.stun,
+                  stun: isAndaSquash ? 0.52 : timing.stun,
                   isHeavy: timing.isHeavy,
                   isGrab: false,
                   isSpecial: timing.isSpecial,
@@ -1329,10 +1459,33 @@ export function stepMatch(
                   causesKnockdown: timing.causesKnockdown,
                   moveCallout: timing.moveCallout,
                   hitX: contactX,
-                  hitY: contactY,
+                  hitY: isAndaSquash ? GROUND_Y + 0.55 : contactY,
                 },
                 events,
               );
+              if (isAndaSquash && opp.hp > 0 && opp.action === 'hit') {
+                // Comedic flat-squash beat: Anda flops right on top of the flattened opponent!
+                f.x = opp.x;
+                f.vx = 0;
+                f.y = GROUND_Y;
+                f.vy = 0;
+                f.squashHoldTimer = 0.42;
+                opp.vx = 0;
+                opp.vy = 0;
+                opp.y = GROUND_Y;
+                opp.squashedTimer = 0.44;
+                opp.squashX = 1.52;
+                opp.squashY = 0.34;
+                events.push({
+                  type: 'land',
+                  attackerSlot: f.slot,
+                  x: f.x,
+                  y: 0.15,
+                  damage: 0,
+                  word: 'SQUASH!',
+                  color: '#FFD426',
+                });
+              }
             }
           }
         }
@@ -1472,17 +1625,21 @@ export function stepMatch(
               damage: 0,
             });
           } else {
-            const isDeewarSlam = f.id === 'anda' && f.action === 'special';
-            f.squashX = isDeewarSlam ? 1.38 : 1.22;
-            f.squashY = isDeewarSlam ? 0.66 : 0.78;
+            const isAndaSquashLand = f.id === 'anda' && f.action === 'special';
+            f.squashX = isAndaSquashLand ? 1.38 : 1.22;
+            f.squashY = isAndaSquashLand ? 0.66 : 0.78;
+            if (isAndaSquashLand && f.squashHoldTimer <= 0) {
+              f.squashHoldTimer = 0.36;
+              f.vx = 0;
+            }
             events.push({
               type: 'land',
               attackerSlot: f.slot,
               x: f.x,
               y: 0,
               damage: 0,
-              word: isDeewarSlam ? 'CRACK!' : undefined,
-              color: isDeewarSlam ? '#FFD426' : undefined,
+              word: isAndaSquashLand ? 'SQUASH!' : undefined,
+              color: isAndaSquashLand ? '#FFD426' : undefined,
             });
             if (f.action === 'jump') {
               f.action = 'idle';
@@ -1494,8 +1651,12 @@ export function stepMatch(
     }
   }
 
-  // Pushbox separation (skip while locked in close-range grab hold)
-  const inGrab = p1.action === 'grab_hold' || p2.action === 'grab_hold';
+  // Pushbox separation (skip while locked in close-range grab hold or Anda Squash comedic beat)
+  const inGrab =
+    p1.action === 'grab_hold' ||
+    p2.action === 'grab_hold' ||
+    p1.squashHoldTimer > 0 ||
+    p2.squashHoldTimer > 0;
   const dist = p2.x - p1.x;
   const absDist = Math.abs(dist);
   const yOverlap = Math.abs(p2.y - p1.y) < 1.25;
@@ -1512,7 +1673,7 @@ export function stepMatch(
     proj.life += dt;
     proj.x += proj.vx * dt;
     proj.y += proj.vy * dt;
-    proj.spin += dt * 16;
+    proj.spin += dt * (proj.kind === 'swatter' ? 20 : 16);
 
     const attacker = state.fighters[proj.ownerSlot];
     const defender = state.fighters[1 - proj.ownerSlot];
@@ -1521,7 +1682,15 @@ export function stepMatch(
     const dx = Math.abs(proj.x - defender.x);
     const dy = Math.abs(proj.y - (defender.y + (defender.action === 'crouch' ? 0.65 : 1.05)));
 
-    if (dx <= proj.radius + 0.55 && dy <= proj.radius + 0.72) {
+    if (proj.damage > 0 && dx <= proj.radius + 0.55 && dy <= proj.radius + 0.72) {
+      const moveCallout =
+        proj.kind === 'notes'
+          ? 'PAISA FLEX!'
+          : proj.kind === 'swatter'
+            ? 'SWATTER THROW!'
+            : proj.kind === 'belan'
+              ? 'BELAN THROW!'
+              : undefined;
       applyHit(
         state,
         attacker,
@@ -1531,19 +1700,29 @@ export function stepMatch(
           damage: proj.damage,
           knockbackX: proj.knockbackX,
           knockbackY: proj.knockbackY,
-          hitstop: 0.04,
+          hitstop: 0.048,
           stun: proj.stunDuration,
-          isHeavy: proj.kind === 'belan',
+          isHeavy: true,
           isGrab: false,
           isSpecial: true,
           isSuper: false,
           isProjectile: true,
+          moveCallout,
           hitX: proj.x,
           hitY: proj.y,
         },
         events,
       );
       proj.active = false;
+      // Prevent multi-bill Paisa Flex fan from double-dipping above the 11%-13% Signature damage tier,
+      // while letting the remaining 3D bills flutter visibly past the target with 0 damage.
+      if (proj.kind === 'notes') {
+        for (const other of state.projectiles) {
+          if (other.ownerSlot === proj.ownerSlot && other.kind === 'notes') {
+            other.damage = 0;
+          }
+        }
+      }
     }
 
     if (!proj.active || proj.life >= proj.maxLife || proj.x < ARENA_MIN_X - 1.5 || proj.x > ARENA_MAX_X + 1.5) {
@@ -1634,9 +1813,9 @@ export function computeCpuInput(
     } else if (cpu.shakti >= 100 && dist < 2.8 && rng() < params.superChance) {
       input.superMove = true;
     } else if (dist > 2.65) {
-      // Long-range policy: throw Belan / Paisa Flex / Deewar Drop or close gap
+      // Long-range policy: throw Belan / Swatter / Paisa Flex / Anda Squash or close gap
       const rangedSpecial =
-        cpu.id === 'mausi' || cpu.id === 'sheru' || cpu.id === 'anda';
+        cpu.id === 'mausi' || cpu.id === 'billa' || cpu.id === 'sheru' || cpu.id === 'anda';
       if (rangedSpecial && cpu.specialCooldown <= 0 && dist < 5.4 && rng() < params.specialChance) {
         input.special = true;
       } else if (rng() < 0.18) {
