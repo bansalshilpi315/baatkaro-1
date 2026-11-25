@@ -859,9 +859,9 @@ export class SamyakSuperVfx {
       const flash = p < 0.25 ? p / 0.25 : Math.max(0, 1 - (p - 0.25) / 0.75);
       const sweepOffset = (p - 0.5) * 0.18 * attackerFacing;
       this.glintGroup.position.set(
-        attackerX + attackerFacing * 0.12 + sweepOffset,
-        attackerY + 2.11,
-        0.31,
+        attackerX + attackerFacing * 0.14 + sweepOffset,
+        attackerY + 2.02,
+        0.27,
       );
       this.glintGroup.rotation.z = p * 0.72;
       const sc = 0.34 + flash * 0.54;

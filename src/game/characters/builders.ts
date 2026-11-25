@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { FighterId } from '../types';
 import { FIGHTER_CONFIGS } from './configs';
 import { createDynamicFace } from './faceCanvas';
-import { bindRealPhotoFaceShell } from './photoFaceLoader';
+import { bindRealPhotoFaceShell, createFrontProjectedFaceShellGeometry } from './photoFaceLoader';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
 const sharedFabricWeaveCache = new Map<string, THREE.CanvasTexture>();
@@ -3248,12 +3248,12 @@ function buildFatherRoyDolphus(rig: FighterRig): void {
   noseTip.position.set(0, -0.032, 0.157);
   rig.head.add(noseBridge, noseTip);
 
-  // Curved front-face photo shell wrapping seamlessly onto the 3D oval head with soft feathered alpha edges
+  // Full-face curved front hemisphere (~194° cheek-to-cheek, hairline down to chin/jawline) along local +Z
   const photoFaceMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.6,
     metalness: 0.01,
-    envMapIntensity: 0.22,
+    envMapIntensity: 0.2,
     transparent: true,
     depthWrite: false,
     polygonOffset: true,
@@ -3263,50 +3263,58 @@ function buildFatherRoyDolphus(rig: FighterRig): void {
   });
   rig.flashMaterials.push(photoFaceMat);
   const photoFaceShell = new THREE.Mesh(
-    new THREE.SphereGeometry(0.1605, 24, 18, Math.PI * 0.17, Math.PI * 0.66, Math.PI * 0.18, Math.PI * 0.65),
+    createFrontProjectedFaceShellGeometry(0.1605),
     photoFaceMat,
   );
-  photoFaceShell.scale.set(0.86, 1.07, 0.95);
+  photoFaceShell.scale.set(0.87, 1.08, 0.97);
   photoFaceShell.visible = false;
   rig.head.add(photoFaceShell);
-  bindRealPhotoFaceShell('father', photoFaceShell, photoFaceMat, [noseBridge, noseTip]);
 
-  // Natural proportional ears
+  // Natural proportional ears positioned slightly behind the cheek-wrap edge
   [-1, 1].forEach((side) => {
     const ear = new THREE.Mesh(new THREE.SphereGeometry(0.029, 10, 8), skinMat);
     ear.scale.set(0.45, 1.28, 0.78);
-    ear.position.set(side * 0.135, -0.006, -0.005);
+    ear.position.set(side * 0.138, -0.006, -0.024);
     rig.head.add(ear);
   });
 
-  // Neat short dark-black hair cap set high cleanly above brow line with side part & temple taper
+  // Neat short dark-black 3D hair cap & rear skull tilted cleanly behind the mapped forehead/hairline
   const hairCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.163, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.49),
+    new THREE.SphereGeometry(0.161, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.52),
     hairMat,
   );
-  hairCap.scale.set(0.88, 1.02, 0.98);
-  hairCap.position.set(0, 0.032, -0.016);
+  hairCap.scale.set(0.88, 1.05, 0.99);
+  hairCap.position.set(0, 0.022, -0.028);
+  hairCap.rotation.x = -0.35;
   hairCap.castShadow = true;
   rig.head.add(hairCap);
 
-  // Subtle side-part combed sweep on right-top crown
-  const hairSweep = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.125, 6, 10), hairMat);
+  // Fallback front hair sweep (hidden once real face photo with natural side-parted hair loads)
+  const hairSweep = new THREE.Mesh(new THREE.CapsuleGeometry(0.034, 0.12, 6, 10), hairMat);
   hairSweep.rotation.z = Math.PI * 0.46;
   hairSweep.rotation.y = 0.12;
-  hairSweep.position.set(0.024, 0.142, 0.032);
+  hairSweep.position.set(0.022, 0.152, 0.012);
   rig.head.add(hairSweep);
 
-  // Cropped rear skull hair & neatly tapered temple sideburns
-  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.138, 16, 12), hairMat);
-  hairBack.scale.set(0.88, 0.95, 0.72);
-  hairBack.position.set(0, 0.01, -0.068);
+  // Cropped rear skull hair & neatly tapered temple sideburns behind cheeks
+  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.146, 16, 12), hairMat);
+  hairBack.scale.set(0.88, 0.99, 0.8);
+  hairBack.position.set(0, 0.008, -0.062);
   rig.head.add(hairBack);
 
   [-1, 1].forEach((side) => {
-    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.076, 0.06), hairMat);
-    temple.position.set(side * 0.125, 0.032, 0.005);
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.076, 0.06), hairMat);
+    temple.position.set(side * 0.127, 0.034, -0.024);
     rig.head.add(temple);
   });
+
+  bindRealPhotoFaceShell(
+    'father',
+    photoFaceShell,
+    photoFaceMat,
+    [noseBridge, noseTip, jaw, hairSweep],
+    faceMat,
+  );
 
   // === 4. NECK, WHITE CLERICAL COLLAR, CASSOCK CHEST & PALE SKY-BLUE NEHRU VEST ===
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.074, 0.15, 14), skinMat);
@@ -3806,27 +3814,6 @@ function buildSamyak(rig: FighterRig): void {
   });
   rig.flashMaterials.push(hairMat);
 
-  const sunglassesFrameMat = new THREE.MeshStandardMaterial({
-    color: 0x111317,
-    roughness: 0.42,
-    metalness: 0.22,
-    envMapIntensity: 0.45,
-    emissive: new THREE.Color(0xffffff),
-    emissiveIntensity: 0,
-  });
-  rig.flashMaterials.push(sunglassesFrameMat);
-
-  // Reflective dark-tinted lenses (metalness: 0.75, roughness: 0.18 as requested)
-  const sunglassesLensMat = new THREE.MeshStandardMaterial({
-    color: 0x0b0f17,
-    roughness: 0.18,
-    metalness: 0.75,
-    envMapIntensity: 1.15,
-    emissive: new THREE.Color(0x0f172a),
-    emissiveIntensity: 0.08,
-  });
-  rig.flashMaterials.push(sunglassesLensMat);
-
   const kalawaRedMat = new THREE.MeshStandardMaterial({
     color: 0xdc2626,
     roughness: 0.72,
@@ -3899,22 +3886,24 @@ function buildSamyak(rig: FighterRig): void {
   rig.head.add(headSphere);
   attachSubtleOutline(rig.head, headSphere, 1.036);
 
-  // Sculpted masculine jawline wrapped cleanly with neatly trimmed full black beard
+  // Sculpted masculine jawline wrapped cleanly with neatly trimmed full black beard (fallback if photo absent)
   const jawBeard = new THREE.Mesh(new THREE.SphereGeometry(0.104, 16, 12), hairMat);
   jawBeard.scale.set(0.95, 0.78, 0.92);
   jawBeard.position.set(0, -0.098, 0.026);
   rig.head.add(jawBeard);
 
-  // Side jawline beard tapers hugging lower cheeks smoothly
+  // Side jawline beard tapers hugging lower cheeks smoothly (hidden when real face photo loads)
+  const cheekBeards: THREE.Object3D[] = [];
   [-1, 1].forEach((side) => {
     const cheekBeard = new THREE.Mesh(new THREE.SphereGeometry(0.056, 12, 10), hairMat);
     cheekBeard.scale.set(0.32, 0.92, 0.88);
     cheekBeard.position.set(side * 0.114, -0.052, 0.036);
     cheekBeard.rotation.z = side * 0.16;
     rig.head.add(cheekBeard);
+    cheekBeards.push(cheekBeard);
   });
 
-  // Sculpted 3D nose bridge & tip (gracefully hidden if real face photo loads)
+  // Sculpted 3D nose bridge & tip (gracefully hidden when real face photo loads)
   const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, 0.042), skinMat);
   noseBridge.position.set(0, -0.009, 0.144);
   noseBridge.rotation.x = -0.18;
@@ -3923,12 +3912,13 @@ function buildSamyak(rig: FighterRig): void {
   noseTip.position.set(0, -0.032, 0.157);
   rig.head.add(noseBridge, noseTip);
 
-  // Curved front-face photo shell wrapping seamlessly onto Samyak's 3D oval head (3D sunglasses stay proudly in front!)
+  // Full-face curved front hemisphere (~194° cheek-to-cheek, hairline to full beard/chin) along local +Z
+  // Displays Samyak's real photo sunglasses directly — no duplicate procedural 3D goggles!
   const samyakPhotoMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.6,
     metalness: 0.01,
-    envMapIntensity: 0.22,
+    envMapIntensity: 0.2,
     transparent: true,
     depthWrite: false,
     polygonOffset: true,
@@ -3938,80 +3928,64 @@ function buildSamyak(rig: FighterRig): void {
   });
   rig.flashMaterials.push(samyakPhotoMat);
   const samyakPhotoShell = new THREE.Mesh(
-    new THREE.SphereGeometry(0.1585, 24, 18, Math.PI * 0.17, Math.PI * 0.66, Math.PI * 0.18, Math.PI * 0.65),
+    createFrontProjectedFaceShellGeometry(0.1585),
     samyakPhotoMat,
   );
-  samyakPhotoShell.scale.set(0.86, 1.07, 0.95);
+  samyakPhotoShell.scale.set(0.87, 1.08, 0.97);
   samyakPhotoShell.visible = false;
   rig.head.add(samyakPhotoShell);
-  bindRealPhotoFaceShell('samyak', samyakPhotoShell, samyakPhotoMat, [noseBridge, noseTip]);
+  bindRealPhotoFaceShell(
+    'samyak',
+    samyakPhotoShell,
+    samyakPhotoMat,
+    [noseBridge, noseTip, jawBeard, ...cheekBeards],
+    faceMat,
+  );
 
-  // Proportional adult ears
+  // Proportional adult ears sitting cleanly behind cheek wrap
   [-1, 1].forEach((side) => {
     const ear = new THREE.Mesh(new THREE.SphereGeometry(0.029, 10, 8), skinMat);
     ear.scale.set(0.45, 1.28, 0.78);
-    ear.position.set(side * 0.135, -0.005, -0.006);
+    ear.position.set(side * 0.138, -0.005, -0.024);
     rig.head.add(ear);
   });
 
-  // Short dark slightly tousled hair cap + textured forward fringe strands (matches photo!)
+  // Short dark slightly tousled 3D hair cap & rear skull tilted cleanly behind mapped hairline
   const hairCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.164, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+    new THREE.SphereGeometry(0.162, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.52),
     hairMat,
   );
-  hairCap.scale.set(0.89, 1.03, 0.99);
-  hairCap.position.set(0, 0.032, -0.014);
+  hairCap.scale.set(0.89, 1.05, 0.99);
+  hairCap.position.set(0, 0.024, -0.028);
+  hairCap.rotation.x = -0.34;
   hairCap.castShadow = true;
   rig.head.add(hairCap);
 
-  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.138, 16, 12), hairMat);
-  hairBack.scale.set(0.88, 0.96, 0.74);
-  hairBack.position.set(0, 0.008, -0.068);
+  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.146, 16, 12), hairMat);
+  hairBack.scale.set(0.88, 0.99, 0.8);
+  hairBack.position.set(0, 0.008, -0.062);
   rig.head.add(hairBack);
 
-  // Slightly tousled dark hair tufts along crown & upper forehead
+  // Slightly tousled dark hair tufts crowning the top of his head cleanly above his mapped forehead
   const tuftSpecs: Array<[number, number, number, number, number, number]> = [
-    [-0.065, 0.132, 0.095, 0.25, 0.1, 0.42],
-    [-0.018, 0.138, 0.112, 0.35, 0, 0.12],
-    [0.032, 0.136, 0.106, 0.32, -0.08, -0.22],
-    [0.072, 0.126, 0.086, 0.24, -0.14, -0.45],
-    [0.0, 0.162, 0.036, 0.05, 0.08, 0.22],
+    [-0.056, 0.162, 0.012, 0.16, 0.1, 0.4],
+    [-0.012, 0.172, 0.024, 0.2, 0, 0.12],
+    [0.032, 0.168, 0.018, 0.18, -0.08, -0.22],
+    [0.062, 0.158, 0.006, 0.14, -0.14, -0.44],
+    [0.0, 0.174, -0.028, -0.08, 0.08, 0.22],
   ];
   for (const [tx, ty, tz, rx, ry, rz] of tuftSpecs) {
-    const tuft = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.056, 5, 8), hairMat);
+    const tuft = new THREE.Mesh(new THREE.CapsuleGeometry(0.021, 0.052, 5, 8), hairMat);
     tuft.position.set(tx, ty, tz);
     tuft.rotation.set(rx, ry, rz);
     rig.head.add(tuft);
   }
 
   [-1, 1].forEach((side) => {
-    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.074, 0.06), hairMat);
-    temple.position.set(side * 0.124, 0.028, 0.008);
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.074, 0.06), hairMat);
+    temple.position.set(side * 0.127, 0.03, -0.024);
     rig.head.add(temple);
   });
-
-  // SLEEK DARK SQUARE BLACK SUNGLASSES sitting proudly over the curved mapped face for crisp 3D depth
-  const glassesGroup = new THREE.Group();
-  glassesGroup.position.set(0, 0.016, 0.153);
-
-  // Continuous square brow bar + nose bridge
-  const browBar = new THREE.Mesh(new THREE.BoxGeometry(0.246, 0.016, 0.022), sunglassesFrameMat);
-  browBar.position.set(0, 0.034, 0);
-  const noseBridgeBar = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.018, 0.022), sunglassesFrameMat);
-  noseBridgeBar.position.set(0, 0.02, 0.002);
-  glassesGroup.add(browBar, noseBridgeBar);
-
-  [-1, 1].forEach((side) => {
-    const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(0.104, 0.072, 0.02), sunglassesFrameMat);
-    frameOuter.position.set(side * 0.064, 0.004, 0);
-    const lens = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.056, 0.024), sunglassesLensMat);
-    lens.position.set(side * 0.064, 0.004, 0.003);
-    // Temple arm sweeping back to ear
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.018, 0.165), sunglassesFrameMat);
-    arm.position.set(side * 0.128, 0.02, -0.084);
-    glassesGroup.add(frameOuter, lens, arm);
-  });
-  rig.head.add(glassesGroup);
 
   // === 4. SHIRTLESS HEAVILY SCULPTED BODYBUILDER UPPER BODY (NO SHIRT / NO BANIYAN!) ===
   // Muscular neck & broad trapezius slopes
