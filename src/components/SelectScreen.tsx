@@ -1,6 +1,7 @@
-import { HelpCircle, MapPin, Swords, Users } from 'lucide-react';
-import { FIGHTER_CONFIGS, FIGHTER_LIST, getFighterPortraitDataUrl, STAGE_CONFIGS, STAGE_LIST } from '../game/characters';
+import { HelpCircle, MapPin, Settings, Swords, Users } from 'lucide-react';
+import { FIGHTER_CONFIGS, FIGHTER_LIST, STAGE_CONFIGS, STAGE_LIST } from '../game/characters';
 import type { Difficulty, FighterId, StageId } from '../game/types';
+import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
 
 interface SelectScreenProps {
@@ -16,6 +17,7 @@ interface SelectScreenProps {
   onSelectDifficulty: (d: Difficulty) => void;
   onToggleFullscreen: () => void;
   onOpenHowToPlay: () => void;
+  onOpenSettings: () => void;
   onStartFight: () => void;
 }
 
@@ -31,6 +33,8 @@ const SHORT_NAMES: Record<FighterId, string> = {
   neta: 'NETA',
   anda: 'ANDA',
   mausi: 'MAUSI',
+  father: 'FATHER ROY',
+  samyak: 'SAMYAK',
 };
 
 export function SelectScreen({
@@ -46,6 +50,7 @@ export function SelectScreen({
   onSelectDifficulty,
   onToggleFullscreen,
   onOpenHowToPlay,
+  onOpenSettings,
   onStartFight,
 }: SelectScreenProps) {
   const p1Cfg = FIGHTER_CONFIGS[p1Id];
@@ -77,6 +82,17 @@ export function SelectScreen({
           >
             <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
             <span>? HOW TO PLAY</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="select-settings-btn"
+            aria-label="Settings"
+            title="Settings & Test Supers"
+            onClick={onOpenSettings}
+            className="select-help-btn flex cursor-pointer items-center justify-center shrink-0 border-2 border-[#facc15] bg-[#14100d]/92 p-1.5 text-[#facc15] shadow-[3px_3px_0_#0f0a06] transition-colors hover:bg-[#facc15] hover:text-[#0f0a06] sm:p-2"
+          >
+            <Settings className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
           </button>
 
           <FullscreenButton
@@ -117,8 +133,8 @@ export function SelectScreen({
                       : 'border-white/15 bg-[#1e1814] hover:border-white/55'
                   }`}
                 >
-                  <img
-                    src={getFighterPortraitDataUrl(f.id)}
+                  <FighterPortrait
+                    id={f.id}
                     alt={f.name}
                     className="select-fighter-avatar h-9 w-9 shrink-0 border border-black/60 object-cover sm:h-10 sm:w-10"
                   />
@@ -197,8 +213,8 @@ export function SelectScreen({
                       : 'border-white/15 bg-[#1e1814] hover:border-white/55'
                   }`}
                 >
-                  <img
-                    src={getFighterPortraitDataUrl(f.id)}
+                  <FighterPortrait
+                    id={f.id}
                     alt={f.name}
                     className="select-fighter-avatar h-9 w-9 shrink-0 border border-black/60 object-cover sm:h-10 sm:w-10"
                   />

@@ -1674,6 +1674,389 @@ function paintMausiFace(ctx: CanvasRenderingContext2D, expression: FaceExpressio
   }
 }
 
+function paintFatherFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+  const cy = h * 0.52;
+  // Equirectangular UV horizontal aspect compensation (~0.52x) so eyes & features render realistically proportioned
+  const uvX = 0.52;
+
+  // Natural warm medium-brown South Asian skin tone (#A66F4B)
+  ctx.fillStyle = '#A66F4B';
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle realistic anatomical facial shading (forehead highlight, cheekbone contour, jaw shadow)
+  const skinGrad = ctx.createRadialGradient(cx, cy - h * 0.05, w * 0.03, cx, cy, w * 0.48);
+  skinGrad.addColorStop(0, 'rgba(218, 166, 126, 0.24)');
+  skinGrad.addColorStop(0.55, 'rgba(166, 111, 75, 0.0)');
+  skinGrad.addColorStop(1, 'rgba(84, 48, 28, 0.28)');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle neat dark hairline & side-part taper on upper forehead to blend seamlessly with 3D hair
+  ctx.fillStyle = '#181618';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.29);
+  ctx.quadraticCurveTo(cx + w * 0.14, h * 0.24, cx + w * 0.03, h * 0.245);
+  ctx.lineTo(cx - w * 0.04, h * 0.22);
+  ctx.quadraticCurveTo(cx - w * 0.13, h * 0.245, 0, h * 0.29);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle realistic brow-ridge, eye-socket, and cheekbone shadows
+  ctx.fillStyle = 'rgba(72, 38, 22, 0.24)';
+  ctx.beginPath();
+  ctx.ellipse(cx - w * 0.072, cy - h * 0.035, w * 0.042, h * 0.032, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + w * 0.072, cy - h * 0.035, w * 0.042, h * 0.032, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Faint dignified laugh/expression lines beside nose & mouth (mature adult principal)
+  ctx.strokeStyle = 'rgba(74, 40, 22, 0.34)';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  [-1, 1].forEach((side) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + side * w * 0.044, cy + h * 0.065);
+    ctx.quadraticCurveTo(
+      cx + side * w * 0.064,
+      cy + h * 0.115,
+      cx + side * w * 0.055,
+      cy + h * 0.16,
+    );
+    ctx.stroke();
+  });
+
+  // Realistic natural adult eyes (almond-shaped, proportional, legible at 3D fighting distance)
+  const eyeOffsetX = w * 0.072;
+  const eyeY = cy - h * 0.03;
+  const eyeRx = w * 0.033;
+  const eyeRy = h * 0.029;
+
+  if (expression === 'ko') {
+    // Closed grimacing KO eyes (composed realistic style)
+    ctx.strokeStyle = '#18100C';
+    ctx.lineWidth = 5.4;
+    ctx.lineCap = 'round';
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      ctx.beginPath();
+      ctx.moveTo(ex - eyeRx * 0.92, eyeY - 3);
+      ctx.quadraticCurveTo(ex, eyeY + 10, ex + eyeRx * 0.92, eyeY - 2);
+      ctx.stroke();
+    });
+  } else {
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      const openScale =
+        expression === 'hit'
+          ? 1.18
+          : expression === 'attack'
+            ? 0.84
+            : expression === 'block'
+              ? 0.65
+              : 0.94;
+
+      // Natural crisp off-white sclera
+      ctx.fillStyle = '#F7F2EC';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx, eyeRy * openScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Deep espresso-brown adult iris + dark pupil (aspect-compensated circular)
+      const irisR = expression === 'hit' ? 9.5 : 11.4;
+      ctx.fillStyle = '#24140E';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY + 0.5, irisR * uvX, irisR, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0D0705';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY + 0.5, irisR * 0.54 * uvX, irisR * 0.54, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Crisp realistic corneal catchlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.beginPath();
+      ctx.ellipse(ex - 2.0, eyeY - 2.6, 2.8 * uvX, 2.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Natural upper eyelid crease & dark lash line (stern composed principal gaze)
+      ctx.strokeStyle = '#160E0B';
+      ctx.lineWidth = 4.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx + 0.8, eyeRy * openScale, 0, Math.PI * 1.04, Math.PI * 1.96);
+      ctx.stroke();
+
+      // Subtle upper eyelid fold line
+      ctx.strokeStyle = 'rgba(64, 34, 20, 0.56)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY - 4, eyeRx * 1.05, eyeRy * openScale * 1.08, 0, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+
+      // Slight lower-lid shadow
+      ctx.strokeStyle = 'rgba(68, 36, 20, 0.45)';
+      ctx.lineWidth = 2.1;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY + 1.2, eyeRx * 0.92, eyeRy * openScale * 0.96, 0, Math.PI * 0.12, Math.PI * 0.88);
+      ctx.stroke();
+    });
+  }
+
+  // Serious, authoritative realistic dark eyebrows (#181312)
+  ctx.strokeStyle = '#181312';
+  ctx.lineWidth = expression === 'attack' ? 9.6 : 8.6;
+  ctx.lineCap = 'round';
+  [-1, 1].forEach((side) => {
+    const ex = cx + side * eyeOffsetX;
+    ctx.beginPath();
+    if (expression === 'attack') {
+      // Stern disciplinary furrowed principal brow
+      ctx.moveTo(ex - side * eyeRx * 1.08, eyeY - 19);
+      ctx.quadraticCurveTo(ex, eyeY - 28, ex + side * eyeRx * 1.15, eyeY - 34);
+    } else if (expression === 'hit') {
+      ctx.moveTo(ex - side * eyeRx * 1.0, eyeY - 32);
+      ctx.quadraticCurveTo(ex, eyeY - 40, ex + side * eyeRx * 1.05, eyeY - 28);
+    } else if (expression === 'victory') {
+      // Composed authoritative slight raise
+      ctx.moveTo(ex - side * eyeRx * 1.0, eyeY - 25);
+      ctx.quadraticCurveTo(ex, eyeY - 33, ex + side * eyeRx * 1.1, eyeY - 26);
+    } else {
+      // Serious, calm straight-angled principal brows
+      ctx.moveTo(ex - side * eyeRx * 1.05, eyeY - 23);
+      ctx.quadraticCurveTo(ex + side * 2.5, eyeY - 30, ex + side * eyeRx * 1.14, eyeY - 26);
+    }
+    ctx.stroke();
+  });
+
+  // Subtle sculpted nose bridge & nostril shading (aligns with 3D sculpted nose)
+  const noseY = cy + h * 0.055;
+  ctx.fillStyle = 'rgba(226, 178, 140, 0.28)';
+  ctx.fillRect(cx - 3.2, eyeY + 2, 6.4, h * 0.076);
+  ctx.fillStyle = 'rgba(66, 36, 20, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 8.2, noseY + 4, 4.4, 2.8, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(cx + 8.2, noseY + 4, 4.4, 2.8, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Firm, composed realistic mouth (clean-shaven, dignified)
+  const mouthY = cy + h * 0.142;
+  ctx.lineCap = 'round';
+  if (expression === 'attack') {
+    // Stern commanding shouting/warning mouth
+    ctx.fillStyle = '#421614';
+    ctx.strokeStyle = '#5E2B1E';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 2, w * 0.046, h * 0.026, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#F5F1EC';
+    ctx.fillRect(cx - w * 0.032, mouthY - 7, w * 0.064, 7.5);
+  } else if (expression === 'hit' || expression === 'ko') {
+    // Tight wince
+    ctx.strokeStyle = '#3B1B13';
+    ctx.lineWidth = 5.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.044, mouthY + 6);
+    ctx.quadraticCurveTo(cx, mouthY - 5, cx + w * 0.044, mouthY + 6);
+    ctx.stroke();
+  } else if (expression === 'victory') {
+    // Subtle composed principal smile
+    ctx.strokeStyle = '#441E16';
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.048, mouthY);
+    ctx.quadraticCurveTo(cx, mouthY + 12, cx + w * 0.048, mouthY - 1);
+    ctx.stroke();
+  } else {
+    // Firm, authoritative neutral mouth with subtle upper/lower lip tone
+    ctx.fillStyle = 'rgba(104, 52, 38, 0.68)';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY - 2.5, w * 0.044, 5.4, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(126, 66, 50, 0.56)';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 4.2, w * 0.038, 6.0, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#3B1A12';
+    ctx.lineWidth = 4.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.048, mouthY + 1);
+    ctx.quadraticCurveTo(cx, mouthY - 1, cx + w * 0.048, mouthY + 1);
+    ctx.stroke();
+  }
+
+  // Subtle chin dimple shadow
+  ctx.fillStyle = 'rgba(72, 40, 24, 0.26)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + h * 0.195, w * 0.022, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function paintSamyakFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+  const cy = h * 0.52;
+  const uvX = 0.52;
+
+  // Natural warm-tan South Asian young adult male skin tone (#BC8866)
+  ctx.fillStyle = '#BC8866';
+  ctx.fillRect(0, 0, w, h);
+
+  // Sculpted anatomical facial lighting gradient
+  const skinGrad = ctx.createRadialGradient(cx, cy - h * 0.06, w * 0.03, cx, cy, w * 0.48);
+  skinGrad.addColorStop(0, 'rgba(235, 192, 156, 0.26)');
+  skinGrad.addColorStop(0.55, 'rgba(188, 136, 102, 0.0)');
+  skinGrad.addColorStop(1, 'rgba(98, 58, 36, 0.28)');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Short dark slightly tousled hairline at upper forehead
+  ctx.fillStyle = '#141214';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.29);
+  ctx.quadraticCurveTo(cx + w * 0.14, h * 0.25, cx + w * 0.06, h * 0.27);
+  ctx.lineTo(cx + w * 0.02, h * 0.235);
+  ctx.lineTo(cx - w * 0.03, h * 0.275);
+  ctx.lineTo(cx - w * 0.08, h * 0.24);
+  ctx.quadraticCurveTo(cx - w * 0.14, h * 0.26, 0, h * 0.29);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle cheekbone and eye-socket shading behind sunglasses
+  const eyeOffsetX = w * 0.072;
+  const eyeY = cy - h * 0.03;
+  const eyeRx = w * 0.032;
+  const eyeRy = h * 0.026;
+
+  // Strong athletic dark eyebrows peeking cleanly above sunglasses frame
+  ctx.strokeStyle = '#161212';
+  ctx.lineWidth = expression === 'attack' ? 10.2 : 8.8;
+  ctx.lineCap = 'round';
+  [-1, 1].forEach((side) => {
+    const ex = cx + side * eyeOffsetX;
+    ctx.beginPath();
+    if (expression === 'attack') {
+      ctx.moveTo(ex - side * eyeRx * 1.05, eyeY - 22);
+      ctx.quadraticCurveTo(ex, eyeY - 31, ex + side * eyeRx * 1.15, eyeY - 36);
+    } else if (expression === 'hit') {
+      ctx.moveTo(ex - side * eyeRx * 1.0, eyeY - 32);
+      ctx.quadraticCurveTo(ex, eyeY - 40, ex + side * eyeRx * 1.05, eyeY - 28);
+    } else {
+      ctx.moveTo(ex - side * eyeRx * 1.05, eyeY - 25);
+      ctx.quadraticCurveTo(ex + side * 2, eyeY - 32, ex + side * eyeRx * 1.15, eyeY - 28);
+    }
+    ctx.stroke();
+  });
+
+  // Subtle realistic eyes underneath the tinted lenses (for oblique angles)
+  [-1, 1].forEach((side) => {
+    const ex = cx + side * eyeOffsetX;
+    ctx.fillStyle = '#EAE4DD';
+    ctx.beginPath();
+    ctx.ellipse(ex, eyeY, eyeRx * 0.85, eyeRy * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1D120D';
+    ctx.beginPath();
+    ctx.ellipse(ex, eyeY, 9.5 * uvX, 9.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Sculpted nose bridge & nostrils
+  const noseY = cy + h * 0.052;
+  ctx.fillStyle = 'rgba(235, 192, 158, 0.28)';
+  ctx.fillRect(cx - 3.4, eyeY + 2, 6.8, h * 0.072);
+  ctx.fillStyle = 'rgba(72, 40, 22, 0.44)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 8.5, noseY + 4, 4.4, 2.8, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(cx + 8.5, noseY + 4, 4.4, 2.8, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Neatly trimmed full black beard wrapping jawline & chin (matches reference photo!)
+  ctx.fillStyle = '#161416';
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.145, cy + h * 0.01);
+  ctx.quadraticCurveTo(cx - w * 0.142, cy + h * 0.15, cx - w * 0.088, cy + h * 0.22);
+  ctx.quadraticCurveTo(cx, cy + h * 0.275, cx + w * 0.088, cy + h * 0.22);
+  ctx.quadraticCurveTo(cx + w * 0.142, cy + h * 0.15, cx + w * 0.145, cy + h * 0.01);
+  // Crisp trimmed upper-cheek beard edge curving down around cheeks & mouth
+  ctx.lineTo(cx + w * 0.125, cy + h * 0.025);
+  ctx.quadraticCurveTo(cx + w * 0.105, cy + h * 0.11, cx + w * 0.056, cy + h * 0.125);
+  ctx.quadraticCurveTo(cx + w * 0.052, cy + h * 0.185, cx, cy + h * 0.19);
+  ctx.quadraticCurveTo(cx - w * 0.052, cy + h * 0.185, cx - w * 0.056, cy + h * 0.125);
+  ctx.quadraticCurveTo(cx - w * 0.105, cy + h * 0.11, cx - w * 0.125, cy + h * 0.025);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle soul-patch & dense chin fill
+  ctx.fillStyle = '#161416';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + h * 0.195, w * 0.048, h * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Neatly trimmed black moustache connecting cleanly to beard corners
+  const mouthY = cy + h * 0.14;
+  ctx.fillStyle = '#171416';
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.062, mouthY - 1);
+  ctx.quadraticCurveTo(cx - w * 0.028, mouthY - 17, cx, mouthY - 12);
+  ctx.quadraticCurveTo(cx + w * 0.028, mouthY - 17, cx + w * 0.062, mouthY - 1);
+  ctx.quadraticCurveTo(cx + w * 0.032, mouthY - 5, cx, mouthY - 4);
+  ctx.quadraticCurveTo(cx - w * 0.032, mouthY - 5, cx - w * 0.062, mouthY - 1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Expressive athletic mouth beneath moustache
+  ctx.lineCap = 'round';
+  if (expression === 'attack') {
+    // Fierce battle shout showing crisp teeth
+    ctx.fillStyle = '#421614';
+    ctx.strokeStyle = '#6B3426';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 6, w * 0.044, h * 0.024, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillRect(cx - w * 0.03, mouthY - 1, w * 0.06, 7);
+  } else if (expression === 'hit' || expression === 'ko') {
+    ctx.strokeStyle = '#3B1B13';
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.038, mouthY + 8);
+    ctx.quadraticCurveTo(cx, mouthY - 2, cx + w * 0.038, mouthY + 8);
+    ctx.stroke();
+  } else if (expression === 'victory') {
+    // Confident AIR-1 smirk
+    ctx.strokeStyle = '#4A2118';
+    ctx.lineWidth = 4.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.04, mouthY + 3);
+    ctx.quadraticCurveTo(cx + 4, mouthY + 11, cx + w * 0.044, mouthY);
+    ctx.stroke();
+  } else {
+    // Composed determined lips
+    ctx.fillStyle = 'rgba(130, 68, 54, 0.72)';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 5, w * 0.036, 5.2, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#3C1B14';
+    ctx.lineWidth = 3.8;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.04, mouthY + 3);
+    ctx.quadraticCurveTo(cx, mouthY + 2, cx + w * 0.04, mouthY + 3);
+    ctx.stroke();
+  }
+}
+
 export function paintFighterFace(
   ctx: CanvasRenderingContext2D,
   id: FighterId,
@@ -1696,12 +2079,18 @@ export function paintFighterFace(
     case 'mausi':
       paintMausiFace(ctx, expression);
       return;
+    case 'father':
+      paintFatherFace(ctx, expression);
+      return;
+    case 'samyak':
+      paintSamyakFace(ctx, expression);
+      return;
   }
 }
 
 export function createDynamicFace(id: FighterId): DynamicFace {
   const canvas = document.createElement('canvas');
-  const size = id === 'anda' ? 512 : 256;
+  const size = id === 'anda' || id === 'father' || id === 'samyak' ? 512 : 256;
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
@@ -2655,6 +3044,465 @@ function paintMausiPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function paintFatherPortrait(ctx: CanvasRenderingContext2D): void {
+  // Dignified warm institutional slate-to-crimson-gold studio portrait backdrop
+  const bg = ctx.createRadialGradient(80, 62, 12, 80, 82, 108);
+  bg.addColorStop(0, '#334155');
+  bg.addColorStop(0.55, '#1E293B');
+  bg.addColorStop(1, '#0F172A');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Subtle crimson-gold disciplinary halo accent behind shoulders
+  const rim = ctx.createRadialGradient(80, 74, 24, 80, 74, 68);
+  rim.addColorStop(0, 'rgba(203, 230, 245, 0.22)');
+  rim.addColorStop(0.7, 'rgba(220, 38, 38, 0.14)');
+  rim.addColorStop(1, 'rgba(15, 23, 42, 0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Crisp matte-white cassock sleeves at shoulders
+  ctx.fillStyle = '#F3F4F6';
+  ctx.strokeStyle = '#94A3B8';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(16, 160);
+  ctx.quadraticCurveTo(22, 126, 46, 118);
+  ctx.lineTo(114, 118);
+  ctx.quadraticCurveTo(138, 126, 144, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Pale sky-blue sleeveless Nehru vest / Bandhgala jacket (#CBE6F5)
+  const vestGrad = ctx.createLinearGradient(38, 112, 122, 160);
+  vestGrad.addColorStop(0, '#D9EEF9');
+  vestGrad.addColorStop(0.5, '#CBE6F5');
+  vestGrad.addColorStop(1, '#A9D3EA');
+  ctx.fillStyle = vestGrad;
+  ctx.strokeStyle = '#6B9DB8';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(32, 160);
+  ctx.lineTo(39, 120);
+  ctx.quadraticCurveTo(56, 113, 66, 111);
+  ctx.lineTo(94, 111);
+  ctx.quadraticCurveTo(104, 113, 121, 120);
+  ctx.lineTo(128, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Center front placket & buttons on sky-blue Nehru vest
+  ctx.strokeStyle = '#7AA9C4';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(80, 118);
+  ctx.lineTo(80, 160);
+  ctx.stroke();
+  [131, 145, 156].forEach((by) => {
+    ctx.fillStyle = '#E6F4FC';
+    ctx.strokeStyle = '#5D8AA8';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(80, by, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // Left chest pocket (viewer right) with clipped dark metallic pen!
+  ctx.fillStyle = '#B8DBEE';
+  ctx.strokeStyle = '#6B9DB8';
+  ctx.lineWidth = 1.3;
+  ctx.fillRect(94, 134, 19, 14);
+  ctx.strokeRect(94, 134, 19, 14);
+  // Clipped pen barrel + silver clip sticking neatly above pocket edge
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(102, 124, 3.6, 12);
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillRect(104.2, 125, 1.5, 11);
+
+  // Standing crisp white clerical collar peeking cleanly above the Nehru vest mandarin collar
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#94A3B8';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.roundRect(65, 102, 30, 13, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  // Sky-blue mandarin collar wrapping outer base of white clerical collar
+  ctx.fillStyle = '#CBE6F5';
+  ctx.strokeStyle = '#6B9DB8';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(62, 116);
+  ctx.lineTo(65, 107);
+  ctx.lineTo(76, 111);
+  ctx.lineTo(80, 118);
+  ctx.lineTo(84, 111);
+  ctx.lineTo(95, 107);
+  ctx.lineTo(98, 116);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Natural proportional neck
+  ctx.fillStyle = '#966140';
+  ctx.fillRect(69, 92, 22, 14);
+
+  // Realistic adult ears
+  ctx.fillStyle = '#9C6644';
+  ctx.strokeStyle = '#633B22';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(51.5, 69, 4.5, 8.5, -0.1, 0, Math.PI * 2);
+  ctx.ellipse(108.5, 69, 4.5, 8.5, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Realistic sculpted oval-jawed adult male head (clean-shaven South Asian warm brown skin)
+  const headGrad = ctx.createRadialGradient(73, 56, 6, 80, 68, 38);
+  headGrad.addColorStop(0, '#BC825A');
+  headGrad.addColorStop(0.6, '#A66F4B');
+  headGrad.addColorStop(1, '#7D4E31');
+  ctx.fillStyle = headGrad;
+  ctx.strokeStyle = '#4A2B18';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(54, 56);
+  ctx.quadraticCurveTo(54, 30, 80, 30);
+  ctx.quadraticCurveTo(106, 30, 106, 56);
+  ctx.quadraticCurveTo(106, 82, 96, 94);
+  ctx.quadraticCurveTo(88, 101, 80, 102);
+  ctx.quadraticCurveTo(72, 101, 64, 94);
+  ctx.quadraticCurveTo(54, 82, 54, 56);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Neat short dark-black hair with clean side part & temple taper
+  ctx.fillStyle = '#181618';
+  ctx.beginPath();
+  ctx.moveTo(52, 62);
+  ctx.quadraticCurveTo(50, 36, 66, 26);
+  ctx.quadraticCurveTo(82, 20, 98, 28);
+  ctx.quadraticCurveTo(110, 36, 108, 62);
+  ctx.lineTo(104, 64);
+  ctx.quadraticCurveTo(103, 47, 94, 42);
+  ctx.quadraticCurveTo(76, 40, 66, 43);
+  ctx.lineTo(64, 38);
+  ctx.quadraticCurveTo(58, 45, 56, 64);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle side-part seam & combed dark sheen highlights
+  ctx.strokeStyle = '#7D4E31';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(64, 34);
+  ctx.lineTo(66, 43);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(70, 30);
+  ctx.quadraticCurveTo(84, 28, 96, 35);
+  ctx.stroke();
+
+  // Serious authoritative dark eyebrows
+  ctx.strokeStyle = '#191413';
+  ctx.lineWidth = 2.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(61, 58);
+  ctx.quadraticCurveTo(68, 56, 75, 59);
+  ctx.moveTo(85, 59);
+  ctx.quadraticCurveTo(92, 56, 99, 58);
+  ctx.stroke();
+
+  // Natural proportional adult eyes (calm, stern principal look)
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 12;
+    const ey = 65;
+    ctx.fillStyle = '#F2ECE6';
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, 5.4, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#24140E';
+    ctx.beginPath();
+    ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(ex - 0.8, ey - 0.8, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#1C1310';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, 5.6, 3.4, 0, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.stroke();
+  });
+
+  // Sculpted adult nose bridge & base
+  ctx.strokeStyle = 'rgba(72, 40, 22, 0.45)';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(80, 65);
+  ctx.lineTo(79, 77);
+  ctx.quadraticCurveTo(80, 80, 83.5, 78.5);
+  ctx.stroke();
+
+  // Firm neutral mouth
+  ctx.strokeStyle = '#4B241A';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(71, 88);
+  ctx.quadraticCurveTo(80, 87, 89, 88);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(130, 72, 56, 0.35)';
+  ctx.beginPath();
+  ctx.ellipse(80, 89.5, 7.5, 2.2, 0, 0, Math.PI);
+  ctx.fill();
+}
+
+/**
+ * Stylized realistic 2D portrait of Samyak (Bodybuilder & UPSC/IAS Aspirant):
+ * - Broad shirtless muscular shoulders, trapezius & upper pectoral definition (warm-tan skin)
+ * - Short dark slightly tousled hair, neatly trimmed full black beard & moustache
+ * - Sleek reflective dark square black sunglasses with crisp studio diagonal lens glint
+ */
+function paintSamyakPortrait(ctx: CanvasRenderingContext2D): void {
+  // Dramatic dark slate-to-amber-blue studio athletic portrait backdrop
+  const bg = ctx.createRadialGradient(80, 62, 12, 80, 80, 108);
+  bg.addColorStop(0, '#334155');
+  bg.addColorStop(0.55, '#1E293B');
+  bg.addColorStop(1, '#0B1120');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Subtle golden-blue IAS beast-mode rim glow behind shoulders
+  const rim = ctx.createRadialGradient(80, 106, 16, 80, 96, 76);
+  rim.addColorStop(0, 'rgba(250, 204, 21, 0.34)');
+  rim.addColorStop(0.55, 'rgba(56, 189, 248, 0.18)');
+  rim.addColorStop(1, 'rgba(15, 23, 42, 0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Broad shirtless muscular shoulders, deltoids & trapezius (NO shirt/baniyan!)
+  const bodyGrad = ctx.createLinearGradient(80, 94, 80, 160);
+  bodyGrad.addColorStop(0, '#CFA07D');
+  bodyGrad.addColorStop(0.5, '#BC8866');
+  bodyGrad.addColorStop(1, '#8D5C3E');
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = '#4B2B18';
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.moveTo(4, 160);
+  ctx.quadraticCurveTo(6, 120, 34, 112);
+  ctx.quadraticCurveTo(54, 106, 65, 97);
+  ctx.lineTo(95, 97);
+  ctx.quadraticCurveTo(106, 106, 126, 112);
+  ctx.quadraticCurveTo(154, 120, 156, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Sculpted upper pectoral & deltoid shadow contours
+  ctx.strokeStyle = 'rgba(84, 46, 26, 0.48)';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  // Collarbone lines
+  ctx.beginPath();
+  ctx.moveTo(54, 118);
+  ctx.quadraticCurveTo(67, 122, 76, 120);
+  ctx.moveTo(106, 118);
+  ctx.quadraticCurveTo(93, 122, 84, 120);
+  ctx.stroke();
+
+  // Deltoid separation arcs & pectoral cleft
+  ctx.beginPath();
+  ctx.moveTo(34, 124);
+  ctx.quadraticCurveTo(38, 142, 42, 158);
+  ctx.moveTo(126, 124);
+  ctx.quadraticCurveTo(122, 142, 118, 158);
+  ctx.moveTo(80, 134);
+  ctx.lineTo(80, 158);
+  ctx.stroke();
+
+  // Subtle specular muscle highlights on delts & upper chest
+  ctx.fillStyle = 'rgba(255, 228, 200, 0.24)';
+  ctx.beginPath();
+  ctx.ellipse(24, 130, 12, 8, -0.35, 0, Math.PI * 2);
+  ctx.ellipse(136, 130, 12, 8, 0.35, 0, Math.PI * 2);
+  ctx.ellipse(62, 142, 14, 7, -0.1, 0, Math.PI * 2);
+  ctx.ellipse(98, 142, 14, 7, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Thick athletic neck
+  ctx.fillStyle = '#A67252';
+  ctx.fillRect(66, 90, 28, 20);
+
+  // Realistic adult ears
+  ctx.fillStyle = '#AF7B5A';
+  ctx.strokeStyle = '#59341E';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(50, 68, 4.5, 8.5, -0.1, 0, Math.PI * 2);
+  ctx.ellipse(110, 68, 4.5, 8.5, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Sculpted young South Asian adult male head
+  const headGrad = ctx.createRadialGradient(74, 56, 6, 80, 68, 38);
+  headGrad.addColorStop(0, '#D2A17E');
+  headGrad.addColorStop(0.6, '#BC8866');
+  headGrad.addColorStop(1, '#8D5D3F');
+  ctx.fillStyle = headGrad;
+  ctx.strokeStyle = '#4B2B18';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(52, 56);
+  ctx.quadraticCurveTo(52, 28, 80, 28);
+  ctx.quadraticCurveTo(108, 28, 108, 56);
+  ctx.quadraticCurveTo(108, 83, 97, 96);
+  ctx.quadraticCurveTo(88, 103, 80, 104);
+  ctx.quadraticCurveTo(72, 103, 63, 96);
+  ctx.quadraticCurveTo(52, 83, 52, 56);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Short dark slightly tousled hair with natural forward fringe strands
+  ctx.fillStyle = '#141214';
+  ctx.beginPath();
+  ctx.moveTo(50, 61);
+  ctx.quadraticCurveTo(48, 34, 65, 24);
+  ctx.quadraticCurveTo(80, 18, 97, 25);
+  ctx.quadraticCurveTo(112, 34, 110, 61);
+  ctx.lineTo(106, 63);
+  ctx.quadraticCurveTo(104, 46, 95, 42);
+  ctx.lineTo(90, 48);
+  ctx.lineTo(86, 40);
+  ctx.lineTo(78, 49);
+  ctx.lineTo(73, 41);
+  ctx.lineTo(65, 47);
+  ctx.quadraticCurveTo(56, 46, 54, 63);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle dark hair texture highlights
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(64, 29);
+  ctx.quadraticCurveTo(80, 25, 96, 32);
+  ctx.stroke();
+
+  // Neatly trimmed full black beard along jawline & chin
+  ctx.fillStyle = '#151315';
+  ctx.beginPath();
+  ctx.moveTo(52, 68);
+  ctx.quadraticCurveTo(52, 88, 63, 97);
+  ctx.quadraticCurveTo(72, 104, 80, 105);
+  ctx.quadraticCurveTo(88, 104, 97, 97);
+  ctx.quadraticCurveTo(108, 88, 108, 68);
+  ctx.lineTo(104, 70);
+  ctx.quadraticCurveTo(102, 84, 93, 91);
+  ctx.quadraticCurveTo(88, 86, 80, 86);
+  ctx.quadraticCurveTo(72, 86, 67, 91);
+  ctx.quadraticCurveTo(58, 84, 56, 70);
+  ctx.closePath();
+  ctx.fill();
+
+  // Chin beard fullness & trimmed moustache
+  ctx.beginPath();
+  ctx.ellipse(80, 96, 13, 7.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(68, 85);
+  ctx.quadraticCurveTo(74, 80, 80, 82);
+  ctx.quadraticCurveTo(86, 80, 92, 85);
+  ctx.quadraticCurveTo(86, 84, 80, 84.5);
+  ctx.quadraticCurveTo(74, 84, 68, 85);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sculpted nose below sunglasses bridge
+  ctx.strokeStyle = 'rgba(72, 38, 22, 0.5)';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(80, 68);
+  ctx.lineTo(78.5, 76.5);
+  ctx.quadraticCurveTo(80, 79, 83.5, 77);
+  ctx.stroke();
+
+  // Confident composed mouth
+  ctx.strokeStyle = '#5B2920';
+  ctx.lineWidth = 2.0;
+  ctx.beginPath();
+  ctx.moveTo(72, 88.5);
+  ctx.quadraticCurveTo(80, 90, 88, 87.8);
+  ctx.stroke();
+
+  // Sleek dark SQUARE BLACK SUNGLASSES with metallic reflective lenses!
+  ctx.fillStyle = '#090B0E';
+  ctx.strokeStyle = '#27272A';
+  ctx.lineWidth = 1.8;
+  // Left square rim
+  ctx.beginPath();
+  ctx.roundRect(53.5, 54.5, 24, 16.5, 2.5);
+  ctx.fill();
+  ctx.stroke();
+  // Right square rim
+  ctx.beginPath();
+  ctx.roundRect(82.5, 54.5, 24, 16.5, 2.5);
+  ctx.fill();
+  ctx.stroke();
+  // Top bar & nose bridge
+  ctx.fillRect(76, 56, 8, 3.6);
+  ctx.fillRect(50, 56, 4.5, 3);
+  ctx.fillRect(105.5, 56, 4.5, 3);
+
+  // Reflective dark-tinted lens gradient + sharp anime diagonal glint
+  [55.5, 84.5].forEach((lx) => {
+    const lGrad = ctx.createLinearGradient(lx, 56, lx + 20, 70);
+    lGrad.addColorStop(0, '#1E293B');
+    lGrad.addColorStop(0.45, '#090D16');
+    lGrad.addColorStop(1, '#1E293B');
+    ctx.fillStyle = lGrad;
+    ctx.fillRect(lx, 56.5, 20, 12.5);
+
+    ctx.fillStyle = 'rgba(224, 242, 254, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(lx + 3, 56.5);
+    ctx.lineTo(lx + 9, 56.5);
+    ctx.lineTo(lx + 3, 66.5);
+    ctx.lineTo(lx, 66.5);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  // Crisp star glint on sunglasses corner
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.moveTo(99, 53);
+  ctx.lineTo(100.6, 58.2);
+  ctx.lineTo(105.8, 59.5);
+  ctx.lineTo(100.6, 60.8);
+  ctx.lineTo(99, 66);
+  ctx.lineTo(97.4, 60.8);
+  ctx.lineTo(92.2, 59.5);
+  ctx.lineTo(97.4, 58.2);
+  ctx.closePath();
+  ctx.fill();
+}
+
 export function getFighterPortraitDataUrl(id: FighterId): string {
   const cached = portraitCache.get(id);
   if (cached) return cached;
@@ -2680,6 +3528,12 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
       break;
     case 'mausi':
       paintMausiPortrait(ctx);
+      break;
+    case 'father':
+      paintFatherPortrait(ctx);
+      break;
+    case 'samyak':
+      paintSamyakPortrait(ctx);
       break;
   }
 

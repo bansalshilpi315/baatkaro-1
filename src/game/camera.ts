@@ -136,7 +136,15 @@ export function computeIntroCameraTarget(
   };
 }
 
-export type SuperCameraKind = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'generic';
+export type SuperCameraKind =
+  | 'sheru'
+  | 'billa'
+  | 'neta'
+  | 'anda'
+  | 'mausi'
+  | 'father'
+  | 'samyak'
+  | 'generic';
 
 /**
  * Super Power Cutscene Camera:
@@ -419,6 +427,152 @@ export function computeSuperCameraTarget(
       z: lerp(wideBarrageTarget.z, fightTarget.z, returnT),
       lookX: lerp(wideBarrageTarget.lookX, fightTarget.lookX, returnT),
       lookY: lerp(wideBarrageTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // FATHER ROY DOLPHUS ("RUSTICATION ORDER!", 5.2s):
+  // 0.0-1.5s: Smooth cinematic low-angle orbit/sweep upward around levitating Father (y -> 2.4)
+  // 1.5-2.8s: Framed dramatic mid-orbit showcasing the 14 swirling glowing red "RUSTICATE" papers
+  // 2.8-4.65s: Dynamic wide 3D perspective framing hovering Father + opponent below during barrage & Master Notice slam
+  // 4.65-5.2s: Smooth restore to standard 2.5D fighting camera as Father descends to floor
+  if (kind === 'father') {
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+
+    if (elapsed < 1.5) {
+      const liftT = smoothstep(elapsed / 1.5);
+      const sweepAngle = lerp(-0.42, 0.36, liftT) * attackerFacing;
+      return {
+        x: clampCameraPanX(attackerX + Math.sin(sweepAngle) * 2.45 + attackerFacing * 0.65),
+        y: lerp(1.15, 2.35, liftT),
+        z: lerp(4.15, 5.2, liftT),
+        lookX: attackerX,
+        lookY: 1.38 + attackerY * 0.78,
+        lookZ: 0,
+      };
+    }
+
+    const orbitStartX = clampCameraPanX(attackerX + Math.sin(0.36 * attackerFacing) * 2.45 + attackerFacing * 0.65);
+
+    if (elapsed < 2.8) {
+      const vortexT = smoothstep((elapsed - 1.5) / 1.3);
+      const orbitAngle = lerp(0.36, -0.28, vortexT) * attackerFacing;
+      return {
+        x: clampCameraPanX(lerp(orbitStartX, attackerX + Math.sin(orbitAngle) * 2.8, vortexT)),
+        y: lerp(2.35, 3.25, vortexT),
+        z: lerp(5.2, 6.75, vortexT),
+        lookX: lerp(attackerX, clampCameraPanX(lerp(attackerX, midX, 0.25)), vortexT),
+        lookY: lerp(1.38 + attackerY * 0.78, 3.15, vortexT),
+        lookZ: 0,
+      };
+    }
+
+    const barrageNorm = Math.max(0, Math.min(1, (elapsed - 2.8) / 1.85));
+    const barrageAngle = lerp(-0.28, 0.34, barrageNorm) * attackerFacing;
+    const isSlamBeat = elapsed >= 4.28;
+    const wideBarrageTarget: FixedZoomCameraTarget = {
+      x: clampCameraPanX(midX + Math.sin(barrageAngle) * 2.35),
+      y: isSlamBeat ? 3.55 : 3.9,
+      z: isSlamBeat ? 8.85 : 9.65,
+      lookX: clampCameraPanX(lerp(midX, defenderX, isSlamBeat ? 0.38 : 0.22)),
+      lookY: isSlamBeat ? 1.65 : 2.15,
+      lookZ: 0,
+    };
+
+    if (elapsed < 4.65) {
+      const blendT = smoothstep((elapsed - 2.8) / 0.42);
+      const prevX = clampCameraPanX(attackerX + Math.sin(-0.28 * attackerFacing) * 2.8);
+      return {
+        x: lerp(prevX, wideBarrageTarget.x, blendT),
+        y: lerp(3.25, wideBarrageTarget.y, blendT),
+        z: lerp(6.75, wideBarrageTarget.z, blendT),
+        lookX: lerp(clampCameraPanX(lerp(attackerX, midX, 0.25)), wideBarrageTarget.lookX, blendT),
+        lookY: lerp(3.15, wideBarrageTarget.lookY, blendT),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 4.65) / Math.max(0.15, duration - 4.65));
+    return {
+      x: lerp(wideBarrageTarget.x, fightTarget.x, returnT),
+      y: lerp(wideBarrageTarget.y, fightTarget.y, returnT),
+      z: lerp(wideBarrageTarget.z, fightTarget.z, returnT),
+      lookX: lerp(wideBarrageTarget.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(wideBarrageTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // SAMYAK ("MISSION IAS: BEAST MODE!", 4.8s):
+  // 0.0-1.8s: Dramatic low-angle close-up sweeping across Samyak's double-bicep flex & sunglasses lens glint
+  // 1.8-3.5s: Dynamic 3D angle framing both fighters during UPSC books + iron gym dumbbells barrage
+  // 3.5-4.45s: Tracks superhero leap & ground-slam summoning golden "IAS · AIR 1" floor seal
+  // 4.45-4.8s: Smooth restore to 2.5D fight camera as Samyak rises & adjusts black sunglasses
+  if (kind === 'samyak') {
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+
+    if (elapsed < 1.8) {
+      const flexT = smoothstep(elapsed / 1.8);
+      const sweepAngle = lerp(-0.38, 0.32, flexT) * attackerFacing;
+      return {
+        x: clampCameraPanX(attackerX + Math.sin(sweepAngle) * 2.15 + attackerFacing * 0.55),
+        y: lerp(1.08, 1.62, flexT),
+        z: lerp(3.65, 4.35, flexT),
+        lookX: attackerX,
+        lookY: lerp(1.48, 1.72, flexT),
+        lookZ: 0,
+      };
+    }
+
+    const phase1EndX = clampCameraPanX(
+      attackerX + Math.sin(0.32 * attackerFacing) * 2.15 + attackerFacing * 0.55,
+    );
+
+    if (elapsed < 3.5) {
+      const barrageT = smoothstep((elapsed - 1.8) / 0.42);
+      const orbitNorm = (elapsed - 1.8) / 1.7;
+      const orbitAngle = lerp(0.3, -0.26, orbitNorm) * attackerFacing;
+      const targetX = clampCameraPanX(midX + Math.sin(orbitAngle) * 2.1);
+      return {
+        x: lerp(phase1EndX, targetX, barrageT),
+        y: lerp(1.62, 3.25 + orbitNorm * 0.2, barrageT),
+        z: lerp(4.35, 8.95 + orbitNorm * 0.35, barrageT),
+        lookX: lerp(attackerX, clampCameraPanX(lerp(midX, defenderX, 0.2)), barrageT),
+        lookY: lerp(1.72, 1.75, barrageT),
+        lookZ: 0,
+      };
+    }
+
+    const isPostSlam = elapsed >= 4.1;
+    const slamTarget: FixedZoomCameraTarget = {
+      x: clampCameraPanX(lerp(midX, defenderX, isPostSlam ? 0.35 : 0.22)),
+      y: isPostSlam ? 2.85 : 3.45 + attackerY * 0.24,
+      z: isPostSlam ? 7.8 : 9.15,
+      lookX: clampCameraPanX(lerp(midX, defenderX, isPostSlam ? 0.4 : 0.28)),
+      lookY: isPostSlam ? 1.25 : 1.75 + attackerY * 0.32,
+      lookZ: 0,
+    };
+
+    if (elapsed < 4.45) {
+      const blendT = smoothstep((elapsed - 3.5) / 0.3);
+      const prevX = clampCameraPanX(midX + Math.sin(-0.26 * attackerFacing) * 2.1);
+      return {
+        x: lerp(prevX, slamTarget.x, blendT),
+        y: lerp(3.45, slamTarget.y, blendT),
+        z: lerp(9.3, slamTarget.z, blendT),
+        lookX: lerp(clampCameraPanX(lerp(midX, defenderX, 0.2)), slamTarget.lookX, blendT),
+        lookY: lerp(1.75, slamTarget.lookY, blendT),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 4.45) / Math.max(0.12, duration - 4.45));
+    return {
+      x: lerp(slamTarget.x, fightTarget.x, returnT),
+      y: lerp(slamTarget.y, fightTarget.y, returnT),
+      z: lerp(slamTarget.z, fightTarget.z, returnT),
+      lookX: lerp(slamTarget.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(slamTarget.lookY, fightTarget.lookY, returnT),
       lookZ: 0,
     };
   }

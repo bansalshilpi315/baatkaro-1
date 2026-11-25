@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
-import { FIGHTER_CONFIGS, getFighterPortraitDataUrl } from '../game/characters';
+import { FIGHTER_CONFIGS } from '../game/characters';
 import type { FighterId, FloatingCallout, HudSnapshot, StageId } from '../game/types';
+import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
 
 interface FightHudProps {
@@ -127,8 +128,8 @@ export function FightHud({
           <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-2.5">
             {/* Far-Left Square Portrait with Thin Gold Border */}
             <div className="hud-portrait relative h-14 w-14 shrink-0 overflow-hidden rounded-sm border-2 border-[#facc15] bg-[#14100d] shadow-[0_3px_12px_rgba(0,0,0,0.75)] sm:h-16 sm:w-16">
-              <img
-                src={getFighterPortraitDataUrl(p1Id)}
+              <FighterPortrait
+                id={p1Id}
                 alt={p1Cfg.name}
                 className="h-full w-full object-cover"
               />
@@ -318,8 +319,8 @@ export function FightHud({
 
             {/* Far-Right Square Portrait with Thin Gold Border */}
             <div className="hud-portrait relative h-14 w-14 shrink-0 overflow-hidden rounded-sm border-2 border-[#facc15] bg-[#14100d] shadow-[0_3px_12px_rgba(0,0,0,0.75)] sm:h-16 sm:w-16">
-              <img
-                src={getFighterPortraitDataUrl(p2Id)}
+              <FighterPortrait
+                id={p2Id}
                 alt={p2Cfg.name}
                 className="h-full w-full -scale-x-100 object-cover"
               />
@@ -390,25 +391,30 @@ export function FightHud({
           FLOATING COMIC-BOOK CALLOUTS (AND SIGNATURE SUPER FINISHER POP-UPS)
           ================================================================= */}
       <div className="pointer-events-none fixed inset-0 z-20 overflow-hidden">
-        {callouts.map((c) => (
-          <div
-            key={c.id}
-            data-testid={c.isSignature ? 'super-signature-callout' : 'floating-comic-callout'}
-            data-signature={c.isSignature ? 'true' : 'false'}
-            className={`comic-pop-text absolute whitespace-nowrap ${
-              c.isSignature
-                ? 'comic-pop-signature text-3xl sm:text-5xl'
-                : 'text-2xl sm:text-4xl'
-            }`}
-            style={{
-              left: `${c.screenX}px`,
-              top: `${c.screenY}px`,
-              color: c.color,
-            }}
-          >
-            {c.text}
-          </div>
-        ))}
+        {callouts.map((c) => {
+          const isLongSignature = Boolean(c.isSignature && c.text.length > 26);
+          return (
+            <div
+              key={c.id}
+              data-testid={c.isSignature ? 'super-signature-callout' : 'floating-comic-callout'}
+              data-signature={c.isSignature ? 'true' : 'false'}
+              className={`comic-pop-text absolute ${
+                isLongSignature
+                  ? 'comic-pop-signature max-w-[86vw] whitespace-normal text-center text-xl leading-tight sm:text-3xl'
+                  : c.isSignature
+                    ? 'comic-pop-signature whitespace-nowrap text-3xl sm:text-5xl'
+                    : 'whitespace-nowrap text-2xl sm:text-4xl'
+              }`}
+              style={{
+                left: isLongSignature ? '50%' : `${c.screenX}px`,
+                top: isLongSignature ? '28%' : `${c.screenY}px`,
+                color: c.color,
+              }}
+            >
+              {c.text}
+            </div>
+          );
+        })}
       </div>
 
       {/* =================================================================
@@ -491,8 +497,8 @@ export function FightHud({
             }`}
           >
             <div className="hud-super-portrait relative h-14 w-14 shrink-0 overflow-hidden border-2 border-[#facc15] bg-[#16100c] shadow-[0_0_18px_rgba(250,204,21,0.55)] sm:h-20 sm:w-20">
-              <img
-                src={getFighterPortraitDataUrl(hud.superBanner.fighterId)}
+              <FighterPortrait
+                id={hud.superBanner.fighterId}
                 alt={hud.superBanner.fighterName}
                 className={`h-full w-full object-cover ${
                   hud.superBanner.slot === 1 ? '-scale-x-100' : ''

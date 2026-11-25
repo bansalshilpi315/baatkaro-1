@@ -186,6 +186,84 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       'JEET KE BAAD GARMA-GARAM LADDOO MUFT!',
     ],
   },
+  father: {
+    id: 'father',
+    name: 'Father Roy Dolphus',
+    tagline: 'Strict School Principal · White Cassock & Nehru Vest',
+    titleBadge: 'PRINCIPAL SIR',
+    maxHp: 130,
+    attackPowerMultiplier: 1.15,
+    walkSpeed: 4.55,
+    jumpVelocity: 10.7,
+    punchDamage: 10,
+    kickDamage: 13,
+    grabDamage: 16,
+    accentHex: '#DC2626',
+    secondaryHex: '#7EC4E6',
+    skinHex: '#A66F4B',
+    special: {
+      id: 'diary_note',
+      name: 'Diary Note',
+      shortLabel: 'DIARY NOTE',
+      iconKey: 'diary',
+      description:
+        'Snaps a stern warning and launches a fast-spinning red-stamped School Diary Warning Slip across mid-range.',
+      cooldown: 3.5,
+      damage: 14,
+      range: 5.6,
+      knockbackX: 6.2,
+      knockbackY: 2.6,
+      windup: 0.14,
+      active: 0.16,
+      recovery: 0.24,
+      stunDuration: 0.42,
+      accentColor: '#EF4444',
+    },
+    superName: 'RUSTICATION ORDER',
+    victoryQuotes: [
+      'FATHER ROY DOLPHUS RUSTICATES THE COMPETITION!',
+      'DISCIPLINE RESTORED — CALL YOUR PARENTS TOMORROW MORNING!',
+    ],
+  },
+  samyak: {
+    id: 'samyak',
+    name: 'Samyak',
+    tagline: 'Bodybuilder & UPSC/IAS Aspirant · Beast Mode',
+    titleBadge: 'FUTURE IAS · AIR 1',
+    maxHp: 125,
+    attackPowerMultiplier: 1.1,
+    walkSpeed: 4.5,
+    jumpVelocity: 10.9,
+    punchDamage: 10,
+    kickDamage: 13,
+    grabDamage: 16,
+    accentHex: '#F59E0B',
+    secondaryHex: '#38BDF8',
+    skinHex: '#BC8866',
+    special: {
+      id: 'laxmikant_slam',
+      name: 'Laxmikant Slam',
+      shortLabel: 'LAXMIKANT SLAM',
+      iconKey: 'polity',
+      description:
+        'Winds up his muscular arm and hurls a thick, heavy, fast-spinning 3D red Indian Polity textbook across mid-range.',
+      cooldown: 3.5,
+      damage: 14,
+      range: 5.6,
+      knockbackX: 6.4,
+      knockbackY: 2.8,
+      windup: 0.15,
+      active: 0.16,
+      recovery: 0.24,
+      stunDuration: 0.42,
+      accentColor: '#DC2626',
+    },
+    superName: 'MISSION IAS: BEAST MODE',
+    victoryQuotes: [
+      'SAMYAK CRACKS OPPONENT IN FIRST ATTEMPT!',
+      'PRELIMS, MAINS, AUR RING — SAB MEIN AIR 1!',
+    ],
+  },
 };
 
 export const FIGHTER_LIST: FighterConfig[] = [
@@ -194,6 +272,8 @@ export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.neta,
   FIGHTER_CONFIGS.anda,
   FIGHTER_CONFIGS.mausi,
+  FIGHTER_CONFIGS.father,
+  FIGHTER_CONFIGS.samyak,
 ];
 
 export const STAGE_CONFIGS: Record<StageId, StageConfig> = {
@@ -252,6 +332,17 @@ export const STAGE_CONFIGS: Record<StageId, StageConfig> = {
       'ANNOUNCEMENT: KRIPYA DHYAN DEIN, HEAVY COMBO INCOMING!',
     ],
   },
+  assembly: {
+    id: 'assembly',
+    name: 'School Assembly Ground',
+    subtitle: 'Arched School Facade · Podium & Flagpole · Morning Discipline',
+    accentHex: '#0284C7',
+    headlines: [
+      'MORNING ASSEMBLY TURNS INTO FULL-CONTACT DISCIPLINARY SHOWDOWN!',
+      'STUDENTS CHEER FROM CORRIDOR AS PRINCIPAL ENFORCES PIN-DROP SILENCE!',
+      'RED DIARY NOTE FLYING FASTER THAN THE PERIOD-1 BELL!',
+    ],
+  },
 };
 
 export const STAGE_LIST: StageConfig[] = [
@@ -260,4 +351,5 @@ export const STAGE_LIST: StageConfig[] = [
   STAGE_CONFIGS.studio,
   STAGE_CONFIGS.shaadi,
   STAGE_CONFIGS.railway,
+  STAGE_CONFIGS.assembly,
 ];

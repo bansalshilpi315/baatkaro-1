@@ -9,7 +9,13 @@ import {
   computeKoWinnerCameraTarget,
   computeSuperCameraTarget,
 } from './camera';
-import { animateFighterRig, buildFighterRig, FIGHTER_CONFIGS, type FighterRig } from './characters';
+import {
+  animateFighterRig,
+  buildFighterRig,
+  FIGHTER_CONFIGS,
+  preloadRealFaceTextures,
+  type FighterRig,
+} from './characters';
 import { getActiveStrikeTrailInfo } from './characters/kinematics';
 import { StrikeTrailRibbon } from './characters/strikeTrail';
 import {
@@ -40,10 +46,14 @@ import { ANDA_SUPER_BANNER } from './andaSuper';
 import { AndaSuperVfx } from './andaSuperVfx';
 import { BILLA_SUPER_BANNER } from './billaSuper';
 import { BillaSuperVfx } from './billaSuperVfx';
+import { FATHER_SUPER_BANNER } from './fatherSuper';
+import { FatherSuperVfx } from './fatherSuperVfx';
 import { MAUSI_SUPER_BANNER } from './mausiSuper';
 import { MausiSuperVfx } from './mausiSuperVfx';
 import { NETA_SUPER_BANNER } from './netaSuper';
 import { NetaSuperVfx } from './netaSuperVfx';
+import { SAMYAK_SUPER_BANNER } from './samyakSuper';
+import { SamyakSuperVfx } from './samyakSuperVfx';
 import { SHERU_SUPER_BANNER } from './sheruSuper';
 import { SheruSuperVfx } from './sheruSuperVfx';
 import { buildStage, type StageInstance } from './stages';
@@ -69,6 +79,7 @@ export interface EngineCallbacks {
   onClearCallouts: () => void;
   onHeadline: (headline: string) => void;
   onMatchFinish: (result: MatchResultSnapshot) => void;
+  onSuperPreviewStateChange?: (isPlaying: boolean) => void;
 }
 
 interface ParticleSlot {
@@ -108,6 +119,8 @@ const _superDimColor = new THREE.Color(0x0b0805);
 const _andaStormDimColor = new THREE.Color(0x09162e);
 const _andaFlashColor = new THREE.Color(0xdbeafe);
 const _mausiFestiveDimColor = new THREE.Color(0x2d1404);
+const _fatherCrimsonDimColor = new THREE.Color(0x1f0709);
+const _samyakBlueGoldDimColor = new THREE.Color(0x071324);
 
 const INTRO_TAUNTS: Record<FighterId, string[]> = {
   sheru: [
@@ -135,6 +148,16 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Aaj full desi ghee wali sutai hogi!',
     'Dukaan band karwaunga? Pehle belan jhel!',
   ],
+  father: [
+    'Uniform kahan hai?! Diary nikaal abhi!',
+    'Silence in the assembly! Call your parents tomorrow!',
+    'Line seedhi karo — discipline pehle, baaki baad mein!',
+  ],
+  samyak: [
+    'Subah 5 baje deadlift, shaam ko Laxmikanth — ready hai kya?',
+    'Body bhi hai aur dimaag bhi — ab dekh IAS ki power!',
+    '18 ghante padhai aur 2 ghante gym — aaj teri Prelims fail!',
+  ],
 };
 
 const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
@@ -143,6 +166,8 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   neta: ['Yeh janta pe atyachaar hai!', 'Chashma bach gaya!'],
   anda: ['Arre shell bachao!', 'Kisi ne farsh pe tel giraya!'],
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
+  father: ['This is gross indiscipline!', 'Wait till I sign your diary!'],
+  samyak: ['Arre mera pre-workout gir gaya!', 'Prelims mein jhatka, Mains mein phod dunga!'],
 };
 
 const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
@@ -171,6 +196,16 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Meetha kam, sutai zyada — shabaash!',
     'Aunty se panga? Seedha chappal-belan combo!',
   ],
+  father: [
+    'Red remark in your diary — signed and sealed!',
+    'Meet me in the Principal office after bell!',
+    'Zero discipline, hundred percent suspension!',
+  ],
+  samyak: [
+    'Ye le Laxmikanth 7th Edition seedha muh pe!',
+    'Article 21 tera defense suspend kar diya!',
+    'No pain, no AIR 1 — full beast mode ON!',
+  ],
 };
 
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
@@ -179,6 +214,8 @@ const VICTORY_QUIPS: Record<FighterId, string[]> = {
   neta: ['Janta ki jeet! Cutting chai lao!', 'Jhola-chaap power zindabad!'],
   anda: ['Hard-boiled champion, boss!', 'Shell intact, opposition cracked!'],
   mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai kya?'],
+  father: ['Assembly dismissed! Maintain pin-drop silence.', 'Rustication order stands — bring your parents!'],
+  samyak: ['First attempt mein hi knockout — AIR 1 confirmed!', 'Gym pump bhi solid, Polity bhi solid!'],
 };
 
 function detectSoftwareWebGL(): boolean {
@@ -252,12 +289,14 @@ export class DesiShowdownEngine {
   private impactInnerGeo: THREE.RingGeometry;
   private impactOuterGeo: THREE.RingGeometry;
 
-  // Pre-pooled 3D Super Power VFX managers (all 5 fighters)
+  // Pre-pooled 3D Super Power VFX managers (all 7 fighters)
   private sheruSuperVfx: SheruSuperVfx;
   private billaSuperVfx: BillaSuperVfx;
   private netaSuperVfx: NetaSuperVfx;
   private andaSuperVfx: AndaSuperVfx;
   private mausiSuperVfx: MausiSuperVfx;
+  private fatherSuperVfx: FatherSuperVfx;
+  private samyakSuperVfx: SamyakSuperVfx;
 
   // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
   private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
@@ -280,6 +319,15 @@ export class DesiShowdownEngine {
   private swatterHandleMat: THREE.MeshStandardMaterial;
   private swatterGripMat: THREE.MeshStandardMaterial;
   private swatterPaddleMat: THREE.MeshStandardMaterial;
+  private diaryNoteTex: THREE.CanvasTexture;
+  private diaryNoteGeo: THREE.BoxGeometry;
+  private diaryNoteMat: THREE.MeshStandardMaterial;
+  private polityBookTex: THREE.CanvasTexture;
+  private polityBookGeo: THREE.BoxGeometry;
+  private polityBookCoverMat: THREE.MeshStandardMaterial;
+  private polityBookSpineMat: THREE.MeshStandardMaterial;
+  private polityBookPageMat: THREE.MeshStandardMaterial;
+  private polityBookMats: THREE.MeshStandardMaterial[];
 
   // Loop & lifecycle
   private frameId = 0;
@@ -298,6 +346,12 @@ export class DesiShowdownEngine {
   private lastTrackedRound = 1;
   private introTauntSeed = 0;
   private koBannerAudioTriggered = false;
+
+  // Live 3D Super Power Preview sandbox state ("Test Supers Before Fighting")
+  private previewPendingSuper = false;
+  private previewSuperWasActive = false;
+  private previewResetTimer = 0;
+  private lastNotifiedPreviewPlaying = false;
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -446,6 +500,8 @@ export class DesiShowdownEngine {
     this.netaSuperVfx = new NetaSuperVfx(this.scene);
     this.andaSuperVfx = new AndaSuperVfx(this.scene);
     this.mausiSuperVfx = new MausiSuperVfx(this.scene);
+    this.fatherSuperVfx = new FatherSuperVfx(this.scene);
+    this.samyakSuperVfx = new SamyakSuperVfx(this.scene);
 
     this.strikeTrails = [new StrikeTrailRibbon(), new StrikeTrailRibbon()];
     this.scene.add(this.strikeTrails[0].mesh);
@@ -493,12 +549,55 @@ export class DesiShowdownEngine {
       roughness: 0.35,
     });
 
+    // Crisp red-stamped School Diary Warning Slip projectile for Father Roy Dolphus ("DIARY NOTE")
+    this.diaryNoteTex = this.createDiaryNoteTexture();
+    this.diaryNoteGeo = new THREE.BoxGeometry(0.46, 0.34, 0.024);
+    this.diaryNoteMat = new THREE.MeshStandardMaterial({
+      map: this.diaryNoteTex,
+      color: 0xffffff,
+      emissive: 0x991b1b,
+      emissiveIntensity: 0.2,
+      roughness: 0.62,
+      metalness: 0.04,
+    });
+
+    // Thick heavy red Indian Polity (Laxmikanth) textbook projectile for Samyak ("LAXMIKANT SLAM")
+    this.polityBookTex = this.createPolityBookTexture();
+    this.polityBookGeo = new THREE.BoxGeometry(0.46, 0.58, 0.14);
+    this.polityBookCoverMat = new THREE.MeshStandardMaterial({
+      map: this.polityBookTex,
+      color: 0xffffff,
+      emissive: 0x7f1d1d,
+      emissiveIntensity: 0.22,
+      roughness: 0.44,
+      metalness: 0.08,
+    });
+    this.polityBookSpineMat = new THREE.MeshStandardMaterial({
+      color: 0x991b1b,
+      roughness: 0.52,
+      metalness: 0.06,
+    });
+    this.polityBookPageMat = new THREE.MeshStandardMaterial({
+      color: 0xf8f4e6,
+      roughness: 0.85,
+      metalness: 0.02,
+    });
+    this.polityBookMats = [
+      this.polityBookPageMat, // +X right page edges
+      this.polityBookSpineMat, // -X spine
+      this.polityBookPageMat, // +Y top page edges
+      this.polityBookPageMat, // -Y bottom page edges
+      this.polityBookCoverMat, // +Z front cover
+      this.polityBookCoverMat, // -Z back cover
+    ];
+
     this.matchState = createMatchState(this.p1Id, this.p2Id, false);
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
 
-    // Preload all Super Power MP3 bytes early (Sheru, Blue Billa, Garib Sena Neta)
+    // Preload all Super Power MP3 bytes & optional real face photo textures once at startup
     void audioEngine.preloadAllSuperAudios();
+    preloadRealFaceTextures();
 
     if (!this.isSoftwareGl) {
       // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes
@@ -507,6 +606,8 @@ export class DesiShowdownEngine {
       this.netaSuperVfx.setPrewarmVisible(true);
       this.andaSuperVfx.setPrewarmVisible(true);
       this.mausiSuperVfx.setPrewarmVisible(true);
+      this.fatherSuperVfx.setPrewarmVisible(true);
+      this.samyakSuperVfx.setPrewarmVisible(true);
       this.shockwaveRing.visible = true;
       this.strikeTrails[0].mesh.visible = true;
       this.renderer.compile(this.scene, this.camera);
@@ -515,6 +616,8 @@ export class DesiShowdownEngine {
       this.netaSuperVfx.setPrewarmVisible(false);
       this.andaSuperVfx.setPrewarmVisible(false);
       this.mausiSuperVfx.setPrewarmVisible(false);
+      this.fatherSuperVfx.setPrewarmVisible(false);
+      this.samyakSuperVfx.setPrewarmVisible(false);
       this.shockwaveRing.visible = false;
       this.strikeTrails[0].mesh.visible = false;
     }
@@ -643,17 +746,151 @@ export class DesiShowdownEngine {
     } else if (screen === 'paused') {
       pauseDialogueTimers(this.dialogueTracker, performance.now());
     } else if (screen === 'select' || screen === 'title' || screen === 'notice') {
-      // Explicitly exited to menu: reset Super VFX, mid-fight dialogues, floating callouts, and stop active Super audio
+      // Explicitly exited to menu: reset Super VFX, preview flags, mid-fight dialogues, callouts, and stop active Super audio
+      this.previewPendingSuper = false;
+      this.previewSuperWasActive = false;
+      this.previewResetTimer = 0;
+      this.notifyPreviewState(false);
       clearAllMidFightDialogues(this.dialogueTracker);
       this.callbacks.onClearCallouts();
-      this.sheruSuperVfx.reset();
-      this.billaSuperVfx.reset();
-      this.netaSuperVfx.reset();
-      this.andaSuperVfx.reset();
-      this.mausiSuperVfx.reset();
+      this.resetAllSuperVfx();
       audioEngine.stopSuperAudio();
       audioEngine.stopDahiKoAudio();
     }
+  }
+
+  private resetAllSuperVfx(): void {
+    this.sheruSuperVfx.reset();
+    this.billaSuperVfx.reset();
+    this.netaSuperVfx.reset();
+    this.andaSuperVfx.reset();
+    this.mausiSuperVfx.reset();
+    this.fatherSuperVfx.reset();
+    this.samyakSuperVfx.reset();
+    this.strikeTrails[0].reset();
+    this.strikeTrails[1].reset();
+  }
+
+  private isAnySuperSequenceActive(): boolean {
+    const [p1, p2] = this.matchState.fighters;
+    return Boolean(
+      this.matchState.activeSuperSlot !== null ||
+        this.matchState.sheruSuper?.active ||
+        this.matchState.billaSuper?.active ||
+        this.matchState.netaSuper?.active ||
+        this.matchState.andaSuper?.active ||
+        this.matchState.mausiSuper?.active ||
+        this.matchState.fatherSuper?.active ||
+        this.matchState.samyakSuper?.active ||
+        p1.action === 'super' ||
+        p2.action === 'super',
+    );
+  }
+
+  private notifyPreviewState(isPlaying: boolean): void {
+    if (this.lastNotifiedPreviewPlaying !== isPlaying) {
+      this.lastNotifiedPreviewPlaying = isPlaying;
+      this.callbacks.onSuperPreviewStateChange?.(isPlaying);
+    }
+  }
+
+  private createSuperPreviewState(p1: FighterId): MatchState {
+    const dummyId: FighterId = p1 === 'sheru' ? 'billa' : 'sheru';
+    const state = createMatchState(p1, dummyId, true);
+    state.fighters[0].x = -2.2;
+    state.fighters[0].y = 0;
+    state.fighters[0].facing = 1;
+    state.fighters[0].hp = state.fighters[0].maxHp;
+    state.fighters[0].shakti = 100;
+    state.fighters[1].x = 2.2;
+    state.fighters[1].y = 0;
+    state.fighters[1].facing = -1;
+    state.fighters[1].hp = state.fighters[1].maxHp;
+    state.fighters[1].shakti = 0;
+    state.roundTime = 60;
+    return state;
+  }
+
+  public startSuperPreview(p1: FighterId, stage: StageId): void {
+    const dummyId: FighterId = p1 === 'sheru' ? 'billa' : 'sheru';
+    this.p1Id = p1;
+    this.p2Id = dummyId;
+    if (stage !== this.stageId) {
+      this.stageId = stage;
+      this.loadStage(stage);
+    }
+    this.loadFighters(p1, dummyId);
+    this.clearProjectiles();
+    this.resetAllSuperVfx();
+    audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
+    void audioEngine.preloadAllSuperAudios();
+
+    this.matchState = this.createSuperPreviewState(p1);
+    this.previewPendingSuper = false;
+    this.previewSuperWasActive = false;
+    this.previewResetTimer = 0;
+    this.moveCalloutText = null;
+    this.moveCalloutTimer = 0;
+    clearAllMidFightDialogues(this.dialogueTracker);
+    this.callbacks.onClearCallouts();
+    this.trauma = 0;
+    this.currentScreen = 'super_preview';
+
+    // Snap camera immediately to clean wide sandbox framing above the compact bottom bar
+    this.camPos.set(0, 2.25, 8.2);
+    this.camLook.set(0, 1.15, 0);
+    this.camera.position.copy(this.camPos);
+    this.camera.lookAt(this.camLook);
+    this.camera.updateMatrixWorld(true);
+
+    this.clearInputs();
+    this.notifyPreviewState(false);
+    this.emitHud(true);
+  }
+
+  public setSuperPreviewFighter(id: FighterId): void {
+    if (this.currentScreen !== 'super_preview') return;
+    const dummyId: FighterId = id === 'sheru' ? 'billa' : 'sheru';
+    this.p1Id = id;
+    this.p2Id = dummyId;
+    this.loadFighters(id, dummyId);
+    this.clearProjectiles();
+    this.resetAllSuperVfx();
+    audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
+
+    this.matchState = this.createSuperPreviewState(id);
+    this.previewPendingSuper = false;
+    this.previewSuperWasActive = false;
+    this.previewResetTimer = 0;
+    this.moveCalloutText = null;
+    this.moveCalloutTimer = 0;
+    clearAllMidFightDialogues(this.dialogueTracker);
+    this.callbacks.onClearCallouts();
+    this.trauma = 0;
+    this.notifyPreviewState(false);
+    this.emitHud(true);
+  }
+
+  public triggerPreviewSuper(): void {
+    if (this.currentScreen !== 'super_preview') return;
+    if (this.previewPendingSuper || this.previewSuperWasActive || this.isAnySuperSequenceActive()) {
+      return;
+    }
+    this.clearProjectiles();
+    this.resetAllSuperVfx();
+    audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
+    this.callbacks.onClearCallouts();
+    clearAllMidFightDialogues(this.dialogueTracker);
+
+    this.matchState = this.createSuperPreviewState(this.p1Id);
+    this.previewPendingSuper = true;
+    this.previewSuperWasActive = false;
+    this.previewResetTimer = 0;
+    this.notifyPreviewState(true);
+    this.emitHud(true);
   }
 
   public setGraphicsQuality(quality: GraphicsQuality): void {
@@ -715,6 +952,8 @@ export class DesiShowdownEngine {
     this.netaSuperVfx.reset();
     this.andaSuperVfx.reset();
     this.mausiSuperVfx.reset();
+    this.fatherSuperVfx.reset();
+    this.samyakSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
     // Explicit match start/restart: stop any prior Super/KO audio and ensure buffers are preloaded
@@ -993,6 +1232,116 @@ export class DesiShowdownEngine {
     return tex;
   }
 
+  private createDiaryNoteTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas');
+    c.width = 192;
+    c.height = 128;
+    const ctx = c.getContext('2d')!;
+    // Crisp off-white school diary warning slip with ruled lines & bold red stamp
+    ctx.fillStyle = '#FFFDF5';
+    ctx.fillRect(0, 0, 192, 128);
+    ctx.strokeStyle = '#DC2626';
+    ctx.lineWidth = 7;
+    ctx.strokeRect(5, 5, 182, 118);
+
+    // Subtle school notebook blue ruled lines
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.25)';
+    ctx.lineWidth = 1.5;
+    for (let y = 26; y <= 108; y += 14) {
+      ctx.beginPath();
+      ctx.moveTo(14, y);
+      ctx.lineTo(178, y);
+      ctx.stroke();
+    }
+
+    // Header band
+    ctx.fillStyle = '#B91C1C';
+    ctx.fillRect(14, 14, 164, 24);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('DIARY NOTE', 96, 26);
+
+    // Tilted red warning stamp
+    ctx.save();
+    ctx.translate(96, 74);
+    ctx.rotate(-0.14);
+    ctx.strokeStyle = '#DC2626';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-62, -20, 124, 40);
+    ctx.fillStyle = '#DC2626';
+    ctx.font = '900 18px sans-serif';
+    ctx.fillText('WARNING!', 0, -3);
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('CALL PARENTS', 0, 12);
+    ctx.restore();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  private createPolityBookTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 320;
+    const ctx = c.getContext('2d')!;
+    // Iconic deep red hardcover "INDIAN POLITY · LAXMIKANTH" UPSC textbook cover
+    ctx.fillStyle = '#B91C1C';
+    ctx.fillRect(0, 0, 256, 320);
+
+    // Subtle dark spine strip on left
+    ctx.fillStyle = '#7F1D1D';
+    ctx.fillRect(0, 0, 26, 320);
+
+    // Gold ornamental UPSC border
+    ctx.strokeStyle = '#FACC15';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(18, 16, 222, 288);
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.55)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(26, 24, 206, 272);
+
+    // Top edition ribbon
+    ctx.fillStyle = '#FACC15';
+    ctx.fillRect(40, 38, 178, 28);
+    ctx.fillStyle = '#450A0A';
+    ctx.font = '900 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('UPSC · IAS EDITION', 129, 52);
+
+    // Main bold title
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 32px sans-serif';
+    ctx.fillText('INDIAN', 129, 118);
+    ctx.fillStyle = '#FEF08A';
+    ctx.font = '900 38px sans-serif';
+    ctx.fillText('POLITY', 129, 160);
+
+    // Gold Ashoka-style seal divider
+    ctx.strokeStyle = '#FACC15';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(52, 194);
+    ctx.lineTo(206, 194);
+    ctx.stroke();
+
+    // Author / iconic textbook name
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 22px sans-serif';
+    ctx.fillText('LAXMIKANTH', 129, 234);
+
+    ctx.fillStyle = '#FCA5A5';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('HEAVYWEIGHT 7TH ED.', 129, 266);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   private syncProjectiles(): void {
     const activeIds = this.activeProjectileIds;
     activeIds.clear();
@@ -1019,6 +1368,10 @@ export class DesiShowdownEngine {
           paddle.position.y = 0.34;
           grp.add(handle, grip, paddle);
           mesh = grp;
+        } else if (proj.kind === 'diary') {
+          mesh = new THREE.Mesh(this.diaryNoteGeo, this.diaryNoteMat);
+        } else if (proj.kind === 'polity') {
+          mesh = new THREE.Mesh(this.polityBookGeo, this.polityBookMats);
         } else {
           mesh = new THREE.Mesh(this.currencyNoteGeo, this.currencyNoteMat);
         }
@@ -1037,6 +1390,21 @@ export class DesiShowdownEngine {
         // Comic star-spark trail behind the fast-spinning fly-swatter!
         this.spawnParticles(proj.x, proj.y, 1, 0x4ade80, 2.5);
         this.spawnParticles(proj.x, proj.y, 1, 0xfef08a, 3.0);
+      } else if (proj.kind === 'diary') {
+        mesh.rotation.z = -proj.spin * 1.1;
+        mesh.rotation.y = Math.sin(proj.spin * 0.85) * 0.48;
+        mesh.rotation.x = Math.cos(proj.spin * 0.65) * 0.28;
+        // Crisp red-stamped paper flutter trail
+        this.spawnParticles(proj.x, proj.y, 1, 0xfef2f2, 2.2);
+        this.spawnParticles(proj.x, proj.y, 1, 0xef4444, 2.6);
+      } else if (proj.kind === 'polity') {
+        mesh.rotation.z = -proj.spin * 1.18;
+        mesh.rotation.y = Math.sin(proj.spin * 0.72) * 0.44;
+        mesh.rotation.x = Math.cos(proj.spin * 0.55) * 0.25;
+        // Fluttering textbook page & gold spark trail behind the heavy red Laxmikanth book
+        this.spawnParticles(proj.x, proj.y, 1, 0xfefce8, 2.4);
+        this.spawnParticles(proj.x, proj.y, 1, 0xdc2626, 2.7);
+        this.spawnParticles(proj.x, proj.y, 1, 0xfacc15, 2.5);
       } else {
         mesh.rotation.z = Math.sin(proj.spin * 1.4) * 0.65;
         mesh.rotation.y = proj.spin * 1.15;
@@ -1094,6 +1462,15 @@ export class DesiShowdownEngine {
           audioEngine.playSwatterSlap();
           this.spawnParticles(ev.x, ev.y, 12, 0x4ade80, 6.4);
           this.spawnParticles(ev.x, ev.y, 10, 0xfef08a, 5.8);
+        } else if (ev.type === 'heavy_hit' && attacker?.id === 'father' && ev.moveCallout === 'DIARY NOTE!') {
+          audioEngine.playHeavyHit();
+          this.spawnParticles(ev.x, ev.y, 12, 0xef4444, 6.0);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfef2f2, 5.2);
+        } else if (ev.type === 'heavy_hit' && attacker?.id === 'samyak' && ev.moveCallout === 'LAXMIKANT SLAM!') {
+          audioEngine.playHeavyHit();
+          this.spawnParticles(ev.x, ev.y, 14, 0xdc2626, 6.4);
+          this.spawnParticles(ev.x, ev.y, 12, 0xfefce8, 5.6);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 6.2);
         } else if (ev.type === 'dharna_counter') {
           audioEngine.playHeavyHit();
           this.shockwaveRing.position.set(ev.x, 0.06, 0);
@@ -1156,6 +1533,14 @@ export class DesiShowdownEngine {
           // Golden flour & laddoo sparkle burst on Belan Throw launch!
           this.spawnParticles(ev.x, ev.y, 12, 0xf0c420, 5.6);
           this.spawnParticles(ev.x, ev.y + 0.08, 10, 0xfff5d6, 4.6);
+        } else if (caster?.id === 'father') {
+          // Crimson stamp & crisp paper burst on DIARY NOTE launch
+          this.spawnParticles(ev.x, ev.y, 10, 0xef4444, 5.4);
+          this.spawnParticles(ev.x, ev.y + 0.08, 8, 0xfef2f2, 4.4);
+        } else if (caster?.id === 'samyak') {
+          // Red Indian Polity cover & golden page sparks on LAXMIKANT SLAM launch
+          this.spawnParticles(ev.x, ev.y, 12, 0xdc2626, 5.8);
+          this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 5.0);
         } else {
           this.spawnParticles(ev.x, ev.y, 12, 0xf97316, 4.8);
         }
@@ -1166,7 +1551,9 @@ export class DesiShowdownEngine {
           caster?.id === 'billa' ||
           caster?.id === 'neta' ||
           caster?.id === 'anda' ||
-          caster?.id === 'mausi'
+          caster?.id === 'mausi' ||
+          caster?.id === 'father' ||
+          caster?.id === 'samyak'
         ) {
           audioEngine.playFighterSuperAudio(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
@@ -1187,7 +1574,11 @@ export class DesiShowdownEngine {
                 ? 0x38bdf8
                 : caster?.id === 'mausi'
                   ? 0xfbbf24
-                  : 0xfde047;
+                  : caster?.id === 'father'
+                    ? 0xef4444
+                    : caster?.id === 'samyak'
+                      ? 0x38bdf8
+                      : 0xfde047;
         this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -1302,6 +1693,8 @@ export class DesiShowdownEngine {
       neta: 2.24,
       anda: 2.22,
       mausi: 2.18,
+      father: 2.26,
+      samyak: 2.28,
     };
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
@@ -1407,6 +1800,8 @@ export class DesiShowdownEngine {
         this.matchState.netaSuper?.active ||
         this.matchState.andaSuper?.active ||
         this.matchState.mausiSuper?.active ||
+        this.matchState.fatherSuper?.active ||
+        this.matchState.samyakSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -1530,17 +1925,23 @@ export class DesiShowdownEngine {
       const isNeta = caster.id === 'neta';
       const isAnda = caster.id === 'anda';
       const isMausi = caster.id === 'mausi';
+      const isFather = caster.id === 'father';
+      const isSamyak = caster.id === 'samyak';
       const bannerWindow = isSheru
         ? 1.85
-        : isMausi
-          ? 1.6
-          : isNeta
-            ? 1.55
-            : isAnda
-              ? 1.45
-              : isBilla
-                ? 1.4
-                : 1.15;
+        : isSamyak
+          ? 1.75
+          : isFather
+            ? 1.65
+            : isMausi
+              ? 1.6
+              : isNeta
+                ? 1.55
+                : isAnda
+                  ? 1.45
+                  : isBilla
+                    ? 1.4
+                    : 1.15;
       if (this.matchState.activeSuperElapsed < bannerWindow) {
         const cfg = FIGHTER_CONFIGS[caster.id];
         superBanner = {
@@ -1556,7 +1957,11 @@ export class DesiShowdownEngine {
                   ? ANDA_SUPER_BANNER
                   : isMausi
                     ? MAUSI_SUPER_BANNER
-                    : cfg.superName,
+                    : isFather
+                      ? FATHER_SUPER_BANNER
+                      : isSamyak
+                        ? SAMYAK_SUPER_BANNER
+                        : cfg.superName,
           slot: caster.slot,
         };
       }
@@ -1653,12 +2058,15 @@ export class DesiShowdownEngine {
     // 2. Super Power Cutscene Camera (dramatic low-angle close-up -> dynamic high-angle 3D orbit -> smooth return)
     // 3. KO Winner Celebration (gentle zoom-in on winner)
     // 4. Active Fight & KO Impact Slow-Mo (strictly fixed zoom horizontal panning)
-    let target = computeFixedZoomCameraTarget(p1.x, p2.x);
+    let target =
+      this.currentScreen === 'super_preview'
+        ? { x: 0, y: 2.25, z: 8.2, lookX: 0, lookY: 1.15, lookZ: 0 }
+        : computeFixedZoomCameraTarget(p1.x, p2.x);
     let posLambda = 6.2;
     let zLambda = 10.0;
     let lookLambda = 6.2;
 
-    if (this.matchState.phase === 'intro') {
+    if (this.currentScreen !== 'super_preview' && this.matchState.phase === 'intro') {
       const introElapsed = Math.max(0, this.matchState.introDuration - this.matchState.phaseTimer);
       target = computeIntroCameraTarget(
         this.matchState.roundNumber,
@@ -1684,7 +2092,11 @@ export class DesiShowdownEngine {
                 ? 'anda'
                 : attacker.id === 'mausi'
                   ? 'mausi'
-                  : 'generic';
+                  : attacker.id === 'father'
+                    ? 'father'
+                    : attacker.id === 'samyak'
+                      ? 'samyak'
+                      : 'generic';
       target = computeSuperCameraTarget(
         this.matchState.activeSuperElapsed,
         this.matchState.activeSuperDuration,
@@ -1773,16 +2185,39 @@ export class DesiShowdownEngine {
       this.elapsed += dt;
       this.stage?.update(this.elapsed, dt);
 
-      if (this.currentScreen === 'playing') {
-        const p1Input = this.samplePlayerInput();
-        const p2Input = computeCpuInput(this.matchState, this.difficulty, dt);
+      if (this.currentScreen === 'playing' || this.currentScreen === 'super_preview') {
+        const isSuperPreview = this.currentScreen === 'super_preview';
+        let p1Input: FighterInput;
+        let p2Input: FighterInput;
+        if (isSuperPreview) {
+          p1Input = createEmptyInput();
+          if (this.previewPendingSuper) {
+            p1Input.superMove = true;
+            this.previewPendingSuper = false;
+          }
+          p2Input = createEmptyInput();
+        } else {
+          p1Input = this.samplePlayerInput();
+          p2Input = computeCpuInput(this.matchState, this.difficulty, dt);
+        }
+
         const events = stepMatch(this.matchState, [p1Input, p2Input], dt);
         if (events.length > 0) {
           this.handleCombatEvents(events);
         }
 
-        // Trigger custom "DAHI KHATAM!" KO MP3 once at the exact frame the KO banner slams on screen
+        if (isSuperPreview) {
+          // Keep preview sandbox strictly non-lethal with no timer countdown or KO/Game Over
+          this.matchState.roundTime = 60;
+          this.matchState.phase = 'fighting';
+          if (this.matchState.fighters[1].hp < 1) {
+            this.matchState.fighters[1].hp = 1;
+          }
+        }
+
+        // Trigger custom "DAHI KHATAM!" KO MP3 once at the exact frame the KO banner slams on screen (normal fight only)
         if (
+          !isSuperPreview &&
           this.matchState.phase === 'ko_freeze' &&
           this.matchState.koSubPhase === 'impact_slowmo' &&
           this.matchState.finishReason === 'ko'
@@ -1948,6 +2383,78 @@ export class DesiShowdownEngine {
           }
         }
 
+        // Process Father Roy Dolphus "RUSTICATION ORDER!" Super beat signals
+        const fatherSignals = this.matchState.fatherSuperSignals;
+        if (fatherSignals.length > 0) {
+          this.fatherSuperVfx.handleBeatSignals(fatherSignals, this.graphics === 'low');
+          for (const sig of fatherSignals) {
+            if (sig.kind === 'levitate_start') {
+              this.trauma = Math.min(1, this.trauma + 0.25);
+              this.stage?.triggerExcitement(1.6);
+            } else if (sig.kind === 'papers_summon') {
+              this.trauma = Math.min(1, this.trauma + 0.34);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 16, 0xef4444, 6.2);
+              this.stage?.triggerExcitement(1.9);
+            } else if (sig.kind === 'barrage_start') {
+              this.stage?.triggerExcitement(2.1);
+            } else if (sig.kind === 'paper_hit') {
+              this.trauma = Math.min(1, this.trauma + 0.28);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnStarburstSparks(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 10, 0xef4444, 6.0);
+            } else if (sig.kind === 'master_notice_impact') {
+              this.trauma = 1.0;
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, true);
+              this.spawnParticles(sig.x, sig.y, 28, 0xdc2626, 9.4);
+              this.spawnParticles(sig.x, sig.y + 0.2, 16, 0xfacc15, 7.6);
+              this.stage?.triggerExcitement(2.6);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.notifySuperAnimationEnd();
+            }
+          }
+        }
+
+        // Process Samyak "MISSION IAS: BEAST MODE!" Super beat signals
+        const samyakSignals = this.matchState.samyakSuperSignals;
+        if (samyakSignals.length > 0) {
+          this.samyakSuperVfx.handleBeatSignals(samyakSignals, this.graphics === 'low');
+          for (const sig of samyakSignals) {
+            if (sig.kind === 'flex_start') {
+              this.trauma = Math.min(1, this.trauma + 0.3);
+              this.spawnParticles(sig.x, sig.y, 16, 0x38bdf8, 6.2);
+              this.stage?.triggerExcitement(1.7);
+            } else if (sig.kind === 'lens_glint') {
+              this.trauma = Math.min(1, this.trauma + 0.24);
+              this.spawnImpactRing(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, 14, 0xfacc15, 6.6);
+              this.stage?.triggerExcitement(1.9);
+            } else if (sig.kind === 'barrage_summon') {
+              this.stage?.triggerExcitement(2.1);
+            } else if (sig.kind === 'barrage_hit') {
+              const isHeavyDumbbell = (sig.hitIndex ?? 0) % 2 === 1;
+              this.trauma = Math.min(1, this.trauma + (isHeavyDumbbell ? 0.36 : 0.26));
+              this.spawnImpactRing(sig.x, sig.y, isHeavyDumbbell);
+              this.spawnStarburstSparks(sig.x, sig.y, false);
+              this.spawnParticles(sig.x, sig.y, isHeavyDumbbell ? 14 : 10, isHeavyDumbbell ? 0x38bdf8 : 0xfacc15, 6.8);
+            } else if (sig.kind === 'slam_leap') {
+              this.trauma = Math.min(1, this.trauma + 0.28);
+              this.spawnParticles(sig.x, 0.16, 14, 0xfacc15, 5.8);
+              this.stage?.triggerExcitement(2.2);
+            } else if (sig.kind === 'air1_slam_impact') {
+              this.trauma = 1.0;
+              this.spawnImpactRing(sig.x, sig.y, true);
+              this.spawnStarburstSparks(sig.x, sig.y, true);
+              this.spawnParticles(sig.x, sig.y, 28, 0xfacc15, 9.6);
+              this.spawnParticles(sig.x, sig.y + 0.2, 18, 0x38bdf8, 8.2);
+              this.stage?.triggerExcitement(2.8);
+            } else if (sig.kind === 'super_end') {
+              audioEngine.notifySuperAnimationEnd();
+            }
+          }
+        }
+
         if (this.moveCalloutTimer > 0) {
           this.moveCalloutTimer = Math.max(0, this.moveCalloutTimer - dt);
           if (this.moveCalloutTimer <= 0) this.moveCalloutText = null;
@@ -1962,7 +2469,9 @@ export class DesiShowdownEngine {
           this.matchState.billaSuper?.active ||
           this.matchState.netaSuper?.active ||
           this.matchState.andaSuper?.active ||
-          this.matchState.mausiSuper?.active
+          this.matchState.mausiSuper?.active ||
+          this.matchState.fatherSuper?.active ||
+          this.matchState.samyakSuper?.active
         ) {
           clearAllMidFightDialogues(this.dialogueTracker);
         } else {
@@ -1978,11 +2487,31 @@ export class DesiShowdownEngine {
             billaSignals.length > 0 ||
             netaSignals.length > 0 ||
             andaSignals.length > 0 ||
-            mausiSignals.length > 0,
+            mausiSignals.length > 0 ||
+            fatherSignals.length > 0 ||
+            samyakSignals.length > 0,
           dt,
         );
 
-        if (this.matchState.phase === 'finished' && !this.resultDispatched) {
+        if (isSuperPreview) {
+          const superActiveNow = this.isAnySuperSequenceActive();
+          if (superActiveNow) {
+            this.previewSuperWasActive = true;
+            this.previewResetTimer = 0.72;
+            this.notifyPreviewState(true);
+          } else if (this.previewSuperWasActive) {
+            this.previewResetTimer = Math.max(0, this.previewResetTimer - dt);
+            if (this.previewResetTimer <= 0) {
+              // Smoothly reset both fighters to idle positions & restore full HP + Shakti after Super finishes
+              this.matchState = this.createSuperPreviewState(this.p1Id);
+              this.clearProjectiles();
+              this.callbacks.onClearCallouts();
+              this.previewSuperWasActive = false;
+              this.notifyPreviewState(false);
+              this.emitHud(true, dt);
+            }
+          }
+        } else if (this.matchState.phase === 'finished' && !this.resultDispatched) {
           this.resultDispatched = true;
           this.currentScreen = 'victory';
           audioEngine.playVictoryFanfare();
@@ -2103,15 +2632,57 @@ export class DesiShowdownEngine {
         mausiDef?.x ?? 2,
       );
 
-      const dimFactor = Math.max(sheruDim, billaDim, netaDim, andaVfxResult.dimFactor, mausiDim);
+      const fatherSuper = this.matchState.fatherSuper;
+      const fatherSlot = fatherSuper?.attackerSlot ?? 0;
+      const fatherDefSlot = fatherSuper?.defenderSlot ?? 1;
+      const fatherFighter = this.matchState.fighters[fatherSlot];
+      const fatherDef = this.matchState.fighters[fatherDefSlot];
+      const fatherDim = this.fatherSuperVfx.update(
+        dt,
+        this.elapsed,
+        fatherSuper,
+        fatherFighter?.x ?? 0,
+        fatherFighter?.y ?? 0,
+        fatherFighter?.facing ?? 1,
+        fatherDef?.x ?? 2,
+      );
+
+      const samyakSuper = this.matchState.samyakSuper;
+      const samyakSlot = samyakSuper?.attackerSlot ?? 0;
+      const samyakDefSlot = samyakSuper?.defenderSlot ?? 1;
+      const samyakFighter = this.matchState.fighters[samyakSlot];
+      const samyakDef = this.matchState.fighters[samyakDefSlot];
+      const samyakDim = this.samyakSuperVfx.update(
+        dt,
+        this.elapsed,
+        samyakSuper,
+        samyakFighter?.x ?? 0,
+        samyakFighter?.y ?? 0,
+        samyakFighter?.facing ?? 1,
+        samyakDef?.x ?? 2,
+      );
+
+      const dimFactor = Math.max(
+        sheruDim,
+        billaDim,
+        netaDim,
+        andaVfxResult.dimFactor,
+        mausiDim,
+        fatherDim,
+        samyakDim,
+      );
       if (this.stage) {
         const lightningFlash = andaVfxResult.skyFlash;
         const dimTargetColor =
           andaVfxResult.dimFactor > 0.01
             ? _andaStormDimColor
-            : mausiDim > 0.01
-              ? _mausiFestiveDimColor
-              : _superDimColor;
+            : samyakDim > 0.01
+              ? _samyakBlueGoldDimColor
+              : fatherDim > 0.01
+                ? _fatherCrimsonDimColor
+                : mausiDim > 0.01
+                  ? _mausiFestiveDimColor
+                  : _superDimColor;
 
         this.keyLight.intensity =
           this.stage.keyLightIntensity * (1 - dimFactor * 0.82) + lightningFlash * 2.4;
@@ -2140,7 +2711,7 @@ export class DesiShowdownEngine {
 
       this.syncProjectiles();
       this.updateParticles(dt);
-      if (this.currentScreen !== 'playing') {
+      if (this.currentScreen !== 'playing' && this.currentScreen !== 'super_preview') {
         this.updateCamera(dt);
       }
     }
@@ -2182,6 +2753,8 @@ export class DesiShowdownEngine {
     this.netaSuperVfx.dispose(this.scene);
     this.andaSuperVfx.dispose(this.scene);
     this.mausiSuperVfx.dispose(this.scene);
+    this.fatherSuperVfx.dispose(this.scene);
+    this.samyakSuperVfx.dispose(this.scene);
     for (const trail of this.strikeTrails) {
       this.scene.remove(trail.mesh);
       trail.dispose();
@@ -2212,6 +2785,14 @@ export class DesiShowdownEngine {
     this.swatterHandleMat.dispose();
     this.swatterGripMat.dispose();
     this.swatterPaddleMat.dispose();
+    this.diaryNoteTex.dispose();
+    this.diaryNoteGeo.dispose();
+    this.diaryNoteMat.dispose();
+    this.polityBookTex.dispose();
+    this.polityBookGeo.dispose();
+    this.polityBookCoverMat.dispose();
+    this.polityBookSpineMat.dispose();
+    this.polityBookPageMat.dispose();
     this.pmremTexture.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {

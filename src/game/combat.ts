@@ -11,6 +11,11 @@ import {
   stepBillaSuper,
 } from './billaSuper';
 import {
+  FATHER_SUPER_DURATION,
+  createFatherSuperState,
+  stepFatherSuper,
+} from './fatherSuper';
+import {
   MAUSI_SUPER_DURATION,
   createMausiSuperState,
   stepMausiSuper,
@@ -20,6 +25,11 @@ import {
   createNetaSuperState,
   stepNetaSuper,
 } from './netaSuper';
+import {
+  SAMYAK_SUPER_DURATION,
+  createSamyakSuperState,
+  stepSamyakSuper,
+} from './samyakSuper';
 import {
   SHERU_SUPER_DURATION,
   createSheruSuperState,
@@ -84,6 +94,8 @@ const COMBO_FINISHER_CALLOUTS: Record<FighterId, string> = {
   neta: 'JHOLA SLAM!',
   anda: 'ANDA CRACKER!',
   mausi: 'BELAN SMASH!',
+  father: 'DISCIPLINE CHOP!',
+  samyak: 'BEAST UPPERCUT!',
 };
 
 const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
@@ -92,6 +104,8 @@ const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
   neta: 'DHARNA DHAKKA!',
   anda: 'EGG FLIP SLAM!',
   mausi: 'AUNTY PATKI!',
+  father: 'PRINCIPAL DISMISSAL!',
+  samyak: 'BENCH-PRESS SLAM!',
 };
 
 export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
@@ -176,6 +190,10 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     andaSuperSignals: [],
     mausiSuper: null,
     mausiSuperSignals: [],
+    fatherSuper: null,
+    fatherSuperSignals: [],
+    samyakSuper: null,
+    samyakSuperSignals: [],
   };
 }
 
@@ -187,6 +205,8 @@ export function isAnySuperActive(state: MatchState): boolean {
       state.netaSuper?.active ||
       state.andaSuper?.active ||
       state.mausiSuper?.active ||
+      state.fatherSuper?.active ||
+      state.samyakSuper?.active ||
       state.fighters[0].action === 'super' ||
       state.fighters[1].action === 'super',
   );
@@ -334,6 +354,7 @@ export function getAttackTiming(fighter: FighterState): {
   moveCallout?: string;
 } {
   const cfg = FIGHTER_CONFIGS[fighter.id];
+  const powerMult = cfg.attackPowerMultiplier ?? 1;
   switch (fighter.action) {
     case 'punch': {
       if (fighter.comboStep === 2) {
@@ -343,7 +364,7 @@ export function getAttackTiming(fighter: FighterState): {
           active: 0.12,
           recovery: 0.24,
           range: 2.02,
-          damage: Math.round(cfg.punchDamage * 1.45),
+          damage: Math.round(cfg.punchDamage * 1.45 * powerMult),
           knockbackX: 7.4,
           knockbackY: 6.2,
           hitstop: 0.058,
@@ -363,7 +384,7 @@ export function getAttackTiming(fighter: FighterState): {
           active: 0.1,
           recovery: 0.16,
           range: 1.9,
-          damage: Math.round(cfg.punchDamage * 1.15),
+          damage: Math.round(cfg.punchDamage * 1.15 * powerMult),
           knockbackX: 3.6,
           knockbackY: 1.4,
           hitstop: 0.046,
@@ -381,7 +402,7 @@ export function getAttackTiming(fighter: FighterState): {
         active: 0.09,
         recovery: 0.14,
         range: 1.82,
-        damage: cfg.punchDamage,
+        damage: Math.round(cfg.punchDamage * powerMult),
         knockbackX: 2.6,
         knockbackY: 0.8,
         hitstop: 0.04,
@@ -401,7 +422,7 @@ export function getAttackTiming(fighter: FighterState): {
           active: 0.13,
           recovery: 0.21,
           range: 2.24,
-          damage: Math.round(cfg.kickDamage * 1.08),
+          damage: Math.round(cfg.kickDamage * 1.08 * powerMult),
           knockbackX: 5.4,
           knockbackY: 1.8,
           hitstop: 0.052,
@@ -420,7 +441,9 @@ export function getAttackTiming(fighter: FighterState): {
         active: 0.13,
         recovery: isFinisher ? 0.26 : 0.20,
         range: isFinisher ? 2.34 : 2.18,
-        damage: isFinisher ? Math.round(cfg.kickDamage * 1.28) : cfg.kickDamage,
+        damage: isFinisher
+          ? Math.round(cfg.kickDamage * 1.28 * powerMult)
+          : Math.round(cfg.kickDamage * powerMult),
         knockbackX: isFinisher ? 8.2 : 4.8,
         knockbackY: isFinisher ? 6.5 : 1.6,
         hitstop: isFinisher ? 0.06 : 0.048,
@@ -439,7 +462,7 @@ export function getAttackTiming(fighter: FighterState): {
         active: 0.13,
         recovery: 0.24,
         range: 2.16,
-        damage: Math.round(cfg.kickDamage * 0.85),
+        damage: Math.round(cfg.kickDamage * 0.85 * powerMult),
         knockbackX: 5.0,
         knockbackY: 5.8,
         hitstop: 0.054,
@@ -457,7 +480,7 @@ export function getAttackTiming(fighter: FighterState): {
         active: 0.11,
         recovery: 0.26,
         range: 1.68,
-        damage: cfg.grabDamage,
+        damage: Math.round(cfg.grabDamage * powerMult),
         knockbackX: 8.2,
         knockbackY: 6.4,
         hitstop: 0.056,
@@ -475,7 +498,7 @@ export function getAttackTiming(fighter: FighterState): {
         active: 0.08,
         recovery: 0.22,
         range: 1.8,
-        damage: cfg.grabDamage,
+        damage: Math.round(cfg.grabDamage * powerMult),
         knockbackX: 8.2,
         knockbackY: 6.4,
         hitstop: 0.056,
@@ -494,7 +517,7 @@ export function getAttackTiming(fighter: FighterState): {
         active: sp.active,
         recovery: sp.recovery,
         range: sp.range,
-        damage: sp.damage,
+        damage: Math.round(sp.damage * powerMult),
         knockbackX: sp.knockbackX,
         knockbackY: sp.knockbackY,
         hitstop: 0.056,
@@ -750,6 +773,44 @@ function startAction(
         damage: 0,
         color: '#FBBF24',
         headline: `GOL-GOL LADDOO BARRAGE! ${cfg.name.toUpperCase()} POWERS UP WITH THE GOLDEN LADDOO!`,
+      });
+    } else if (fighter.id === 'father') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = FATHER_SUPER_DURATION;
+      state.fatherSuper = createFatherSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = FATHER_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.65,
+        damage: 0,
+        color: '#EF4444',
+        headline: `RUSTICATION ORDER! ${cfg.name.toUpperCase()} LEVITATES AND SUMMONS OFFICIAL NOTICES!`,
+      });
+    } else if (fighter.id === 'samyak') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = SAMYAK_SUPER_DURATION;
+      state.samyakSuper = createSamyakSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = SAMYAK_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.65,
+        damage: 0,
+        color: '#FACC15',
+        headline: `MISSION IAS: BEAST MODE! ${cfg.name.toUpperCase()} FLEXES AND UNLEASHES THE UPSC BARRAGE!`,
       });
     } else {
       fighter.invulnTimer = 0.65;
@@ -1025,8 +1086,11 @@ export const SIGNATURE_MOVE_COOLDOWN = 3.5;
  * across all roster maxHP values (100..120): noticeably stronger than normal attacks,
  * well below the 33% Super Power cap.
  */
-export function computeSignatureDamage(opponentMaxHp: number): number {
-  return Math.round(opponentMaxHp * 0.125);
+export function computeSignatureDamage(
+  opponentMaxHp: number,
+  attackerPowerMultiplier = 1,
+): number {
+  return Math.round(opponentMaxHp * 0.125 * attackerPowerMultiplier);
 }
 
 function spawnSpecialProjectileIfNeeded(
@@ -1035,7 +1099,7 @@ function spawnSpecialProjectileIfNeeded(
 ): void {
   const cfg = FIGHTER_CONFIGS[fighter.id];
   const opp = state.fighters[1 - fighter.slot];
-  const sigDamage = computeSignatureDamage(opp.maxHp);
+  const sigDamage = computeSignatureDamage(opp.maxHp, cfg.attackPowerMultiplier ?? 1);
 
   if (cfg.special.id === 'currency_burst') {
     // 5 fanned 3D currency bills bursting forward with Sheru's golden aura flex!
@@ -1091,6 +1155,48 @@ function spawnSpecialProjectileIfNeeded(
       x: fighter.x + fighter.facing * 0.85,
       y: fighter.y + 1.25,
       vx: fighter.facing * 10.6,
+      vy: 0,
+      radius: 0.5,
+      damage: sigDamage,
+      stunDuration: cfg.special.stunDuration,
+      knockbackX: cfg.special.knockbackX,
+      knockbackY: cfg.special.knockbackY,
+      life: 0,
+      maxLife: 0.72,
+      spin: 0,
+      active: true,
+    };
+    state.projectiles.push(proj);
+  } else if (cfg.special.id === 'diary_note') {
+    // Fast-spinning 3D red-stamped School Diary / Warning Slip mid-range projectile!
+    const proj: ProjectileState = {
+      uid: state.nextProjectileUid++,
+      ownerSlot: fighter.slot,
+      kind: 'diary',
+      x: fighter.x + fighter.facing * 0.85,
+      y: fighter.y + 1.32,
+      vx: fighter.facing * 11.4,
+      vy: 0,
+      radius: 0.48,
+      damage: sigDamage,
+      stunDuration: cfg.special.stunDuration,
+      knockbackX: cfg.special.knockbackX,
+      knockbackY: cfg.special.knockbackY,
+      life: 0,
+      maxLife: 0.72,
+      spin: 0,
+      active: true,
+    };
+    state.projectiles.push(proj);
+  } else if (cfg.special.id === 'laxmikant_slam') {
+    // Fast-spinning heavy red 3D Indian Polity (Laxmikanth) textbook projectile!
+    const proj: ProjectileState = {
+      uid: state.nextProjectileUid++,
+      ownerSlot: fighter.slot,
+      kind: 'polity',
+      x: fighter.x + fighter.facing * 0.88,
+      y: fighter.y + 1.32,
+      vx: fighter.facing * 11.2,
       vy: 0,
       radius: 0.5,
       damage: sigDamage,
@@ -1220,6 +1326,10 @@ export function stepMatch(
         state.andaSuperSignals = [];
         state.mausiSuper = null;
         state.mausiSuperSignals = [];
+        state.fatherSuper = null;
+        state.fatherSuperSignals = [];
+        state.samyakSuper = null;
+        state.samyakSuperSignals = [];
         state.activeSuperSlot = null;
         state.activeSuperElapsed = 0;
         state.activeSuperDuration = 0;
@@ -1239,6 +1349,8 @@ export function stepMatch(
   state.netaSuperSignals = [];
   state.andaSuperSignals = [];
   state.mausiSuperSignals = [];
+  state.fatherSuperSignals = [];
+  state.samyakSuperSignals = [];
 
   // Hit-stop freezes simulation physics while camera shake / flashes still tick
   if (state.hitstopTimer > 0) {
@@ -1334,6 +1446,42 @@ export function stepMatch(
       return events;
     }
     state.mausiSuper = null;
+  }
+
+  // Choreographed 5.2s Father Roy Dolphus "RUSTICATION ORDER!" Super sequence locks both fighters & pauses round clock
+  if (state.fatherSuper) {
+    if (state.fatherSuper.active) {
+      state.fatherSuperSignals = stepFatherSuper(state, state.fatherSuper, dt, events);
+      state.activeSuperSlot = state.fatherSuper.attackerSlot;
+      state.activeSuperElapsed = state.fatherSuper.elapsed;
+      state.activeSuperDuration = state.fatherSuper.duration;
+      if (!state.fatherSuper.active) {
+        state.fatherSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.fatherSuper = null;
+  }
+
+  // Choreographed 4.8s Samyak "MISSION IAS: BEAST MODE!" Super sequence locks both fighters & pauses round clock
+  if (state.samyakSuper) {
+    if (state.samyakSuper.active) {
+      state.samyakSuperSignals = stepSamyakSuper(state, state.samyakSuper, dt, events);
+      state.activeSuperSlot = state.samyakSuper.attackerSlot;
+      state.activeSuperElapsed = state.samyakSuper.elapsed;
+      state.activeSuperDuration = state.samyakSuper.duration;
+      if (!state.samyakSuper.active) {
+        state.samyakSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.samyakSuper = null;
   }
 
   // Track active non-Sheru Super cutscene timer
@@ -1572,12 +1720,14 @@ export function stepMatch(
           );
         }
       } else {
-        // Trigger projectile at start of active window (Paisa Flex, Swatter Throw, Belan Throw)
+        // Trigger projectile at start of active window (Paisa Flex, Swatter Throw, Belan Throw, Diary Note, Laxmikant Slam)
         if (
           f.action === 'special' &&
           (cfg.special.id === 'currency_burst' ||
             cfg.special.id === 'swatter_throw' ||
-            cfg.special.id === 'belan_throw') &&
+            cfg.special.id === 'belan_throw' ||
+            cfg.special.id === 'diary_note' ||
+            cfg.special.id === 'laxmikant_slam') &&
           prevTime < timing.windup &&
           f.actionTimer >= timing.windup
         ) {
@@ -1899,7 +2049,11 @@ export function stepMatch(
             ? 'SWATTER THROW!'
             : proj.kind === 'belan'
               ? 'BELAN THROW!'
-              : undefined;
+              : proj.kind === 'diary'
+                ? 'DIARY NOTE!'
+                : proj.kind === 'polity'
+                  ? 'LAXMIKANT SLAM!'
+                  : undefined;
       applyHit(
         state,
         attacker,
@@ -2022,9 +2176,14 @@ export function computeCpuInput(
     } else if (cpu.shakti >= 100 && dist < 2.8 && rng() < params.superChance) {
       input.superMove = true;
     } else if (dist > 2.65) {
-      // Long-range policy: throw Belan / Swatter / Paisa Flex / Anda Squash or close gap
+      // Long-range policy: throw Belan / Swatter / Diary Note / Laxmikant Slam / Paisa Flex / Anda Squash or close gap
       const rangedSpecial =
-        cpu.id === 'mausi' || cpu.id === 'billa' || cpu.id === 'sheru' || cpu.id === 'anda';
+        cpu.id === 'mausi' ||
+        cpu.id === 'billa' ||
+        cpu.id === 'sheru' ||
+        cpu.id === 'anda' ||
+        cpu.id === 'father' ||
+        cpu.id === 'samyak';
       if (rangedSpecial && cpu.specialCooldown <= 0 && dist < 5.4 && rng() < params.specialChance) {
         input.special = true;
       } else if (rng() < 0.18) {
@@ -2098,6 +2257,16 @@ const WINNER_SATIRE_HEADLINES: Record<FighterId, string[]> = {
     'SWEET-SHOP AUNTY FLATTENS OPPOSITION WITH BELAN!',
     'EXTRA DESI GHEE KO! MAUSI OWNS THE MOHALLA!',
   ],
+  father: [
+    'FATHER ROY DOLPHUS RUSTICATES THE COMPETITION!',
+    'STRICT PRINCIPAL ENFORCES PIN-DROP SILENCE IN ASSEMBLY!',
+    'RED DIARY NOTE DELIVERED — OPPOSITION SENT TO DETENTION!',
+  ],
+  samyak: [
+    'SAMYAK CRACKS OPPONENT IN FIRST ATTEMPT!',
+    'AIR 1 BEAST MODE: SAMYAK BENCH-PRESSES THE ENTIRE ROSTER!',
+    'POLITY BY MORNING, DEADLIFTS BY NIGHT — SAMYAK SWEEPS MOHALLA!',
+  ],
 };
 
 const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
@@ -2120,6 +2289,14 @@ const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
   mausi: [
     '"My belan slipped only because the laddoo batch was still on the stove!" — Mausi Sweet Mart',
     '"Wait until I bring the heavy iron tawa next round!" — Laddoo Mausi Camp',
+  ],
+  father: [
+    '"The assembly bell rang early — report to my office at 8 AM sharp!" — Principal Office',
+    '"Unacceptable indiscipline! Bring a signed diary note tomorrow." — Father Roy Dolphus',
+  ],
+  samyak: [
+    '"That was just my Prelims warm-up — wait for Mains and Interview!" — Samyak Study Circle',
+    '"Forgot my pre-workout shake today, rematch after leg day!" — Team Samyak',
   ],
 };
 

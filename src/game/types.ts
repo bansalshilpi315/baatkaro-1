@@ -1,12 +1,14 @@
 import type { AndaSuperBeatSignal, AndaSuperState } from './andaSuper';
 import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
+import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
 import type { MausiSuperBeatSignal, MausiSuperState } from './mausiSuper';
 import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
+import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
 
-export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi';
+export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak';
 
-export type StageId = 'mohalla' | 'school' | 'studio' | 'shaadi' | 'railway';
+export type StageId = 'mohalla' | 'school' | 'studio' | 'shaadi' | 'railway' | 'assembly';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
@@ -17,6 +19,7 @@ export type GameScreen =
   | 'loading'
   | 'title'
   | 'select'
+  | 'super_preview'
   | 'playing'
   | 'paused'
   | 'victory';
@@ -48,13 +51,15 @@ export type SpecialMoveKind =
   | 'swatter_throw'
   | 'dharna_shield'
   | 'anda_squash'
-  | 'belan_throw';
+  | 'belan_throw'
+  | 'diary_note'
+  | 'laxmikant_slam';
 
 export interface SpecialMoveConfig {
   id: SpecialMoveKind;
   name: string;
   shortLabel: string;
-  iconKey: 'notes' | 'swatter' | 'shield' | 'drop' | 'belan';
+  iconKey: 'notes' | 'swatter' | 'shield' | 'drop' | 'belan' | 'diary' | 'polity';
   description: string;
   cooldown: number;
   damage: number;
@@ -74,6 +79,7 @@ export interface FighterConfig {
   tagline: string;
   titleBadge: string;
   maxHp: number;
+  attackPowerMultiplier?: number;
   walkSpeed: number;
   jumpVelocity: number;
   punchDamage: number;
@@ -154,7 +160,7 @@ export interface FighterState {
 export interface ProjectileState {
   uid: number;
   ownerSlot: 0 | 1;
-  kind: 'notes' | 'swatter' | 'belan' | 'shockwave';
+  kind: 'notes' | 'swatter' | 'belan' | 'diary' | 'polity' | 'shockwave';
   x: number;
   y: number;
   vx: number;
@@ -250,6 +256,10 @@ export interface MatchState {
   andaSuperSignals: AndaSuperBeatSignal[];
   mausiSuper: MausiSuperState | null;
   mausiSuperSignals: MausiSuperBeatSignal[];
+  fatherSuper: FatherSuperState | null;
+  fatherSuperSignals: FatherSuperBeatSignal[];
+  samyakSuper: SamyakSuperState | null;
+  samyakSuperSignals: SamyakSuperBeatSignal[];
 }
 
 export interface FloatingCallout {

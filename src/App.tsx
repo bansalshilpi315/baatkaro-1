@@ -6,9 +6,17 @@ import { PauseModal } from './components/PauseModal';
 import { PortraitGuard } from './components/PortraitGuard';
 import { SatireNoticeModal } from './components/SatireNoticeModal';
 import { SelectScreen } from './components/SelectScreen';
+import { SettingsModal } from './components/SettingsModal';
+import { SuperPreviewBar } from './components/SuperPreviewBar';
 import { TitleScreen } from './components/TitleScreen';
 import { VictoryScreen } from './components/VictoryScreen';
 import { audioEngine } from './game/audio';
+import {
+  loadCareerStats,
+  recordMatchCareerStats,
+  type CareerStats,
+} from './game/careerStats';
+import { preloadRealFaceTextures } from './game/characters';
 import { DesiShowdownEngine } from './game/engine';
 import type {
   Difficulty,
@@ -75,7 +83,31 @@ function getInitialShaktiParam(): number {
 function getFighterQueryParam(key: string, fallback: FighterId): FighterId {
   if (typeof window === 'undefined') return fallback;
   const raw = new URLSearchParams(window.location.search).get(key);
-  if (raw === 'sheru' || raw === 'billa' || raw === 'neta' || raw === 'anda' || raw === 'mausi') {
+  if (
+    raw === 'sheru' ||
+    raw === 'billa' ||
+    raw === 'neta' ||
+    raw === 'anda' ||
+    raw === 'mausi' ||
+    raw === 'father' ||
+    raw === 'samyak'
+  ) {
+    return raw;
+  }
+  return fallback;
+}
+
+function getStageQueryParam(fallback: StageId): StageId {
+  if (typeof window === 'undefined') return fallback;
+  const raw = new URLSearchParams(window.location.search).get('stage');
+  if (
+    raw === 'mohalla' ||
+    raw === 'school' ||
+    raw === 'studio' ||
+    raw === 'shaadi' ||
+    raw === 'railway' ||
+    raw === 'assembly'
+  ) {
     return raw;
   }
   return fallback;
@@ -85,17 +117,21 @@ export default function App() {
   const autostart = isAutostartRequested();
   const initialP1 = autostart ? getFighterQueryParam('p1', 'sheru') : 'sheru';
   const initialP2 = autostart ? getFighterQueryParam('p2', 'billa') : 'billa';
+  const initialStage = autostart ? getStageQueryParam('mohalla') : 'mohalla';
 
   const [screen, setScreen] = useState<GameScreen>(autostart ? 'playing' : 'notice');
   const [p1Id, setP1Id] = useState<FighterId>(initialP1);
   const [p2Id, setP2Id] = useState<FighterId>(initialP2);
-  const [stageId, setStageId] = useState<StageId>('mohalla');
+  const [stageId, setStageId] = useState<StageId>(initialStage);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [muted, setMuted] = useState(false);
   const [musicMuted, setMusicMuted] = useState(false);
   const [graphics, setGraphics] = useState<GraphicsQuality>('high');
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewFighterId, setPreviewFighterId] = useState<FighterId>(initialP1);
+  const [previewSuperPlaying, setPreviewSuperPlaying] = useState(false);
   const {
     isFullscreen,
     isSupported: fullscreenSupported,
@@ -105,6 +141,7 @@ export default function App() {
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [callouts, setCallouts] = useState<FloatingCallout[]>([]);
   const [matchResult, setMatchResult] = useState<MatchResultSnapshot | null>(null);
+  const [careerStats, setCareerStats] = useState<CareerStats>(() => loadCareerStats());
 
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<DesiShowdownEngine | null>(null);
@@ -143,13 +180,19 @@ export default function App() {
       onClearCallouts: () => setCallouts([]),
       onHeadline: () => {},
       onMatchFinish: (result) => {
+        const updatedStats = recordMatchCareerStats(result.winnerSlot);
+        setCareerStats(updatedStats);
         setMatchResult(result);
         setScreen('victory');
+      },
+      onSuperPreviewStateChange: (isPlaying) => {
+        setPreviewSuperPlaying(isPlaying);
       },
     });
     engineRef.current = engine;
 
     void audioEngine.preloadAllSuperAudios();
+    preloadRealFaceTextures();
 
     if (isAutostartRequested()) {
       const p1RoundsWon = getNumericQueryParam('p1rounds');
@@ -159,7 +202,8 @@ export default function App() {
       const skipIntro = !isAutostartIntroRequested();
       const startP1 = getFighterQueryParam('p1', 'sheru');
       const startP2 = getFighterQueryParam('p2', 'billa');
-      engine.startMatch(startP1, startP2, 'mohalla', 'normal', skipIntro, getInitialShaktiParam(), {
+      const startStage = getStageQueryParam('mohalla');
+      engine.startMatch(startP1, startP2, startStage, 'normal', skipIntro, getInitialShaktiParam(), {
         p1RoundsWon,
         p2RoundsWon,
         p1Hp,
@@ -271,12 +315,52 @@ export default function App() {
     audioEngine.playUiClick();
     setHowToPlayOpen(false);
     setAboutOpen(false);
+    setSettingsOpen(false);
     (document.activeElement as HTMLElement | null)?.blur?.();
     setMatchResult(null);
     setCallouts([]);
     engineRef.current?.startMatch(p1Id, p2Id, stageId, difficulty, false);
     setScreen('playing');
   }, [p1Id, p2Id, stageId, difficulty]);
+
+  const handleStartSuperPreview = useCallback(() => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    setSettingsOpen(false);
+    setHowToPlayOpen(false);
+    setCallouts([]);
+    setPreviewFighterId(p1Id);
+    setPreviewSuperPlaying(false);
+    engineRef.current?.startSuperPreview(p1Id, stageId);
+    setScreen('super_preview');
+  }, [p1Id, stageId]);
+
+  const handlePreviewSwitchFighter = useCallback((id: FighterId) => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    setPreviewFighterId(id);
+    setPreviewSuperPlaying(false);
+    setCallouts([]);
+    engineRef.current?.setSuperPreviewFighter(id);
+  }, []);
+
+  const handlePreviewTriggerSuper = useCallback(() => {
+    audioEngine.unlock();
+    engineRef.current?.triggerPreviewSuper();
+  }, []);
+
+  const handlePreviewSelectAndBack = useCallback(() => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    audioEngine.stopSuperAudio();
+    audioEngine.stopDahiKoAudio();
+    setP1Id(previewFighterId);
+    setPreviewSuperPlaying(false);
+    setCallouts([]);
+    engineRef.current?.setScreen('select');
+    engineRef.current?.setPreviewSelection(previewFighterId, p2Id, stageId, difficulty);
+    setScreen('select');
+  }, [previewFighterId, p2Id, stageId, difficulty]);
 
   const handlePause = useCallback(() => {
     audioEngine.playUiClick();
@@ -405,7 +489,24 @@ export default function App() {
             audioEngine.playUiClick();
             setHowToPlayOpen(true);
           }}
+          onOpenSettings={() => {
+            audioEngine.unlock();
+            audioEngine.playUiClick();
+            setSettingsOpen(true);
+          }}
           onStartFight={handleStartFight}
+        />
+      )}
+
+      {screen === 'super_preview' && (
+        <SuperPreviewBar
+          activeFighterId={previewFighterId}
+          isSuperPlaying={previewSuperPlaying}
+          superBanner={hud.superBanner}
+          callouts={callouts}
+          onSwitchFighter={handlePreviewSwitchFighter}
+          onTriggerSuper={handlePreviewTriggerSuper}
+          onSelectAndBack={handlePreviewSelectAndBack}
         />
       )}
 
@@ -444,12 +545,26 @@ export default function App() {
       {screen === 'victory' && matchResult && (
         <VictoryScreen
           result={matchResult}
+          careerStats={careerStats}
           onRematch={handleStartFight}
           onCharacterSelect={handleQuitToSelect}
         />
       )}
 
-      {/* How to Play & About Modals */}
+      {/* Settings, How to Play & About Modals */}
+      {settingsOpen && screen === 'select' && (
+        <SettingsModal
+          muted={muted}
+          musicMuted={musicMuted}
+          onToggleMute={handleToggleMute}
+          onToggleMusic={handleToggleMusic}
+          onStartSuperPreview={handleStartSuperPreview}
+          onClose={() => {
+            audioEngine.playUiClick();
+            setSettingsOpen(false);
+          }}
+        />
+      )}
       {howToPlayOpen && <HowToPlayModal onClose={() => setHowToPlayOpen(false)} />}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 

@@ -1,9 +1,12 @@
 import { RotateCcw, Users } from 'lucide-react';
-import { FIGHTER_CONFIGS, getFighterPortraitDataUrl } from '../game/characters';
+import { getWinRatePercent, type CareerStats } from '../game/careerStats';
+import { FIGHTER_CONFIGS } from '../game/characters';
 import type { MatchResultSnapshot } from '../game/types';
+import { FighterPortrait } from './FighterPortrait';
 
 interface VictoryScreenProps {
   result: MatchResultSnapshot;
+  careerStats: CareerStats;
   onRematch: () => void;
   onCharacterSelect: () => void;
 }
@@ -21,9 +24,11 @@ function formatTodayEditionDate(): string {
 
 export function VictoryScreen({
   result,
+  careerStats,
   onRematch,
   onCharacterSelect,
 }: VictoryScreenProps) {
+  const winRate = getWinRatePercent(careerStats);
   const winnerCfg =
     result.winnerSlot === 0
       ? FIGHTER_CONFIGS[result.p1Id]
@@ -110,8 +115,8 @@ export function VictoryScreen({
           <div className="mt-3 flex items-end justify-between gap-3 border-t border-[#1c1917]/30 pt-2.5">
             <div className="flex items-end gap-2.5">
               <div className="shrink-0 bg-[#ebe2cc] p-1 shadow-[2px_2px_0_rgba(28,25,23,0.35)]">
-                <img
-                  src={getFighterPortraitDataUrl(winnerCfg.id)}
+                <FighterPortrait
+                  id={winnerCfg.id}
                   alt={winnerCfg.name}
                   className="victory-portrait h-20 w-20 border border-[#1c1917] object-cover grayscale sepia-[0.38] contrast-[1.08]"
                 />
@@ -153,6 +158,32 @@ export function VictoryScreen({
               </span>
               <span className="text-[#facc15]">·</span>
               <span>{result.finishReason === 'ko' ? 'KNOCKOUT' : 'TIME UP'}</span>
+            </div>
+
+            {/* Subtle Persisted Career Stats Counter */}
+            <div
+              data-testid="career-stats-counter"
+              aria-label={`Career stats: ${careerStats.wins} wins, ${careerStats.losses} losses${careerStats.draws > 0 ? `, ${careerStats.draws} draws` : ''}`}
+              className="mt-2 flex items-center justify-between gap-2 rounded border border-white/15 bg-black/45 px-2.5 py-1 font-mono-num text-[11px] font-bold uppercase tracking-wider text-white/75 backdrop-blur-xs"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#facc15]/85">CAREER</span>
+                <span className="text-white/30">|</span>
+                <span className="text-[#86efac]">{careerStats.wins}W</span>
+                <span className="text-white/35">-</span>
+                <span className="text-[#fca5a5]">{careerStats.losses}L</span>
+                {careerStats.draws > 0 && (
+                  <>
+                    <span className="text-white/35">-</span>
+                    <span className="text-[#fde68a]">{careerStats.draws}D</span>
+                  </>
+                )}
+              </div>
+              <span className="text-white/60">
+                {careerStats.currentStreak >= 2
+                  ? `${careerStats.currentStreak} STREAK`
+                  : `${winRate}% WIN`}
+              </span>
             </div>
           </div>
 

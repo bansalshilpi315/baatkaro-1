@@ -38,6 +38,13 @@ export interface FighterRig {
   dharnaRing: THREE.Object3D | null;
   hatPivot: THREE.Group | null;
   mausiPalluGroup: THREE.Group | null;
+  cassockPanels: {
+    frontLeft: THREE.Group;
+    frontRight: THREE.Group;
+    back: THREE.Group;
+    leftSide: THREE.Group;
+    rightSide: THREE.Group;
+  } | null;
   shieldAura: THREE.Mesh;
   superAura: THREE.Mesh;
   face: DynamicFace;
@@ -224,6 +231,7 @@ export function createBaseRigSkeleton(
     dharnaRing: null,
     hatPivot: null,
     mausiPalluGroup: null,
+    cassockPanels: null,
     shieldAura,
     superAura,
     face,
@@ -326,7 +334,8 @@ export function animateFighterRig(
       state.id !== 'billa' &&
       state.id !== 'neta' &&
       state.id !== 'anda' &&
-      state.id !== 'mausi') ||
+      state.id !== 'mausi' &&
+      state.id !== 'samyak') ||
     state.shakti >= 100 ||
     isSheruPaisaFlex;
   if (rig.superAura.visible) {
@@ -354,7 +363,17 @@ export function animateFighterRig(
   // (athletic guard stance, stepping footwork, 3-hit punches, snap/sweep/jump kicks,
   // clinch/throw/whiff grabs, sharp hit stagger, airborne knockdown flip, 2-stage get-up)
   const basePelvisY =
-    state.id === 'billa' ? 0.68 : state.id === 'mausi' ? 0.88 : rig.isEggBody ? 0.68 : 0.92;
+    state.id === 'billa'
+      ? 0.68
+      : state.id === 'mausi'
+        ? 0.88
+        : state.id === 'father'
+          ? 1.06
+          : state.id === 'samyak'
+            ? 1.07
+            : rig.isEggBody
+              ? 0.68
+              : 0.92;
   const pose = computeCombatPose(state, elapsed, basePelvisY, rig.isEggBody);
 
   let pelvisX = pose.pelvisX;
@@ -1256,6 +1275,326 @@ export function animateFighterRig(
         rig.mausiPalluGroup.rotation.z = 0;
       }
     }
+  } else if (state.id === 'father') {
+    if (state.action === 'special') {
+      // DIARY NOTE: Stern upright windup -> authoritative forward pointing snap launching spinning warning slip!
+      const isWindup = atkProgress < 0.25;
+      const wind = isWindup ? atkProgress / 0.25 : 1;
+      const snap = isWindup ? 0 : Math.min(1, (atkProgress - 0.25) / 0.3);
+      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
+      const thrust = snap * (1 - settle * 0.35);
+
+      pelvisX = 0.14 * thrust;
+      pelvisY = basePelvisY - 0.02 * thrust;
+      pelvisRotY = 0;
+      torsoRotX = isWindup ? -0.06 * wind : 0.14 * thrust;
+      torsoRotY = isWindup ? 0.35 * wind : -0.42 * thrust;
+      headRotX = isWindup ? 0.04 : 0.02;
+      headRotY = isWindup ? -0.22 * wind : 0.32 * thrust;
+      // Right arm snaps cleanly straight forward in stern Principal pointing-flick pose
+      rShX = isWindup ? -0.95 - 0.45 * wind : -1.56 * thrust - 0.55 * (1 - thrust);
+      rShZ = isWindup ? 0.35 : 0.06;
+      rElbX = isWindup ? -1.35 : -0.08;
+      // Left arm poised firmly across chest/waist holding composure
+      lShX = -0.35;
+      lShZ = -0.25;
+      lElbX = -1.15;
+    } else if (state.action === 'super') {
+      // RUSTICATION ORDER! (5.2s):
+      // 0.0–1.5s: Dignified hovering levitation (calm raised forearms, composed upright posture)
+      // 1.5–2.8s: Commanding arms-out summon as 14 "RUSTICATE" papers orbit around him
+      // 2.8–4.65s: Both palms thrust forward & downward launching the homing paper barrage + Master Notice slam
+      // 4.65–5.2s: Smooth dignified descent back to fighting stance
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 1.5) {
+        const rise = Math.min(1, t / 1.25);
+        pelvisY = basePelvisY + 0.02;
+        pelvisRotX = -0.04 * rise;
+        torsoRotX = -0.08 * rise;
+        headRotX = 0.06;
+        // Dignified calm levitation — arms smoothly raising slightly outward
+        lShX = -0.45 - 0.35 * rise;
+        lShZ = -0.28 - 0.32 * rise;
+        lElbX = -0.95 + 0.25 * rise;
+        rShX = -0.45 - 0.35 * rise;
+        rShZ = 0.28 + 0.32 * rise;
+        rElbX = -0.95 + 0.25 * rise;
+        lHipX = -0.14 + Math.sin(elapsed * 3.2) * 0.04;
+        lKneeX = 0.22;
+        rHipX = -0.06 - Math.sin(elapsed * 3.2) * 0.04;
+        rKneeX = 0.14;
+      } else if (t < 2.8) {
+        // Orbiting red "RUSTICATE" papers vortex — commanding open-palm summon
+        const pulse = Math.sin((t - 1.5) * 4.5);
+        pelvisY = basePelvisY + 0.02;
+        pelvisRotX = -0.05;
+        torsoRotX = -0.12;
+        headRotX = 0.04;
+        lShX = -1.15 + pulse * 0.08;
+        lShZ = -0.78;
+        lElbX = -0.42;
+        rShX = -1.15 - pulse * 0.08;
+        rShZ = 0.78;
+        rElbX = -0.42;
+        lHipX = -0.18 + Math.sin(elapsed * 3.6) * 0.04;
+        lKneeX = 0.26;
+        rHipX = -0.08 - Math.sin(elapsed * 3.6) * 0.04;
+        rKneeX = 0.16;
+      } else if (t < 4.65) {
+        // Dual-palm forward/downward thrust launching barrage -> authoritative downward Master Stamp slam at 4.35s!
+        jointAlpha = 1 - Math.exp(-24 * Math.max(dt, 0.008));
+        const isMasterSlam = t >= 4.25;
+        const volley = Math.sin((t - 2.8) * 16) * 0.12;
+        pelvisY = basePelvisY + 0.02;
+        pelvisRotX = 0.06;
+        torsoRotX = isMasterSlam ? 0.22 : 0.14;
+        headRotX = 0.12;
+        if (isMasterSlam) {
+          const slamDrop = Math.min(1, (t - 4.25) / 0.25);
+          lShX = -1.85 + slamDrop * 0.85;
+          lShZ = -0.18;
+          lElbX = -0.18;
+          rShX = -1.85 + slamDrop * 0.85;
+          rShZ = 0.18;
+          rElbX = -0.18;
+        } else {
+          lShX = -1.32 + volley;
+          lShZ = -0.22;
+          lElbX = -0.22;
+          rShX = -1.32 - volley;
+          rShZ = 0.22;
+          rElbX = -0.22;
+        }
+        lHipX = -0.22;
+        lKneeX = 0.3;
+        rHipX = -0.1;
+        rKneeX = 0.18;
+      } else {
+        // Smooth descent back to composed fighting guard
+        const landT = Math.min(1, (t - 4.65) / 0.55);
+        const air = 1 - landT;
+        pelvisY = (basePelvisY + 0.02) * air + pose.pelvisY * landT;
+        pelvisRotX = 0.02 * air + pose.pelvisRotX * landT;
+        torsoRotX = 0.06 * air + pose.torsoRotX * landT;
+        lShX = -0.65 * air + pose.lShX * landT;
+        lShZ = -0.24 * air + pose.lShZ * landT;
+        lElbX = -0.85 * air + pose.lElbX * landT;
+        rShX = -0.65 * air + pose.rShX * landT;
+        rShZ = 0.24 * air + pose.rShZ * landT;
+        rElbX = -0.85 * air + pose.rElbX * landT;
+        lHipX = -0.14 * air + pose.lHipX * landT;
+        lKneeX = 0.2 * air + pose.lKneeX * landT;
+        rHipX = -0.06 * air + pose.rHipX * landT;
+        rKneeX = 0.12 * air + pose.rKneeX * landT;
+      }
+    } else if (state.action === 'victory') {
+      // Dignified, composed Principal victory stance (hands calmly clasped / stern upright nod)
+      pelvisY = basePelvisY + Math.sin(elapsed * 2.2) * 0.012;
+      torsoRotX = -0.05;
+      torsoRotY = 0;
+      headRotX = 0.04 + Math.sin(elapsed * 2.2) * 0.03;
+      lShX = -0.45;
+      lShZ = -0.18;
+      lElbX = -1.05;
+      rShX = -0.95;
+      rShZ = 0.24;
+      rElbX = -0.65;
+    }
+  } else if (state.id === 'samyak') {
+    if (state.action === 'special') {
+      // LAXMIKANT SLAM: Muscular arm windup -> explosive torso-twisting hurl of thick red Indian Polity book!
+      const isWindup = atkProgress < 0.27;
+      const wind = isWindup ? atkProgress / 0.27 : 1;
+      const snap = isWindup ? 0 : Math.min(1, (atkProgress - 0.27) / 0.28);
+      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
+      const hurl = snap * (1 - settle * 0.35);
+
+      pelvisX = 0.18 * hurl;
+      pelvisY = basePelvisY - 0.04 * hurl;
+      pelvisRotY = 0;
+      torsoRotX = isWindup ? -0.12 * wind : 0.18 * hurl;
+      torsoRotY = isWindup ? 0.56 * wind : -0.52 * hurl;
+      headRotX = 0.02;
+      headRotY = isWindup ? -0.34 * wind : 0.38 * hurl;
+      rShX = isWindup ? -1.45 * wind - 0.4 : -1.62 * hurl - 0.45 * (1 - hurl);
+      rShZ = isWindup ? 0.62 * wind : 0.14;
+      rElbX = isWindup ? -1.35 * wind : -0.1;
+      lShX = -0.45;
+      lShZ = -0.42;
+      lElbX = -1.2;
+    } else if (state.action === 'super') {
+      // MISSION IAS: BEAST MODE! (4.8s):
+      // 0.0-1.8s: Fierce Double-Bicep Bodybuilder Flex (arms out, elbows curled tight, chest puffed!)
+      // 1.8-3.5s: Wide power stance launching orbital UPSC books + heavy iron gym dumbbells
+      // 3.5-4.10s: Explosive superhero leap -> meteoric fist-first ground-slam dive ("IAS · AIR 1")
+      // 4.10-4.8s: Smooth rise from superhero crouch -> casual one-hand black sunglasses adjust -> guard!
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 1.8) {
+        // Phase 1: Iconic Front Double-Bicep Bodybuilder Flex angled heroically 3/4 toward camera!
+        const flexIn = Math.min(1, t / 0.28);
+        const pump = Math.sin(t * 7.5) * 0.06;
+        pelvisY = basePelvisY - 0.03 * flexIn;
+        pelvisRotX = -0.04 * flexIn;
+        pelvisRotY = -0.58 * state.facing * flexIn;
+        torsoRotX = -0.14 * flexIn;
+        torsoRotY = -0.18 * state.facing * flexIn;
+        headRotX = -0.04;
+        headRotY = 0.08 * state.facing * flexIn;
+
+        // Abduct upper arms wide horizontally & curl elbows UPWARD toward head (Arnold double-bicep!)
+        lShX = -0.12 * flexIn;
+        lShY = 0;
+        lShZ = (-1.62 + pump) * flexIn;
+        lElbX = -0.18 * flexIn;
+        lElbZ = (-1.88 - pump) * flexIn;
+
+        rShX = -0.12 * flexIn;
+        rShY = 0;
+        rShZ = (1.62 - pump) * flexIn;
+        rElbX = -0.18 * flexIn;
+        rElbZ = (1.88 + pump) * flexIn;
+
+        lHipX = -0.14 * flexIn;
+        lHipZ = -0.18 * flexIn;
+        lKneeX = 0.24 * flexIn;
+        rHipX = 0.08 * flexIn;
+        rHipZ = 0.18 * flexIn;
+        rKneeX = 0.18 * flexIn;
+      } else if (t < 3.5) {
+        // Phase 2: Summon orbital UPSC books & dumbbells (1.8-2.22s) -> explosive homing volley (2.22-3.5s)
+        jointAlpha = 1 - Math.exp(-24 * Math.max(dt, 0.008));
+        const isVolley = t >= 2.22;
+        const volleyWave = Math.sin((t - 2.22) * 18) * 0.16;
+        pelvisY = basePelvisY - 0.04;
+        pelvisRotX = 0.05;
+        torsoRotX = isVolley ? 0.14 : -0.1;
+        torsoRotY = isVolley ? Math.sin((t - 2.22) * 12) * 0.18 : 0;
+        headRotX = 0.04;
+
+        if (!isVolley) {
+          lShX = -0.95;
+          lShZ = -0.85;
+          lElbX = -0.55;
+          rShX = -0.95;
+          rShZ = 0.85;
+          rElbX = -0.55;
+        } else {
+          lShX = -1.36 + volleyWave;
+          lShZ = -0.24;
+          lElbX = -0.24;
+          rShX = -1.36 - volleyWave;
+          rShZ = 0.24;
+          rElbX = -0.24;
+        }
+        lHipX = -0.2;
+        lKneeX = 0.34;
+        rHipX = 0.16;
+        rKneeX = 0.22;
+      } else if (t < 4.1) {
+        // Phase 3a: Explosive superhero leap -> meteoric right-fist ground-slam dive!
+        jointAlpha = 1 - Math.exp(-28 * Math.max(dt, 0.008));
+        const isDive = t >= 3.86;
+        pelvisY = basePelvisY - 0.02;
+        pelvisRotX = isDive ? 0.32 : -0.14;
+        torsoRotX = isDive ? 0.38 : -0.18;
+        torsoRotY = isDive ? -0.25 : 0.22;
+        headRotX = isDive ? 0.24 : -0.12;
+        rShX = isDive ? -1.45 : -2.75;
+        rShZ = isDive ? 0.15 : 0.35;
+        rElbX = isDive ? -0.12 : -0.85;
+        lShX = isDive ? 0.45 : -0.85;
+        lShZ = -0.55;
+        lElbX = -1.05;
+        lHipX = isDive ? -0.45 : -0.62;
+        lKneeX = isDive ? 0.65 : 1.05;
+        rHipX = isDive ? 0.25 : -0.22;
+        rKneeX = isDive ? 0.35 : 0.62;
+      } else if (t < 4.35) {
+        // Phase 3b: Iconic 3-point superhero ground-slam landing crouch!
+        jointAlpha = 1 - Math.exp(-26 * Math.max(dt, 0.008));
+        const riseT = Math.min(1, (t - 4.1) / 0.25);
+        pelvisY = basePelvisY - 0.34 * (1 - riseT * 0.65);
+        pelvisRotX = 0.28 * (1 - riseT * 0.6);
+        torsoRotX = 0.46 * (1 - riseT * 0.65);
+        headRotX = -0.22 * (1 - riseT * 0.6);
+        rShX = -1.35 * (1 - riseT * 0.45);
+        rShZ = 0.18;
+        rElbX = -0.12 - riseT * 0.4;
+        lShX = 0.45 * (1 - riseT);
+        lShZ = -0.58 * (1 - riseT * 0.5);
+        lElbX = -0.85;
+        lHipX = -0.92 * (1 - riseT * 0.6);
+        lKneeX = 1.38 * (1 - riseT * 0.6);
+        rHipX = -0.58 * (1 - riseT * 0.6);
+        rKneeX = 1.05 * (1 - riseT * 0.6);
+      } else {
+        // Phase 3c (4.35-4.8s): Cool upright rise & casual one-hand black sunglasses adjust!
+        const adjT = Math.min(1, (t - 4.35) / 0.24);
+        const settleT = t > 4.64 ? (t - 4.64) / 0.16 : 0;
+        const hold = adjT * (1 - settleT);
+        pelvisY = basePelvisY;
+        pelvisRotX = 0;
+        torsoRotX = -0.05 * hold;
+        torsoRotY = -0.14 * hold;
+        headRotX = -0.04 * hold;
+        headRotY = 0.16 * hold;
+        rShX = -1.28 * hold + pose.rShX * (1 - hold);
+        rShZ = 0.32 * hold + pose.rShZ * (1 - hold);
+        rElbX = -1.78 * hold + pose.rElbX * (1 - hold);
+        lShX = -0.24 * hold + pose.lShX * (1 - hold);
+        lShZ = -0.22 * hold + pose.lShZ * (1 - hold);
+        lElbX = -0.58 * hold + pose.lElbX * (1 - hold);
+        lHipX = pose.lHipX;
+        lKneeX = pose.lKneeX;
+        rHipX = pose.rHipX;
+        rKneeX = pose.rKneeX;
+      }
+    } else if (state.action === 'victory') {
+      // Proud bodybuilder front double-bicep victory flex facing 3/4 toward camera!
+      const pump = Math.sin(elapsed * 3.8) * 0.05;
+      pelvisY = basePelvisY - 0.02 + Math.sin(elapsed * 2.4) * 0.014;
+      pelvisRotY = -0.58 * state.facing;
+      torsoRotX = -0.12;
+      torsoRotY = -0.16 * state.facing;
+      headRotX = -0.04;
+      headRotY = 0.08 * state.facing;
+      lShX = -0.12;
+      lShY = 0;
+      lShZ = -1.6 + pump;
+      lElbX = -0.18;
+      lElbZ = -1.86 - pump;
+      rShX = -0.12;
+      rShY = 0;
+      rShZ = 1.6 - pump;
+      rElbX = -0.18;
+      rElbZ = 1.86 + pump;
+    }
   }
 
   // Opponent flattened horizontally on the arena floor underneath Anda Bhai's ANDA SQUASH!
@@ -1321,4 +1660,31 @@ export function animateFighterRig(
   rig.rightHip.rotation.y = lerpAngle(rig.rightHip.rotation.y, rHipY, jointAlpha);
   rig.rightHip.rotation.z = lerpAngle(rig.rightHip.rotation.z, rHipZ, jointAlpha);
   rig.rightKnee.rotation.x = lerpAngle(rig.rightKnee.rotation.x, rKneeX, jointAlpha);
+
+  // Articulated pleated lower cassock panels for Father Roy Dolphus:
+  // smoothly follow leg kicks/sweeps with zero ugly mesh clipping, plus gentle air ripple while levitating!
+  if (rig.cassockPanels) {
+    const panels = rig.cassockPanels;
+    const airRipple =
+      state.action === 'super' && state.y > 0.05
+        ? Math.min(1, state.y / 1.6) * 0.14
+        : 0;
+    const rippleA = Math.sin(elapsed * 11.5) * airRipple;
+    const rippleB = Math.cos(elapsed * 9.8) * airRipple;
+
+    const lFront = Math.min(0, rig.leftHip.rotation.x) * 0.9 - 0.05 + rippleA;
+    const rFront = Math.min(0, rig.rightHip.rotation.x) * 0.9 - 0.05 - rippleA;
+    const backFlare =
+      Math.max(0, rig.leftHip.rotation.x, rig.rightHip.rotation.x) * 0.88 + 0.06 + rippleB;
+    const leftSideFlare =
+      Math.min(0, rig.leftHip.rotation.z) * 0.85 - 0.04 - Math.abs(rippleA) * 0.7;
+    const rightSideFlare =
+      Math.max(0, rig.rightHip.rotation.z) * 0.85 + 0.04 + Math.abs(rippleB) * 0.7;
+
+    panels.frontLeft.rotation.x = lerpAngle(panels.frontLeft.rotation.x, lFront, jointAlpha);
+    panels.frontRight.rotation.x = lerpAngle(panels.frontRight.rotation.x, rFront, jointAlpha);
+    panels.back.rotation.x = lerpAngle(panels.back.rotation.x, backFlare, jointAlpha);
+    panels.leftSide.rotation.z = lerpAngle(panels.leftSide.rotation.z, leftSideFlare, jointAlpha);
+    panels.rightSide.rotation.z = lerpAngle(panels.rightSide.rotation.z, rightSideFlare, jointAlpha);
+  }
 }

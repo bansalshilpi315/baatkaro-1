@@ -1711,6 +1711,360 @@ function buildRailwayStation(anisotropy: number): StageInstance {
   };
 }
 
+function createAssemblyCourtyardTexture(anisotropy: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
+
+  // Warm sun-baked Indian school courtyard stone pavers
+  ctx.fillStyle = '#D6CBB8';
+  ctx.fillRect(0, 0, 512, 512);
+
+  const tile = 64;
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const shade = ((row + col) % 2 === 0 ? 0 : -10) + ((row * 3 + col * 5) % 7) - 3;
+      const r = 214 + shade;
+      const g = 202 + shade;
+      const b = 183 + shade;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(col * tile + 2, row * tile + 2, tile - 4, tile - 4);
+    }
+  }
+
+  // Crisp assembly white chalk lineup guide lines
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.fillRect(0, 248, 512, 12);
+
+  // Grout lines
+  ctx.strokeStyle = 'rgba(115, 102, 86, 0.35)';
+  ctx.lineWidth = 3;
+  for (let i = 0; i <= 512; i += tile) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, 512);
+    ctx.moveTo(0, i);
+    ctx.lineTo(512, i);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(9, 4.5);
+  tex.anisotropy = anisotropy;
+  return tex;
+}
+
+function createSchoolFacadeSignTexture(anisotropy: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 128;
+  const ctx = c.getContext('2d')!;
+
+  ctx.fillStyle = '#0F294A';
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.strokeStyle = '#FACC15';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(8, 8, 496, 112);
+
+  ctx.fillStyle = '#FEF08A';
+  ctx.font = '900 30px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ST. ROY CONVENT SCHOOL', 256, 48);
+
+  ctx.fillStyle = '#CBE6F5';
+  ctx.font = '700 18px sans-serif';
+  ctx.fillText('DISCIPLINE · EXCELLENCE · PIN-DROP SILENCE', 256, 92);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = anisotropy;
+  return tex;
+}
+
+function buildSchoolAssemblyGround(anisotropy: number): StageInstance {
+  const group = new THREE.Group();
+  let excitement = 0;
+
+  // 1. Tiled School Assembly Courtyard Floor (warm stone tint so white cassock & uniforms pop crisply)
+  const floorTex = createAssemblyCourtyardTexture(anisotropy);
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(88, 52),
+    new THREE.MeshStandardMaterial({
+      color: 0xd5cfc4,
+      map: floorTex,
+      roughness: 0.9,
+      metalness: 0.01,
+      envMapIntensity: 0.2,
+    }),
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  group.add(ground);
+
+  // Subtle decorative brick courtyard border behind fighting plane
+  const curbMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.88, envMapIntensity: 0.18 });
+  const backCurb = new THREE.Mesh(new THREE.BoxGeometry(46, 0.24, 0.6), curbMat);
+  backCurb.position.set(0, 0.12, -4.6);
+  backCurb.receiveShadow = true;
+  group.add(backCurb);
+
+  // 2. Classic Indian Convent / Heritage School Building Facade with Arches & Windows
+  const plasterTex = createPlasterWallTexture('#DCC39B', anisotropy);
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: plasterTex,
+    roughness: 0.9,
+    envMapIntensity: 0.18,
+  });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xefe5d2, roughness: 0.84, envMapIntensity: 0.18 });
+  const terracottaMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.82, envMapIntensity: 0.2 });
+  const archShadowMat = new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 0.92, envMapIntensity: 0.15 });
+  const windowGlassMat = new THREE.MeshStandardMaterial({
+    color: 0x7dd3fc,
+    roughness: 0.26,
+    metalness: 0.3,
+  });
+  const shutterMat = new THREE.MeshStandardMaterial({ color: 0x0369a1, roughness: 0.68, envMapIntensity: 0.2 });
+
+  // Main long two-story school building facade spanning x = -22 to +22
+  const mainBuilding = new THREE.Mesh(new THREE.BoxGeometry(44, 7.6, 2.2), wallMat);
+  mainBuilding.position.set(0, 3.8, -8.2);
+  mainBuilding.receiveShadow = true;
+  group.add(mainBuilding);
+
+  // Terracotta cornice & roof parapet trim
+  const roofBand = new THREE.Mesh(new THREE.BoxGeometry(44.6, 0.55, 2.55), terracottaMat);
+  roofBand.position.set(0, 7.75, -8.2);
+  const midLedge = new THREE.Mesh(new THREE.BoxGeometry(44.4, 0.28, 2.45), terracottaMat);
+  midLedge.position.set(0, 4.15, -8.15);
+  group.add(roofBand, midLedge);
+
+  // Central School Entrance Pediment & Signboard ("ST. ROY CONVENT SCHOOL") clearly visible in 2.5D fight camera
+  const pediment = new THREE.Mesh(new THREE.BoxGeometry(8.8, 1.5, 2.55), wallMat);
+  pediment.position.set(0, 8.65, -8.15);
+  const pedimentCap = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.34, 2.75), terracottaMat);
+  pedimentCap.position.set(0, 9.55, -8.15);
+  group.add(pediment, pedimentCap);
+
+  const signTex = createSchoolFacadeSignTexture(anisotropy);
+  const schoolSign = new THREE.Mesh(
+    new THREE.BoxGeometry(7.6, 1.25, 0.14),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: signTex,
+      roughness: 0.45,
+      envMapIntensity: 0.2,
+    }),
+  );
+  schoolSign.position.set(0, 5.1, -6.98);
+  group.add(schoolSign);
+
+  // Ground-floor arched corridor colonnade + upper-story classroom windows
+  const archPositions = [-16.5, -13.2, -9.9, -6.6, -3.3, 0, 3.3, 6.6, 9.9, 13.2, 16.5];
+  archPositions.forEach((ax) => {
+    // Recessed dark arch doorway/corridor opening
+    const recess = new THREE.Mesh(new THREE.BoxGeometry(2.1, 3.0, 0.25), archShadowMat);
+    recess.position.set(ax, 1.65, -7.05);
+    group.add(recess);
+
+    // Arched top cream trim
+    const archTop = new THREE.Mesh(
+      new THREE.TorusGeometry(1.05, 0.16, 8, 16, Math.PI),
+      trimMat,
+    );
+    archTop.position.set(ax, 2.85, -6.95);
+    group.add(archTop);
+
+    // Classic cream veranda pillar between bays
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.0, 0.55), trimMat);
+    pillar.position.set(ax + 1.65, 2.0, -6.92);
+    group.add(pillar);
+
+    // Upper-story classroom windows (skip center directly behind signboard)
+    if (Math.abs(ax) > 4.2) {
+      const winFrame = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.55, 0.18), shutterMat);
+      winFrame.position.set(ax, 5.65, -7.05);
+      const winGlass = new THREE.Mesh(new THREE.BoxGeometry(1.48, 1.24, 0.22), windowGlassMat);
+      winGlass.position.set(ax, 5.65, -7.03);
+      group.add(winFrame, winGlass);
+    }
+  });
+
+  // 3. Raised School Assembly Podium + Microphone Stand (center-left background landmark)
+  const podiumGroup = new THREE.Group();
+  const stageDeckMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.78 });
+  const podiumWoodMat = new THREE.MeshStandardMaterial({ color: 0x7c2d12, roughness: 0.52 });
+  const podiumGoldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, metalness: 0.6 });
+  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.88 });
+
+  const dais = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.55, 2.2), stageDeckMat);
+  dais.position.y = 0.275;
+  dais.receiveShadow = true;
+  const daisCarpet = new THREE.Mesh(
+    new THREE.BoxGeometry(5.2, 0.04, 1.9),
+    new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.85 }),
+  );
+  daisCarpet.position.y = 0.56;
+  podiumGroup.add(dais, daisCarpet);
+
+  // Wooden Principal Lectern + Gold Emblem + Mic
+  const lectern = new THREE.Mesh(new THREE.BoxGeometry(0.82, 1.18, 0.62), podiumWoodMat);
+  lectern.position.set(0, 1.15, 0.35);
+  lectern.castShadow = true;
+  const emblem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 14), podiumGoldMat);
+  emblem.rotation.x = Math.PI / 2;
+  emblem.position.set(0, 1.32, 0.68);
+  const micStem = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.34, 8), chromeMat);
+  micStem.position.set(0.14, 1.88, 0.38);
+  micStem.rotation.x = 0.28;
+  const micHead = new THREE.Mesh(
+    new THREE.SphereGeometry(0.045, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 }),
+  );
+  micHead.position.set(0.14, 2.04, 0.44);
+  podiumGroup.add(lectern, emblem, micStem, micHead);
+  podiumGroup.position.set(-2.6, 0, -5.0);
+  group.add(podiumGroup);
+
+  // 4. Tall School Flagpole + Gently Waving Institutional Pennant (center-right landmark)
+  const flagGroup = new THREE.Group();
+  const flagBase = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 0.52, 12), trimMat);
+  flagBase.position.y = 0.26;
+  const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 7.6, 12), chromeMat);
+  flagPole.position.y = 4.0;
+  flagPole.castShadow = true;
+  const flagFinial = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), podiumGoldMat);
+  flagFinial.position.y = 7.85;
+  flagGroup.add(flagBase, flagPole, flagFinial);
+
+  const pennantPivot = new THREE.Group();
+  pennantPivot.position.set(0.06, 7.15, 0);
+  const pennantTop = new THREE.Mesh(
+    new THREE.BoxGeometry(1.75, 0.34, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.7 }),
+  );
+  pennantTop.position.set(0.88, 0.34, 0);
+  const pennantMid = new THREE.Mesh(
+    new THREE.BoxGeometry(1.75, 0.34, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.7 }),
+  );
+  pennantMid.position.set(0.88, 0, 0);
+  const pennantBot = new THREE.Mesh(
+    new THREE.BoxGeometry(1.75, 0.34, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.7 }),
+  );
+  pennantBot.position.set(0.88, -0.34, 0);
+  pennantPivot.add(pennantTop, pennantMid, pennantBot);
+  flagGroup.add(pennantPivot);
+  flagGroup.position.set(3.2, 0, -5.1);
+  group.add(flagGroup);
+
+  // 5. Flanking Courtyard Ashoka Trees on Far Left & Far Right
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.82 });
+  [-15.6, -11.8, 11.8, 15.6].forEach((tx) => {
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 2.2, 8), trunkMat);
+    trunk.position.y = 1.1;
+    const crown1 = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.8, 10), leafMat);
+    crown1.position.y = 3.2;
+    const crown2 = new THREE.Mesh(new THREE.ConeGeometry(0.85, 2.4, 10), leafMat);
+    crown2.position.y = 4.6;
+    tree.add(trunk, crown1, crown2);
+    tree.position.set(tx, 0, -5.6);
+    group.add(tree);
+  });
+
+  // 6. Left & Right Flanking Cheering School Assembly Crowds (uniform white shirts & navy pants!)
+  const signDisciplineTex = createCrowdSignTexture('DISCIPLINE!', '#DC2626', '#FEF08A', '#FFFFFF', anisotropy);
+  const signSilenceTex = createCrowdSignTexture('PIN-DROP SILENCE!', '#0284C7', '#FFFFFF', '#FEF08A', anisotropy);
+
+  const npcs: AmbientNpc[] = [];
+  const leftSpecs: Array<[number, number, number, 'placard' | 'none', THREE.CanvasTexture | undefined, boolean]> = [
+    [-8.9, -3.15, 0xf8fafc, 'placard', signDisciplineTex, false],
+    [-10.1, -3.65, 0xe0f2fe, 'none', undefined, false],
+    [-11.3, -3.2, 0xf8fafc, 'placard', signSilenceTex, false],
+    [-12.5, -3.7, 0xf8fafc, 'none', undefined, true],
+    [-13.7, -3.25, 0xe0f2fe, 'placard', signDisciplineTex, true],
+  ];
+  leftSpecs.forEach(([sx, sz, shirt, prop, tex, isSecondary], idx) => {
+    const student = createLowPolyNpc({
+      shirtColor: shirt,
+      pantColor: 0x1e3a5f,
+      mode: 'supporter',
+      prop,
+      signTexture: tex,
+      faceYaw: 0.28,
+      x: sx,
+      z: sz,
+      phase: idx * 0.85,
+      isSecondary,
+    });
+    group.add(student.group);
+    npcs.push(student);
+  });
+
+  const rightSpecs: Array<[number, number, number, 'placard' | 'none', THREE.CanvasTexture | undefined, boolean]> = [
+    [8.9, -3.15, 0xf8fafc, 'placard', signSilenceTex, false],
+    [10.1, -3.65, 0xe0f2fe, 'none', undefined, false],
+    [11.3, -3.2, 0xf8fafc, 'placard', signDisciplineTex, false],
+    [12.5, -3.7, 0xf8fafc, 'none', undefined, true],
+    [13.7, -3.25, 0xe0f2fe, 'placard', signSilenceTex, true],
+  ];
+  rightSpecs.forEach(([sx, sz, shirt, prop, tex, isSecondary], idx) => {
+    const student = createLowPolyNpc({
+      shirtColor: shirt,
+      pantColor: 0x1e3a5f,
+      mode: 'supporter',
+      prop,
+      signTexture: tex,
+      faceYaw: -0.28,
+      x: sx,
+      z: sz,
+      phase: idx * 0.85 + 1.2,
+      isSecondary,
+    });
+    group.add(student.group);
+    npcs.push(student);
+  });
+
+  return {
+    id: 'assembly',
+    group,
+    backgroundColor: 0x8cc8f2,
+    fogColor: 0x9fd2f5,
+    fogNear: 28,
+    fogFar: 64,
+    keyLightColor: 0xfff3dc,
+    keyLightIntensity: 1.62,
+    hemiSkyColor: 0xbae6fd,
+    hemiGroundColor: 0x6b5a47,
+    hemiIntensity: 0.66,
+    rimLightColor: 0xfef08a,
+    rimLightIntensity: 0.92,
+    update(elapsed, dt) {
+      excitement = Math.max(0, excitement - dt);
+      pennantPivot.rotation.y = Math.sin(elapsed * 2.6) * 0.24;
+      pennantPivot.rotation.z = Math.cos(elapsed * 3.4) * 0.05;
+      updateAmbientNpcs(npcs, elapsed, dt, excitement);
+    },
+    triggerExcitement(amount) {
+      excitement = Math.min(2.0, Math.max(excitement, amount));
+    },
+    setLowGraphics(low) {
+      npcs.forEach((n) => {
+        if (n.isSecondary) n.group.visible = !low;
+      });
+    },
+    dispose: () => disposeGroup(group, [floorTex, plasterTex, signTex, signDisciplineTex, signSilenceTex]),
+  };
+}
+
 export function buildStage(id: StageId, anisotropy = 4): StageInstance {
   switch (id) {
     case 'mohalla':
@@ -1723,5 +2077,7 @@ export function buildStage(id: StageId, anisotropy = 4): StageInstance {
       return buildShaadiPandal(anisotropy);
     case 'railway':
       return buildRailwayStation(anisotropy);
+    case 'assembly':
+      return buildSchoolAssemblyGround(anisotropy);
   }
 }

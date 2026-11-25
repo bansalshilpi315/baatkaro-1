@@ -2,9 +2,43 @@ import * as THREE from 'three';
 import type { FighterId } from '../types';
 import { FIGHTER_CONFIGS } from './configs';
 import { createDynamicFace } from './faceCanvas';
+import { bindRealPhotoFaceShell } from './photoFaceLoader';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
 const sharedFabricWeaveCache = new Map<string, THREE.CanvasTexture>();
+let sharedSilhouetteOutlineMat: THREE.MeshBasicMaterial | null = null;
+
+function getSilhouetteOutlineMat(): THREE.MeshBasicMaterial {
+  if (!sharedSilhouetteOutlineMat) {
+    sharedSilhouetteOutlineMat = new THREE.MeshBasicMaterial({
+      color: 0x161d29,
+      side: THREE.BackSide,
+    });
+  }
+  return sharedSilhouetteOutlineMat;
+}
+
+/**
+ * Adds a sleek, subtle dark inverted-hull rim outline on key silhouette meshes
+ * so characters with light fabrics or warm skin pop sharply against bright stages.
+ */
+function attachSubtleOutline(
+  parent: THREE.Object3D,
+  sourceMesh: THREE.Mesh,
+  pad = 1.032,
+): void {
+  const outline = new THREE.Mesh(sourceMesh.geometry, getSilhouetteOutlineMat());
+  outline.position.copy(sourceMesh.position);
+  outline.rotation.copy(sourceMesh.rotation);
+  outline.scale.set(
+    sourceMesh.scale.x * pad,
+    sourceMesh.scale.y * pad,
+    sourceMesh.scale.z * pad,
+  );
+  outline.castShadow = false;
+  outline.receiveShadow = false;
+  parent.add(outline);
+}
 
 /**
  * Generates and caches a lightweight 128x128 procedural woven cloth CanvasTexture
@@ -2951,6 +2985,1262 @@ function buildLaddooMausi(rig: FighterRig): void {
   rig.handProp = belan;
 }
 
+let sharedFatherCassockTex: THREE.CanvasTexture | null = null;
+let sharedFatherVestTex: THREE.CanvasTexture | null = null;
+
+function createFatherCassockTexture(): THREE.CanvasTexture {
+  if (sharedFatherCassockTex) return sharedFatherCassockTex;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d')!;
+
+  // Clean pleated off-white clerical cotton cassock (#F0F2F5) with vertical shadow folds
+  ctx.fillStyle = '#F0F2F5';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Tailored vertical pleated fabric shadow folds so the closed cassock reads with crisp 3D depth
+  for (let x = 0; x < 256; x += 25.6) {
+    const grad = ctx.createLinearGradient(x, 0, x + 25.6, 0);
+    grad.addColorStop(0, 'rgba(78, 96, 122, 0.36)');
+    grad.addColorStop(0.22, 'rgba(255, 255, 255, 0.22)');
+    grad.addColorStop(0.74, 'rgba(186, 198, 214, 0.18)');
+    grad.addColorStop(1, 'rgba(78, 96, 122, 0.36)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, 0, 25.6, 256);
+  }
+
+  // Fine subtle cotton weave grain
+  ctx.fillStyle = 'rgba(51, 65, 85, 0.06)';
+  for (let y = 0; y < 256; y += 6) {
+    ctx.fillRect(0, y, 256, 1.5);
+  }
+
+  // Crisp bottom hem seam line
+  ctx.fillStyle = 'rgba(71, 85, 105, 0.45)';
+  ctx.fillRect(0, 240, 256, 5);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  sharedFatherCassockTex = tex;
+  return tex;
+}
+
+function createFatherNehruVestTexture(): THREE.CanvasTexture {
+  if (sharedFatherVestTex) return sharedFatherVestTex;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d')!;
+
+  // Richer crisp powder/sky-blue matte cotton Nehru vest (#7EC4E6) that contrasts cleanly with white cassock
+  ctx.fillStyle = '#7EC4E6';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Subtle cross-woven Nehru cotton grain
+  ctx.fillStyle = 'rgba(18, 64, 98, 0.14)';
+  for (let x = 0; x < 256; x += 6) {
+    ctx.fillRect(x, 0, 1.5, 256);
+  }
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  for (let y = 0; y < 256; y += 6) {
+    ctx.fillRect(0, y, 256, 1.5);
+  }
+
+  // Clearly readable darker tailored princess-seam lines
+  ctx.strokeStyle = 'rgba(15, 58, 92, 0.56)';
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(64, 0);
+  ctx.lineTo(64, 256);
+  ctx.moveTo(192, 0);
+  ctx.lineTo(192, 256);
+  ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+  sharedFatherVestTex = tex;
+  return tex;
+}
+
+/**
+ * Builds Father Roy Dolphus (School Principal) using realistic ~7.4-head adult human proportions
+ * scaled cleanly to commanding ~2.22m arena stature beside the existing roster:
+ * - Natural broad adult shoulder width, sculpted oval-jawed South Asian adult male head, neat short
+ *   dark-black hair with side part & temple taper (NO cartoon/chibi big-head proportions)
+ * - Full-length crisp matte-white clerical cassock (roughness 0.88) with standing white clerical collar
+ *   and articulated front/back/side lower pleated panels that track leg kicks cleanly
+ * - Pale sky-blue sleeveless Nehru vest (roughness 0.85) with mandarin collar, button placket,
+ *   and left chest pocket holding a clipped dark metallic pen
+ * - Classic round silver-dial wristwatch with dark leather strap on left wrist
+ * - Polished dark-black formal dress shoes (roughness 0.35) peeking beneath the cassock hem
+ */
+function buildFatherRoyDolphus(rig: FighterRig): void {
+  // === 1. FIGHTKARO-STYLE READABLE ~1:5.5 PROPORTIONS (~1.42x HEAD SCALE FOR MOBILE CLARITY) ===
+  rig.pelvis.position.set(0, 1.06, 0);
+  rig.torso.position.set(0, 0.09, 0);
+  rig.head.position.set(0, 0.905, 0);
+  rig.head.scale.setScalar(1.42);
+
+  const shoulderX = 0.305;
+  const shoulderY = 0.61;
+  rig.leftShoulder.position.set(-shoulderX, shoulderY, 0);
+  rig.rightShoulder.position.set(shoulderX, shoulderY, 0);
+  rig.leftElbow.position.set(0, -0.34, 0);
+  rig.rightElbow.position.set(0, -0.34, 0);
+
+  rig.leftHip.position.set(-0.135, -0.02, 0);
+  rig.rightHip.position.set(0.135, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.49, 0);
+  rig.rightKnee.position.set(0, -0.49, 0);
+
+  // === 2. GROUNDED PBR MATERIALS (calibrated envMapIntensity so white & sky-blue never blow out) ===
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xb0754e,
+    roughness: 0.62,
+    metalness: 0.01,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(skinMat);
+
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x161418,
+    roughness: 0.78,
+    metalness: 0.04,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(hairMat);
+
+  const cassockTex = createFatherCassockTexture();
+  const cassockMat = new THREE.MeshStandardMaterial({
+    map: cassockTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.01,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(cassockMat);
+
+  const cassockDoubleMat = new THREE.MeshStandardMaterial({
+    map: cassockTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.01,
+    envMapIntensity: 0.16,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(cassockDoubleMat);
+
+  const collarWhiteMat = new THREE.MeshStandardMaterial({
+    color: 0xf4f7fb,
+    roughness: 0.84,
+    metalness: 0.01,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(collarWhiteMat);
+
+  const vestTex = createFatherNehruVestTexture();
+  const vestMat = new THREE.MeshStandardMaterial({
+    map: vestTex,
+    color: 0xffffff,
+    roughness: 0.85,
+    metalness: 0.02,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(vestMat);
+
+  const vestTrimMat = new THREE.MeshStandardMaterial({
+    color: 0x3b8ec0,
+    roughness: 0.78,
+    metalness: 0.03,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(vestTrimMat);
+
+  const buttonMat = new THREE.MeshStandardMaterial({
+    color: 0x172554,
+    roughness: 0.36,
+    metalness: 0.2,
+    envMapIntensity: 0.34,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(buttonMat);
+
+  const trouserMat = new THREE.MeshStandardMaterial({
+    color: 0x1c212b,
+    roughness: 0.86,
+    metalness: 0.02,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(trouserMat);
+
+  const shoeMat = new THREE.MeshStandardMaterial({
+    color: 0x121418,
+    roughness: 0.35,
+    metalness: 0.18,
+    envMapIntensity: 0.42,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(shoeMat);
+
+  const shoeSoleMat = makeMat(0x0c0e11, 0.75, 0.05);
+  const watchSilverMat = makeMat(0xe2e8f0, 0.2, 0.88);
+  const watchDialMat = makeMat(0xf8fafc, 0.28, 0.15);
+  const leatherStrapMat = makeMat(0x1c1917, 0.68, 0.05);
+  const penDarkMat = makeMat(0x0f172a, 0.3, 0.55);
+  const penClipMat = makeMat(0xe2e8f0, 0.18, 0.92);
+
+  // === 3. REALISTIC ADULT HEAD, SCULPTED JAW, NOSE, EARS & SIDE-PART DARK HAIR ===
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: rig.face.texture,
+    roughness: 0.62,
+    metalness: 0.01,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(faceMat);
+
+  // FightKaro sculpted oval 3D head mesh (~1.42x readable scale) + subtle dark silhouette rim
+  const headSphere = new THREE.Mesh(new THREE.SphereGeometry(0.156, 24, 18), faceMat);
+  headSphere.scale.set(0.86, 1.07, 0.95);
+  headSphere.rotation.y = -Math.PI / 2;
+  headSphere.castShadow = true;
+  rig.head.add(headSphere);
+  attachSubtleOutline(rig.head, headSphere, 1.036);
+
+  // Sculpted masculine lower jaw & chin
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.098, 14, 12), skinMat);
+  jaw.scale.set(0.92, 0.72, 0.88);
+  jaw.position.set(0, -0.104, 0.028);
+  rig.head.add(jaw);
+
+  // Sculpted realistic 3D nose bridge & tip (gracefully hidden if real face photo loads)
+  const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.062, 0.04), skinMat);
+  noseBridge.position.set(0, -0.009, 0.144);
+  noseBridge.rotation.x = -0.18;
+  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.019, 10, 8), skinMat);
+  noseTip.scale.set(1.05, 0.82, 0.95);
+  noseTip.position.set(0, -0.032, 0.157);
+  rig.head.add(noseBridge, noseTip);
+
+  // Curved front-face photo shell wrapping seamlessly onto the 3D oval head with soft feathered alpha edges
+  const photoFaceMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.6,
+    metalness: 0.01,
+    envMapIntensity: 0.22,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(photoFaceMat);
+  const photoFaceShell = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1605, 24, 18, Math.PI * 0.17, Math.PI * 0.66, Math.PI * 0.18, Math.PI * 0.65),
+    photoFaceMat,
+  );
+  photoFaceShell.scale.set(0.86, 1.07, 0.95);
+  photoFaceShell.visible = false;
+  rig.head.add(photoFaceShell);
+  bindRealPhotoFaceShell('father', photoFaceShell, photoFaceMat, [noseBridge, noseTip]);
+
+  // Natural proportional ears
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.029, 10, 8), skinMat);
+    ear.scale.set(0.45, 1.28, 0.78);
+    ear.position.set(side * 0.135, -0.006, -0.005);
+    rig.head.add(ear);
+  });
+
+  // Neat short dark-black hair cap set high cleanly above brow line with side part & temple taper
+  const hairCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.163, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.49),
+    hairMat,
+  );
+  hairCap.scale.set(0.88, 1.02, 0.98);
+  hairCap.position.set(0, 0.032, -0.016);
+  hairCap.castShadow = true;
+  rig.head.add(hairCap);
+
+  // Subtle side-part combed sweep on right-top crown
+  const hairSweep = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.125, 6, 10), hairMat);
+  hairSweep.rotation.z = Math.PI * 0.46;
+  hairSweep.rotation.y = 0.12;
+  hairSweep.position.set(0.024, 0.142, 0.032);
+  rig.head.add(hairSweep);
+
+  // Cropped rear skull hair & neatly tapered temple sideburns
+  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.138, 16, 12), hairMat);
+  hairBack.scale.set(0.88, 0.95, 0.72);
+  hairBack.position.set(0, 0.01, -0.068);
+  rig.head.add(hairBack);
+
+  [-1, 1].forEach((side) => {
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.076, 0.06), hairMat);
+    temple.position.set(side * 0.125, 0.032, 0.005);
+    rig.head.add(temple);
+  });
+
+  // === 4. NECK, WHITE CLERICAL COLLAR, CASSOCK CHEST & PALE SKY-BLUE NEHRU VEST ===
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.074, 0.15, 14), skinMat);
+  neck.position.set(0, 0.71, 0);
+  rig.torso.add(neck);
+
+  // Crisp standing matte-white clerical collar encircling neck
+  const whiteCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.084, 0.092, 0.094, 18),
+    collarWhiteMat,
+  );
+  whiteCollar.position.set(0, 0.676, 0.002);
+  rig.torso.add(whiteCollar);
+
+  // Inner white cassock upper torso base
+  const innerChest = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.214, 0.182, 0.59, 18),
+    cassockMat,
+  );
+  innerChest.scale.set(1.16, 1, 0.76);
+  innerChest.position.set(0, 0.34, 0);
+  innerChest.castShadow = true;
+  rig.torso.add(innerChest);
+
+  // Fitted Richer Sky-Blue (#7EC4E6) Sleeveless Nehru Vest / Bandhgala Jacket worn over the cassock
+  const vestTorso = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.23, 0.214, 0.63, 20),
+    vestMat,
+  );
+  vestTorso.scale.set(1.18, 1, 0.8);
+  vestTorso.position.set(0, 0.335, 0.003);
+  vestTorso.castShadow = true;
+  rig.torso.add(vestTorso);
+  attachSubtleOutline(rig.torso, vestTorso, 1.03);
+
+  // Structured sleeveless shoulder yoke panels so white cassock sleeves emerge cleanly
+  [-1, 1].forEach((side) => {
+    const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.126, 0.074, 0.265), vestMat);
+    yoke.position.set(side * 0.205, 0.614, 0.002);
+    yoke.rotation.z = -side * 0.12;
+    rig.torso.add(yoke);
+  });
+
+  // Standing sky-blue mandarin collar slightly lower than the crisp white clerical collar peeking above
+  const vestCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.102, 0.116, 0.074, 18, 1, true, 0.32, Math.PI * 1.82),
+    vestTrimMat,
+  );
+  vestCollar.rotation.y = Math.PI * 0.91;
+  vestCollar.position.set(0, 0.648, 0.003);
+  rig.torso.add(vestCollar);
+
+  // Crisp darker-blue front button placket & 5 visible dark-navy buttons down the Nehru vest
+  const placket = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.59, 0.022), vestTrimMat);
+  placket.position.set(0, 0.33, 0.178);
+  rig.torso.add(placket);
+
+  for (let b = 0; b < 5; b++) {
+    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.014, 10), buttonMat);
+    btn.rotation.x = Math.PI / 2;
+    btn.position.set(0, 0.545 - b * 0.108, 0.193);
+    rig.torso.add(btn);
+  }
+
+  // Left chest welt pocket (character left = -X) + crisp dark pen clipped inside!
+  const chestPocket = new THREE.Mesh(new THREE.BoxGeometry(0.096, 0.084, 0.02), vestTrimMat);
+  chestPocket.position.set(-0.116, 0.47, 0.173);
+  const pocketWelt = new THREE.Mesh(new THREE.BoxGeometry(0.104, 0.018, 0.026), buttonMat);
+  pocketWelt.position.set(-0.116, 0.512, 0.179);
+  rig.torso.add(chestPocket, pocketWelt);
+
+  // Clipped dark metallic pen peeking clearly above left chest pocket
+  const penBody = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.0095, 0.125, 8), penDarkMat);
+  penBody.position.set(-0.096, 0.538, 0.186);
+  penBody.rotation.z = -0.09;
+  const penClip = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.064, 0.011), penClipMat);
+  penClip.position.set(-0.094, 0.544, 0.198);
+  penClip.rotation.z = -0.09;
+  const penCapTip = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), penClipMat);
+  penCapTip.position.set(-0.101, 0.598, 0.186);
+  rig.torso.add(penBody, penClip, penCapTip);
+
+  // Lower Nehru vest hem extending cleanly over waist/upper hips with sky-blue trim edge
+  const vestSkirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.214, 0.236, 0.24, 20),
+    vestMat,
+  );
+  vestSkirt.scale.set(1.18, 1, 0.8);
+  vestSkirt.position.set(0, -0.032, 0.003);
+  vestSkirt.castShadow = true;
+  rig.torso.add(vestSkirt);
+  attachSubtleOutline(rig.torso, vestSkirt, 1.03);
+
+  const vestHemBand = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.237, 0.239, 0.028, 20),
+    vestTrimMat,
+  );
+  vestHemBand.scale.set(1.18, 1, 0.8);
+  vestHemBand.position.set(0, -0.145, 0.003);
+  rig.torso.add(vestHemBand);
+
+  // Subtle lower side pocket welts on the Nehru vest
+  [-1, 1].forEach((side) => {
+    const lowWelt = new THREE.Mesh(new THREE.BoxGeometry(0.096, 0.018, 0.02), vestTrimMat);
+    lowWelt.position.set(side * 0.128, 0.088, 0.174);
+    rig.torso.add(lowWelt);
+  });
+
+  // === 5. FULL-LENGTH WHITE CASSOCK SLEEVES, NATURAL HANDS & LEFT WRISTWATCH ===
+  const upperSleeveGeo = new THREE.CapsuleGeometry(0.075, 0.23, 8, 12);
+  const lowerSleeveGeo = new THREE.CapsuleGeometry(0.062, 0.21, 8, 12);
+  const cuffGeo = new THREE.CylinderGeometry(0.063, 0.058, 0.056, 12);
+  const palmGeo = new THREE.BoxGeometry(0.074, 0.094, 0.048);
+
+  const armSpecs: Array<{ shoulder: THREE.Group; elbow: THREE.Group; isLeft: boolean }> = [
+    { shoulder: rig.leftShoulder, elbow: rig.leftElbow, isLeft: true },
+    { shoulder: rig.rightShoulder, elbow: rig.rightElbow, isLeft: false },
+  ];
+
+  for (const { shoulder, elbow, isLeft } of armSpecs) {
+    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.079, 12, 10), cassockMat);
+    shoulderCap.castShadow = true;
+    shoulder.add(shoulderCap);
+
+    const upper = new THREE.Mesh(upperSleeveGeo, cassockMat);
+    upper.position.y = -0.17;
+    upper.castShadow = true;
+    shoulder.add(upper);
+
+    const lower = new THREE.Mesh(lowerSleeveGeo, cassockMat);
+    lower.position.y = -0.15;
+    lower.castShadow = true;
+    elbow.add(lower);
+
+    const cuff = new THREE.Mesh(cuffGeo, collarWhiteMat);
+    cuff.position.y = -0.27;
+    elbow.add(cuff);
+
+    // Classic round silver-dial wristwatch with dark leather strap on LEFT wrist
+    if (isLeft) {
+      const watchGroup = new THREE.Group();
+      const strap = new THREE.Mesh(
+        new THREE.TorusGeometry(0.048, 0.012, 8, 16),
+        leatherStrapMat,
+      );
+      strap.rotation.x = Math.PI / 2;
+      const bezel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.028, 0.028, 0.014, 14),
+        watchSilverMat,
+      );
+      bezel.rotation.z = Math.PI / 2;
+      bezel.position.set(-0.048, 0, 0.007);
+      const dial = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.021, 0.021, 0.016, 14),
+        watchDialMat,
+      );
+      dial.rotation.z = Math.PI / 2;
+      dial.position.set(-0.049, 0, 0.007);
+      watchGroup.add(strap, bezel, dial);
+      watchGroup.position.set(0, -0.305, 0);
+      elbow.add(watchGroup);
+    }
+
+    // Natural sculpted adult male hand (warm medium-brown skin)
+    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.042, 0.048, 10), skinMat);
+    wrist.position.y = -0.312;
+    elbow.add(wrist);
+
+    const palm = new THREE.Mesh(palmGeo, skinMat);
+    palm.position.set(0, -0.372, 0.008);
+    palm.castShadow = true;
+    elbow.add(palm);
+
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.015, 0.038, 4, 8), skinMat);
+    thumb.position.set(isLeft ? 0.038 : -0.038, -0.366, 0.026);
+    thumb.rotation.z = isLeft ? -0.45 : 0.45;
+    elbow.add(thumb);
+  }
+
+  // === 6. REALISTIC LEGS (DRAPED IN CASSOCK CLOTH) + POLISHED BLACK FORMAL DRESS SHOES ===
+  const thighGeo = new THREE.CapsuleGeometry(0.072, 0.33, 8, 12);
+  const shinGeo = new THREE.CapsuleGeometry(0.058, 0.31, 8, 12);
+  const ankleSockGeo = new THREE.CylinderGeometry(0.052, 0.05, 0.1, 10);
+
+  [
+    [rig.leftHip, rig.leftKnee],
+    [rig.rightHip, rig.rightKnee],
+  ].forEach(([hip, knee]) => {
+    const thigh = new THREE.Mesh(thighGeo, cassockMat);
+    thigh.position.y = -0.245;
+    thigh.castShadow = true;
+    hip.add(thigh);
+
+    const shin = new THREE.Mesh(shinGeo, cassockMat);
+    shin.position.y = -0.22;
+    shin.castShadow = true;
+    knee.add(shin);
+
+    const ankleSock = new THREE.Mesh(ankleSockGeo, trouserMat);
+    ankleSock.position.y = -0.455;
+    knee.add(ankleSock);
+
+    // Polished dark-black formal Oxford dress shoe (roughness 0.35) peeking beneath cassock hem
+    const shoeGroup = new THREE.Group();
+    const shoeHeel = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.092, 0.175), shoeMat);
+    shoeHeel.position.set(0, 0.058, -0.022);
+    shoeHeel.castShadow = true;
+    const shoeVamp = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.135, 6, 10), shoeMat);
+    shoeVamp.rotation.x = Math.PI / 2;
+    shoeVamp.scale.set(1.04, 1, 0.72);
+    shoeVamp.position.set(0, 0.048, 0.104);
+    shoeVamp.castShadow = true;
+    const shoeSole = new THREE.Mesh(new THREE.BoxGeometry(0.132, 0.024, 0.335), shoeSoleMat);
+    shoeSole.position.set(0, 0.012, 0.06);
+    shoeGroup.add(shoeHeel, shoeVamp, shoeSole);
+    shoeGroup.position.set(0, -0.555, 0);
+    knee.add(shoeGroup);
+  });
+
+  // === 7. CLEAN CLOSED PLEATED OFF-WHITE CASSOCK (#F0F2F5) WITH SUBTLE KICK ARTICULATION ===
+  const waistBand = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.224, 0.252, 0.15, 24),
+    cassockMat,
+  );
+  waistBand.scale.set(1.18, 1, 0.92);
+  waistBand.position.set(0, -0.02, 0);
+  rig.pelvis.add(waistBand);
+
+  // Continuous closed 360-degree pleated conical cassock skirt (zero awkward split-cloak gap or dark leg clipping!)
+  const closedCassockSkirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.236, 0.312, 0.87, 28, 1, true),
+    cassockDoubleMat,
+  );
+  closedCassockSkirt.scale.set(1.18, 1, 0.96);
+  closedCassockSkirt.position.set(0, -0.455, 0);
+  closedCassockSkirt.castShadow = true;
+  rig.pelvis.add(closedCassockSkirt);
+  attachSubtleOutline(rig.pelvis, closedCassockSkirt, 1.028);
+
+  // Subtle sculpted lower-hem trim ring so the bottom hem reads cleanly above black dress shoes
+  const hemRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.312, 0.011, 8, 28),
+    cassockMat,
+  );
+  hemRing.rotation.x = Math.PI / 2;
+  hemRing.scale.set(1.18, 0.96, 1);
+  hemRing.position.set(0, -0.89, 0);
+  rig.pelvis.add(hemRing);
+
+  // Articulated lower pleated overlap panels moving smoothly with kicks/levitation without breaking closed silhouette
+  const panelHeight = 0.86;
+
+  const frontLeft = new THREE.Group();
+  frontLeft.position.set(-0.075, -0.03, 0.175);
+  const frontLeftMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.17, 0.23, panelHeight, 12, 1, true, -0.55, 1.05),
+    cassockDoubleMat,
+  );
+  frontLeftMesh.position.set(0, -panelHeight * 0.5, -0.09);
+  frontLeft.add(frontLeftMesh);
+  rig.pelvis.add(frontLeft);
+
+  const frontRight = new THREE.Group();
+  frontRight.position.set(0.075, -0.03, 0.175);
+  const frontRightMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.17, 0.23, panelHeight, 12, 1, true, -0.5, 1.05),
+    cassockDoubleMat,
+  );
+  frontRightMesh.position.set(0, -panelHeight * 0.5, -0.09);
+  frontRight.add(frontRightMesh);
+  rig.pelvis.add(frontRight);
+
+  const back = new THREE.Group();
+  back.position.set(0, -0.03, -0.175);
+  const backMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.21, 0.28, panelHeight, 14, 1, true, Math.PI - 0.65, 1.3),
+    cassockDoubleMat,
+  );
+  backMesh.position.set(0, -panelHeight * 0.5, 0.1);
+  back.add(backMesh);
+  rig.pelvis.add(back);
+
+  const leftSide = new THREE.Group();
+  leftSide.position.set(-0.22, -0.03, 0);
+  const rightSide = new THREE.Group();
+  rightSide.position.set(0.22, -0.03, 0);
+  rig.pelvis.add(leftSide, rightSide);
+
+  rig.cassockPanels = {
+    frontLeft,
+    frontRight,
+    back,
+    leftSide,
+    rightSide,
+  };
+}
+
+/**
+ * Generates an anatomical shirtless bodybuilder upper-torso CanvasTexture (512x512)
+ * with realistic warm-tan South Asian skin tone, pectoral cleft, 6-pack abdominal
+ * definition, serratus/oblique shading, and sculpted back/latissimus contours so
+ * muscle definition catches studio rim light naturally.
+ */
+function createSamyakTorsoTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
+
+  // CylinderGeometry U=0.5 aligns along +Z (front of torso); U=0/1 wraps back
+  ctx.fillStyle = '#B87F5A';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle vertical warm highlight on upper chest/shoulders and natural shadow at lower waist
+  const baseGrad = ctx.createLinearGradient(0, 0, 0, 512);
+  baseGrad.addColorStop(0, 'rgba(235, 194, 160, 0.24)');
+  baseGrad.addColorStop(0.45, 'rgba(188, 136, 102, 0)');
+  baseGrad.addColorStop(1, 'rgba(86, 48, 28, 0.26)');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  const fx = 256; // front center (+Z)
+
+  // Center linea alba & pectoral sternum cleft shadow
+  const cleftGrad = ctx.createLinearGradient(fx - 10, 0, fx + 10, 0);
+  cleftGrad.addColorStop(0, 'rgba(92, 52, 30, 0)');
+  cleftGrad.addColorStop(0.5, 'rgba(78, 42, 22, 0.42)');
+  cleftGrad.addColorStop(1, 'rgba(92, 52, 30, 0)');
+  ctx.fillStyle = cleftGrad;
+  ctx.fillRect(fx - 10, 88, 20, 340);
+
+  // Sculpted upper pectoral highlights & lower pec underside shadows
+  [-1, 1].forEach((side) => {
+    const px = fx + side * 48;
+    const pecHi = ctx.createRadialGradient(px, 134, 6, px, 146, 52);
+    pecHi.addColorStop(0, 'rgba(245, 206, 174, 0.34)');
+    pecHi.addColorStop(1, 'rgba(188, 136, 102, 0)');
+    ctx.fillStyle = pecHi;
+    ctx.beginPath();
+    ctx.ellipse(px, 142, 46, 34, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crisp under-pec muscle groove
+    ctx.strokeStyle = 'rgba(82, 44, 24, 0.48)';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(fx + side * 12, 186);
+    ctx.quadraticCurveTo(px, 198, fx + side * 86, 178);
+    ctx.stroke();
+
+    // Collarbone highlight
+    ctx.strokeStyle = 'rgba(242, 204, 172, 0.36)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(fx + side * 14, 72);
+    ctx.quadraticCurveTo(fx + side * 52, 64, fx + side * 92, 76);
+    ctx.stroke();
+  });
+
+  // 6-Pack abdominal muscle highlight & tendon shadow grooves
+  const abYs = [242, 302, 362];
+  for (const ay of abYs) {
+    [-1, 1].forEach((side) => {
+      const ax = fx + side * 26;
+      const abHi = ctx.createRadialGradient(ax, ay - 6, 4, ax, ay, 28);
+      abHi.addColorStop(0, 'rgba(242, 200, 166, 0.34)');
+      abHi.addColorStop(1, 'rgba(188, 136, 102, 0)');
+      ctx.fillStyle = abHi;
+      ctx.beginPath();
+      ctx.ellipse(ax, ay, 22, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Horizontal ab groove
+      ctx.strokeStyle = 'rgba(82, 44, 24, 0.42)';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(fx + side * 8, ay + 24);
+      ctx.quadraticCurveTo(ax, ay + 28, fx + side * 46, ay + 22);
+      ctx.stroke();
+    });
+  }
+
+  // Outer oblique & serratus framing shadows
+  [-1, 1].forEach((side) => {
+    ctx.strokeStyle = 'rgba(82, 44, 24, 0.36)';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(fx + side * 66, 214);
+    ctx.quadraticCurveTo(fx + side * 58, 315, fx + side * 48, 422);
+    ctx.stroke();
+  });
+
+  // Back spine & shoulder-blade contour shading near U=0 and U=1
+  [12, 500].forEach((bx) => {
+    ctx.fillStyle = 'rgba(78, 42, 22, 0.34)';
+    ctx.fillRect(bx - 6, 70, 12, 360);
+  });
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Generates matte-black athletic joggers texture with subtle woven grain & dark slate side-seam stripe.
+ */
+function createSamyakJoggersTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d')!;
+
+  ctx.fillStyle = '#16181E';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Subtle athletic jersey fleece weave
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+  for (let y = 0; y < 256; y += 4) {
+    ctx.fillRect(0, y, 256, 1);
+  }
+  // Subtle matte charcoal outer side-seam piping
+  ctx.fillStyle = '#2B313E';
+  ctx.fillRect(60, 0, 8, 256);
+  ctx.fillRect(188, 0, 8, 256);
+  ctx.fillStyle = '#475569';
+  ctx.fillRect(63, 0, 2, 256);
+  ctx.fillRect(191, 0, 2, 256);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * SAMYAK — Realistic Procedural 3D Human Bodybuilder & UPSC/IAS Aspirant:
+ * - Authentic ~7.5-head adult bodybuilder proportions (~2.24m commanding height)
+ * - Warm-tan South Asian skin (roughness 0.58), short dark slightly tousled hair,
+ *   neatly trimmed full black beard & moustache, sleek reflective dark square black sunglasses
+ * - Completely SHIRTLESS heavily sculpted bodybuilder upper body: broad V-taper shoulders,
+ *   defined 3D pectorals, thick biceps/forearms, visible 6-pack abs, and thin red kalawa
+ *   sacred thread wrapped around his right wrist
+ * - Fitted matte-black athletic joggers (roughness 0.88) & sporty black-and-white gym sneakers
+ */
+function buildSamyak(rig: FighterRig): void {
+  // === 1. FIGHTKARO-STYLE READABLE ~1:5.5 BODYBUILDER PROPORTIONS (~1.42x HEAD SCALE) ===
+  rig.pelvis.position.set(0, 1.07, 0);
+  rig.torso.position.set(0, 0.09, 0);
+  rig.head.position.set(0, 0.905, 0);
+  rig.head.scale.setScalar(1.42);
+
+  // Broad athletic V-taper shoulder width
+  const shoulderX = 0.355;
+  const shoulderY = 0.62;
+  rig.leftShoulder.position.set(-shoulderX, shoulderY, 0);
+  rig.rightShoulder.position.set(shoulderX, shoulderY, 0);
+  rig.leftElbow.position.set(0, -0.35, 0);
+  rig.rightElbow.position.set(0, -0.35, 0);
+
+  rig.leftHip.position.set(-0.135, -0.02, 0);
+  rig.rightHip.position.set(0.135, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.495, 0);
+  rig.rightKnee.position.set(0, -0.495, 0);
+
+  // === 2. GROUNDED PBR MATERIALS ===
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xb87f5a,
+    roughness: 0.58,
+    metalness: 0.02,
+    envMapIntensity: 0.28,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(skinMat);
+
+  const torsoTex = createSamyakTorsoTexture();
+  const torsoSkinMat = new THREE.MeshStandardMaterial({
+    map: torsoTex,
+    color: 0xffffff,
+    roughness: 0.55,
+    metalness: 0.02,
+    envMapIntensity: 0.28,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(torsoSkinMat);
+
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x141214,
+    roughness: 0.78,
+    metalness: 0.04,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(hairMat);
+
+  const sunglassesFrameMat = new THREE.MeshStandardMaterial({
+    color: 0x111317,
+    roughness: 0.42,
+    metalness: 0.22,
+    envMapIntensity: 0.45,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sunglassesFrameMat);
+
+  // Reflective dark-tinted lenses (metalness: 0.75, roughness: 0.18 as requested)
+  const sunglassesLensMat = new THREE.MeshStandardMaterial({
+    color: 0x0b0f17,
+    roughness: 0.18,
+    metalness: 0.75,
+    envMapIntensity: 1.15,
+    emissive: new THREE.Color(0x0f172a),
+    emissiveIntensity: 0.08,
+  });
+  rig.flashMaterials.push(sunglassesLensMat);
+
+  const kalawaRedMat = new THREE.MeshStandardMaterial({
+    color: 0xdc2626,
+    roughness: 0.72,
+    metalness: 0.04,
+    envMapIntensity: 0.2,
+    emissive: new THREE.Color(0x991b1b),
+    emissiveIntensity: 0.12,
+  });
+  const kalawaGoldMat = makeMat(0xfacc15, 0.65, 0.08);
+
+  const joggersTex = createSamyakJoggersTexture();
+  const joggersMat = new THREE.MeshStandardMaterial({
+    map: joggersTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.02,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(joggersMat);
+
+  const cuffMat = new THREE.MeshStandardMaterial({
+    color: 0x111318,
+    roughness: 0.9,
+    metalness: 0.02,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(cuffMat);
+
+  const sneakerUpperMat = new THREE.MeshStandardMaterial({
+    color: 0x14161b,
+    roughness: 0.6,
+    metalness: 0.06,
+    envMapIntensity: 0.26,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sneakerUpperMat);
+
+  const sneakerWhiteMat = new THREE.MeshStandardMaterial({
+    color: 0xf4f6f9,
+    roughness: 0.48,
+    metalness: 0.04,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sneakerWhiteMat);
+
+  const sneakerTreadMat = makeMat(0x0b0c10, 0.82, 0.04);
+
+  // === 3. REALISTIC HEAD, TOUSLED DARK HAIR, FULL BLACK BEARD & SQUARE BLACK SUNGLASSES ===
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: rig.face.texture,
+    roughness: 0.58,
+    metalness: 0.02,
+    envMapIntensity: 0.26,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(faceMat);
+
+  const headSphere = new THREE.Mesh(new THREE.SphereGeometry(0.154, 24, 18), faceMat);
+  headSphere.scale.set(0.86, 1.07, 0.95);
+  headSphere.rotation.y = -Math.PI / 2;
+  headSphere.castShadow = true;
+  rig.head.add(headSphere);
+  attachSubtleOutline(rig.head, headSphere, 1.036);
+
+  // Sculpted masculine jawline wrapped cleanly with neatly trimmed full black beard
+  const jawBeard = new THREE.Mesh(new THREE.SphereGeometry(0.104, 16, 12), hairMat);
+  jawBeard.scale.set(0.95, 0.78, 0.92);
+  jawBeard.position.set(0, -0.098, 0.026);
+  rig.head.add(jawBeard);
+
+  // Side jawline beard tapers hugging lower cheeks smoothly
+  [-1, 1].forEach((side) => {
+    const cheekBeard = new THREE.Mesh(new THREE.SphereGeometry(0.056, 12, 10), hairMat);
+    cheekBeard.scale.set(0.32, 0.92, 0.88);
+    cheekBeard.position.set(side * 0.114, -0.052, 0.036);
+    cheekBeard.rotation.z = side * 0.16;
+    rig.head.add(cheekBeard);
+  });
+
+  // Sculpted 3D nose bridge & tip (gracefully hidden if real face photo loads)
+  const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, 0.042), skinMat);
+  noseBridge.position.set(0, -0.009, 0.144);
+  noseBridge.rotation.x = -0.18;
+  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), skinMat);
+  noseTip.scale.set(1.06, 0.84, 0.95);
+  noseTip.position.set(0, -0.032, 0.157);
+  rig.head.add(noseBridge, noseTip);
+
+  // Curved front-face photo shell wrapping seamlessly onto Samyak's 3D oval head (3D sunglasses stay proudly in front!)
+  const samyakPhotoMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.6,
+    metalness: 0.01,
+    envMapIntensity: 0.22,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(samyakPhotoMat);
+  const samyakPhotoShell = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1585, 24, 18, Math.PI * 0.17, Math.PI * 0.66, Math.PI * 0.18, Math.PI * 0.65),
+    samyakPhotoMat,
+  );
+  samyakPhotoShell.scale.set(0.86, 1.07, 0.95);
+  samyakPhotoShell.visible = false;
+  rig.head.add(samyakPhotoShell);
+  bindRealPhotoFaceShell('samyak', samyakPhotoShell, samyakPhotoMat, [noseBridge, noseTip]);
+
+  // Proportional adult ears
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.029, 10, 8), skinMat);
+    ear.scale.set(0.45, 1.28, 0.78);
+    ear.position.set(side * 0.135, -0.005, -0.006);
+    rig.head.add(ear);
+  });
+
+  // Short dark slightly tousled hair cap + textured forward fringe strands (matches photo!)
+  const hairCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.164, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+    hairMat,
+  );
+  hairCap.scale.set(0.89, 1.03, 0.99);
+  hairCap.position.set(0, 0.032, -0.014);
+  hairCap.castShadow = true;
+  rig.head.add(hairCap);
+
+  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.138, 16, 12), hairMat);
+  hairBack.scale.set(0.88, 0.96, 0.74);
+  hairBack.position.set(0, 0.008, -0.068);
+  rig.head.add(hairBack);
+
+  // Slightly tousled dark hair tufts along crown & upper forehead
+  const tuftSpecs: Array<[number, number, number, number, number, number]> = [
+    [-0.065, 0.132, 0.095, 0.25, 0.1, 0.42],
+    [-0.018, 0.138, 0.112, 0.35, 0, 0.12],
+    [0.032, 0.136, 0.106, 0.32, -0.08, -0.22],
+    [0.072, 0.126, 0.086, 0.24, -0.14, -0.45],
+    [0.0, 0.162, 0.036, 0.05, 0.08, 0.22],
+  ];
+  for (const [tx, ty, tz, rx, ry, rz] of tuftSpecs) {
+    const tuft = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.056, 5, 8), hairMat);
+    tuft.position.set(tx, ty, tz);
+    tuft.rotation.set(rx, ry, rz);
+    rig.head.add(tuft);
+  }
+
+  [-1, 1].forEach((side) => {
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.074, 0.06), hairMat);
+    temple.position.set(side * 0.124, 0.028, 0.008);
+    rig.head.add(temple);
+  });
+
+  // SLEEK DARK SQUARE BLACK SUNGLASSES sitting proudly over the curved mapped face for crisp 3D depth
+  const glassesGroup = new THREE.Group();
+  glassesGroup.position.set(0, 0.016, 0.153);
+
+  // Continuous square brow bar + nose bridge
+  const browBar = new THREE.Mesh(new THREE.BoxGeometry(0.246, 0.016, 0.022), sunglassesFrameMat);
+  browBar.position.set(0, 0.034, 0);
+  const noseBridgeBar = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.018, 0.022), sunglassesFrameMat);
+  noseBridgeBar.position.set(0, 0.02, 0.002);
+  glassesGroup.add(browBar, noseBridgeBar);
+
+  [-1, 1].forEach((side) => {
+    const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(0.104, 0.072, 0.02), sunglassesFrameMat);
+    frameOuter.position.set(side * 0.064, 0.004, 0);
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.056, 0.024), sunglassesLensMat);
+    lens.position.set(side * 0.064, 0.004, 0.003);
+    // Temple arm sweeping back to ear
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.018, 0.165), sunglassesFrameMat);
+    arm.position.set(side * 0.128, 0.02, -0.084);
+    glassesGroup.add(frameOuter, lens, arm);
+  });
+  rig.head.add(glassesGroup);
+
+  // === 4. SHIRTLESS HEAVILY SCULPTED BODYBUILDER UPPER BODY (NO SHIRT / NO BANIYAN!) ===
+  // Muscular neck & broad trapezius slopes
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.076, 0.092, 0.155, 14), skinMat);
+  neck.position.set(0, 0.71, 0);
+  rig.torso.add(neck);
+
+  [-1, 1].forEach((side) => {
+    const trap = new THREE.Mesh(new THREE.CapsuleGeometry(0.064, 0.175, 6, 10), skinMat);
+    trap.position.set(side * 0.14, 0.66, -0.012);
+    trap.rotation.z = side * 1.08;
+    trap.castShadow = true;
+    rig.torso.add(trap);
+  });
+
+  // Dramatic V-taper athletic ribcage & torso core (textured with subtle pec/ab/lat shading)
+  const torsoCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.258, 0.172, 0.62, 22),
+    torsoSkinMat,
+  );
+  torsoCore.scale.set(1.18, 1, 0.78);
+  torsoCore.position.set(0, 0.34, 0);
+  torsoCore.castShadow = true;
+  rig.torso.add(torsoCore);
+  attachSubtleOutline(rig.torso, torsoCore, 1.03);
+
+  // Sculpted 3D Pectorals catching studio rim light cleanly
+  [-1, 1].forEach((side) => {
+    const pec = new THREE.Mesh(new THREE.SphereGeometry(0.132, 16, 12), skinMat);
+    pec.scale.set(1.06, 0.76, 0.62);
+    pec.position.set(side * 0.122, 0.478, 0.132);
+    pec.rotation.y = side * 0.16;
+    pec.castShadow = true;
+    rig.torso.add(pec);
+
+    // Sculpted latissimus dorsi wings for unmistakable V-taper silhouette
+    const lat = new THREE.Mesh(new THREE.SphereGeometry(0.118, 12, 10), skinMat);
+    lat.scale.set(0.68, 1.38, 0.74);
+    lat.position.set(side * 0.242, 0.415, -0.035);
+    lat.rotation.z = -side * 0.18;
+    rig.torso.add(lat);
+  });
+
+  // Sculpted 3D 6-Pack Abs (3 pairs of clearly defined rounded abdominal muscles!)
+  const abRows = [
+    { y: 0.312, z: 0.146, sx: 0.056, sy: 0.044 },
+    { y: 0.218, z: 0.144, sx: 0.054, sy: 0.044 },
+    { y: 0.124, z: 0.138, sx: 0.05, sy: 0.046 },
+  ];
+  for (const row of abRows) {
+    [-1, 1].forEach((side) => {
+      const abBlock = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), skinMat);
+      abBlock.scale.set(row.sx, row.sy, 0.036);
+      abBlock.position.set(side * 0.058, row.y, row.z);
+      rig.torso.add(abBlock);
+    });
+  }
+
+  // Sculpted athletic obliques flanking the 6-pack abs
+  [-1, 1].forEach((side) => {
+    const oblique = new THREE.Mesh(new THREE.CapsuleGeometry(0.056, 0.22, 6, 10), skinMat);
+    oblique.scale.set(0.85, 1, 0.92);
+    oblique.position.set(side * 0.165, 0.205, 0.058);
+    oblique.rotation.z = -side * 0.12;
+    rig.torso.add(oblique);
+  });
+
+  // === 5. THICK SCULPTED BODYBUILDER ARMS (DELTS, BICEPS, FOREARMS) + RED KALAWA ON RIGHT WRIST ===
+  const upperArmGeo = new THREE.CapsuleGeometry(0.078, 0.21, 8, 12);
+  const forearmGeo = new THREE.CapsuleGeometry(0.064, 0.21, 8, 12);
+  const fistGeo = new THREE.BoxGeometry(0.088, 0.095, 0.074);
+
+  const armSpecs: Array<{ shoulder: THREE.Group; elbow: THREE.Group; isLeft: boolean }> = [
+    { shoulder: rig.leftShoulder, elbow: rig.leftElbow, isLeft: true },
+    { shoulder: rig.rightShoulder, elbow: rig.rightElbow, isLeft: false },
+  ];
+
+  for (const { shoulder, elbow, isLeft } of armSpecs) {
+    // Broad sculpted 3D deltoid cap
+    const delt = new THREE.Mesh(new THREE.SphereGeometry(0.114, 16, 12), skinMat);
+    delt.scale.set(1.06, 1.04, 0.98);
+    delt.castShadow = true;
+    shoulder.add(delt);
+
+    // Thick muscular upper arm core + prominent sculpted bicep peak & tricep curve
+    const upper = new THREE.Mesh(upperArmGeo, skinMat);
+    upper.position.y = -0.175;
+    upper.castShadow = true;
+    shoulder.add(upper);
+
+    const bicep = new THREE.Mesh(new THREE.SphereGeometry(0.084, 12, 10), skinMat);
+    bicep.scale.set(0.92, 1.32, 1.06);
+    bicep.position.set(0, -0.175, 0.036);
+    bicep.castShadow = true;
+    shoulder.add(bicep);
+
+    const tricep = new THREE.Mesh(new THREE.SphereGeometry(0.074, 10, 8), skinMat);
+    tricep.scale.set(0.9, 1.35, 0.92);
+    tricep.position.set(0, -0.17, -0.032);
+    shoulder.add(tricep);
+
+    // Muscular forearm with brachioradialis taper
+    const forearm = new THREE.Mesh(forearmGeo, skinMat);
+    forearm.position.y = -0.155;
+    forearm.castShadow = true;
+    elbow.add(forearm);
+
+    const forearmBulge = new THREE.Mesh(new THREE.SphereGeometry(0.068, 10, 8), skinMat);
+    forearmBulge.scale.set(0.96, 1.35, 0.98);
+    forearmBulge.position.set(0, -0.095, 0.016);
+    elbow.add(forearmBulge);
+
+    // Thin red sacred thread (kalawa) wrapped cleanly around RIGHT wrist!
+    if (!isLeft) {
+      const kalawa1 = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.0085, 8, 18), kalawaRedMat);
+      kalawa1.rotation.x = Math.PI / 2;
+      kalawa1.position.y = -0.296;
+      const kalawa2 = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.0075, 8, 18), kalawaRedMat);
+      kalawa2.rotation.x = Math.PI / 2;
+      kalawa2.position.y = -0.312;
+      const kalawaKnot = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), kalawaGoldMat);
+      kalawaKnot.position.set(0.054, -0.304, 0.014);
+      elbow.add(kalawa1, kalawa2, kalawaKnot);
+    }
+
+    // Sculpted wrist & muscular clenched fighter fist
+    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.05, 0.048, 10), skinMat);
+    wrist.position.y = -0.318;
+    elbow.add(wrist);
+
+    const fist = new THREE.Mesh(fistGeo, skinMat);
+    fist.position.set(0, -0.378, 0.01);
+    fist.castShadow = true;
+    elbow.add(fist);
+
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.04, 5, 8), skinMat);
+    thumb.position.set(isLeft ? 0.042 : -0.042, -0.37, 0.036);
+    thumb.rotation.z = isLeft ? -0.45 : 0.45;
+    elbow.add(thumb);
+  }
+
+  // === 6. MATTE-BLACK ATHLETIC JOGGERS & SPORTY BLACK-AND-WHITE GYM SNEAKERS ===
+  // Athletic jogger waistband & pelvis block
+  const joggerWaist = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.205, 0.214, 0.21, 20),
+    joggersMat,
+  );
+  joggerWaist.scale.set(1.16, 1, 0.8);
+  joggerWaist.position.set(0, 0.01, 0);
+  joggerWaist.castShadow = true;
+  rig.pelvis.add(joggerWaist);
+
+  const elasticBand = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.208, 0.208, 0.052, 20),
+    cuffMat,
+  );
+  elasticBand.scale.set(1.16, 1, 0.8);
+  elasticBand.position.set(0, 0.095, 0);
+  rig.pelvis.add(elasticBand);
+
+  // Subtle white drawstring laces at front waistband
+  [-1, 1].forEach((side) => {
+    const lace = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.095, 6), sneakerWhiteMat);
+    lace.position.set(side * 0.022, 0.052, 0.168);
+    lace.rotation.z = side * 0.18;
+    rig.pelvis.add(lace);
+  });
+
+  const thighGeo = new THREE.CapsuleGeometry(0.105, 0.34, 8, 12);
+  const calfGeo = new THREE.CapsuleGeometry(0.072, 0.34, 8, 12);
+
+  [
+    [rig.leftHip, rig.leftKnee],
+    [rig.rightHip, rig.rightKnee],
+  ].forEach(([hip, knee]) => {
+    const thigh = new THREE.Mesh(thighGeo, joggersMat);
+    thigh.position.y = -0.245;
+    thigh.castShadow = true;
+    hip.add(thigh);
+
+    const shin = new THREE.Mesh(calfGeo, joggersMat);
+    shin.position.y = -0.235;
+    shin.castShadow = true;
+    knee.add(shin);
+
+    // Ribbed fitted ankle jogger cuff
+    const ankleCuff = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.068, 0.06, 0.068, 12),
+      cuffMat,
+    );
+    ankleCuff.position.y = -0.445;
+    knee.add(ankleCuff);
+
+    // Sporty Black-and-White Gym Sneaker (chunky crisp white midsole + matte black athletic upper)
+    const shoeGroup = new THREE.Group();
+    const midsole = new THREE.Mesh(new THREE.BoxGeometry(0.146, 0.046, 0.355), sneakerWhiteMat);
+    midsole.position.set(0, 0.032, 0.06);
+    midsole.castShadow = true;
+
+    const tread = new THREE.Mesh(new THREE.BoxGeometry(0.148, 0.014, 0.358), sneakerTreadMat);
+    tread.position.set(0, 0.007, 0.06);
+
+    const heelUpper = new THREE.Mesh(new THREE.BoxGeometry(0.134, 0.088, 0.18), sneakerUpperMat);
+    heelUpper.position.set(0, 0.088, -0.022);
+    heelUpper.castShadow = true;
+
+    const toeBox = new THREE.Mesh(new THREE.CapsuleGeometry(0.064, 0.14, 6, 10), sneakerUpperMat);
+    toeBox.rotation.x = Math.PI / 2;
+    toeBox.scale.set(1.06, 1, 0.72);
+    toeBox.position.set(0, 0.076, 0.112);
+    toeBox.castShadow = true;
+
+    // White athletic side accents & crisp tongue laces
+    [-1, 1].forEach((side) => {
+      const slash = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.022, 0.115), sneakerWhiteMat);
+      slash.position.set(side * 0.068, 0.082, 0.048);
+      slash.rotation.x = 0.22;
+      shoeGroup.add(slash);
+    });
+    const tongueAccent = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.026, 0.082), sneakerWhiteMat);
+    tongueAccent.position.set(0, 0.112, 0.085);
+    tongueAccent.rotation.x = 0.32;
+
+    shoeGroup.add(midsole, tread, heelUpper, toeBox, tongueAccent);
+    shoeGroup.position.set(0, -0.562, 0);
+    knee.add(shoeGroup);
+  });
+}
+
 export function buildFighterRig(id: FighterId): FighterRig {
   const face = createDynamicFace(id);
   const isEggBody = id === 'anda';
@@ -2991,6 +4281,20 @@ export function buildFighterRig(id: FighterId): FighterRig {
       rig.rightFistAnchor.position.set(0, -0.31, 0.02);
       rig.leftFootAnchor.position.set(0, -0.41, 0.10);
       rig.rightFootAnchor.position.set(0, -0.41, 0.10);
+      break;
+    case 'father':
+      buildFatherRoyDolphus(rig);
+      rig.leftFistAnchor.position.set(0, -0.35, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.35, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.47, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.47, 0.10);
+      break;
+    case 'samyak':
+      buildSamyak(rig);
+      rig.leftFistAnchor.position.set(0, -0.37, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.37, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.48, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.48, 0.10);
       break;
   }
 
