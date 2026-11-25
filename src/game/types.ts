@@ -192,6 +192,7 @@ export interface CombatEvent {
   y: number;
   damage: number;
   word?: string;
+  isSuperSignature?: boolean;
   moveCallout?: string;
   color?: string;
   headline?: string;
@@ -204,6 +205,8 @@ export interface ComicSpeechBubble {
   text: string;
   screenX: number;
   screenY: number;
+  opacity: number;
+  tailSide?: 'center' | 'left' | 'right';
 }
 
 export interface SuperBannerInfo {
@@ -255,6 +258,7 @@ export interface FloatingCallout {
   color: string;
   screenX: number;
   screenY: number;
+  isSignature?: boolean;
 }
 
 export interface MatchResultSnapshot {

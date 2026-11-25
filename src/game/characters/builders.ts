@@ -4,6 +4,60 @@ import { FIGHTER_CONFIGS } from './configs';
 import { createDynamicFace } from './faceCanvas';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
+const sharedFabricWeaveCache = new Map<string, THREE.CanvasTexture>();
+
+/**
+ * Generates and caches a lightweight 128x128 procedural woven cloth CanvasTexture
+ * so suits, kurtas, sarees, vests, and jholas read with tactile textile depth
+ * rather than flat untextured plastic.
+ */
+function createFabricWeaveTexture(
+  baseHex: string,
+  warpHex: string,
+  weftHex: string,
+  repeat = 3,
+): THREE.CanvasTexture {
+  const key = `${baseHex}|${warpHex}|${weftHex}|${repeat}`;
+  const cached = sharedFabricWeaveCache.get(key);
+  if (cached) return cached;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = baseHex;
+  ctx.fillRect(0, 0, 128, 128);
+
+  // Fine cross-hatch woven threads
+  ctx.fillStyle = warpHex;
+  for (let x = 0; x < 128; x += 6) {
+    ctx.fillRect(x, 0, 2, 128);
+  }
+  ctx.fillStyle = weftHex;
+  for (let y = 0; y < 128; y += 6) {
+    ctx.fillRect(0, y, 128, 2);
+  }
+
+  // Subtle diagonal twill sheen lines for tailored depth
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.lineWidth = 1.5;
+  for (let d = -128; d < 256; d += 12) {
+    ctx.beginPath();
+    ctx.moveTo(d, 0);
+    ctx.lineTo(d + 128, 128);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat, repeat);
+  tex.needsUpdate = true;
+  sharedFabricWeaveCache.set(key, tex);
+  return tex;
+}
+
 function makeMat(
   color: number | string,
   roughness: number,
@@ -107,8 +161,9 @@ function createHeadMesh(faceTex: THREE.CanvasTexture, radius = 0.36): THREE.Mesh
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     map: faceTex,
-    roughness: 0.32,
-    metalness: 0.02,
+    roughness: 0.62,
+    metalness: 0,
+    envMapIntensity: 0.24,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
@@ -328,38 +383,45 @@ function buildSheruBhai(rig: FighterRig): void {
   rig.rightShoulder.position.set(0.49, 0.68, 0);
   rig.head.position.set(0, 0.9, 0);
 
-  // PBR Materials with clear tonal separation, low matte envMapIntensity (prevents white washout) & zero emissive
-  const blazerMat = makeLionMat(0xdce2ea, 0.8, 0, 0.16); // Crisp light-platinum / cool-grey white outer blazer
-  const lapelMat = makeLionMat(0xe5eaf0, 0.78, 0, 0.18); // Slightly crisper lapel face
-  const trouserMat = makeLionMat(0xd4dbe4, 0.82, 0, 0.13); // Distinct tailored cool trousers
-  const vestMat = makeLionMat(0xeae3d2, 0.82, 0, 0.2); // Warmer ivory inner waistcoat (vest)
-  const pipingMat = makeLionMat(0x4b5563, 0.84, 0, 0.15); // Thin subtle charcoal/grey piping on lapels & pocket
-  const furFacePawMat = makeLionMat(0xf4efe6, 0.85, 0, 0.24); // Soft off-white matte lion face fur & bare paws
-  const maneOuterMat = makeLionMat(0xe8dec8, 0.9, 0, 0.18); // Warm cream/champagne mane
-  const maneMidMat = makeLionMat(0xd4c4a6, 0.91, 0, 0.15); // Mid-tone sculpted mane layering
-  const maneInnerMat = makeLionMat(0xbda984, 0.92, 0, 0.12); // Darker shaded inner tufts for depth
-  const noseMat = makeLionMat(0x9c5249, 0.42, 0.02, 0.35); // Deeper pinkish-brown nose for readability
-  const darkOutlineMat = makeLionMat(0x140d0b, 0.6, 0.02, 0.2);
-  const innerEarMat = makeLionMat(0xd8a397, 0.78, 0, 0.2);
+  // Grounded PBR Materials: woven tailored white suiting (roughness 0.85-0.88), satin-matte fur (0.64), true specular gold (metalness 0.88, roughness 0.22)
+  const suitWeaveTex = createFabricWeaveTexture('#DCE2EA', 'rgba(100,116,139,0.10)', 'rgba(255,255,255,0.14)', 3);
+  const trouserWeaveTex = createFabricWeaveTexture('#D4DBE4', 'rgba(71,85,105,0.12)', 'rgba(255,255,255,0.10)', 3);
+  const vestWeaveTex = createFabricWeaveTexture('#EAE3D2', 'rgba(120,104,80,0.11)', 'rgba(255,250,240,0.14)', 3);
 
-  // Rich deeper metallic gold bling popping sharply against matte suit
+  const blazerMat = makeLionMat(0xffffff, 0.86, 0, 0.16);
+  blazerMat.map = suitWeaveTex;
+  const lapelMat = makeLionMat(0xe5eaf0, 0.84, 0, 0.18);
+  const trouserMat = makeLionMat(0xffffff, 0.88, 0, 0.14);
+  trouserMat.map = trouserWeaveTex;
+  const vestMat = makeLionMat(0xffffff, 0.86, 0, 0.18);
+  vestMat.map = vestWeaveTex;
+  const pipingMat = makeLionMat(0x374151, 0.84, 0, 0.15);
+  const furFacePawMat = makeLionMat(0xf4efe6, 0.64, 0, 0.24); // Satin-matte lion fur & bare paws
+  const maneOuterMat = makeLionMat(0xe8dec8, 0.68, 0, 0.2); // Sculpted satin-matte champagne mane
+  const maneMidMat = makeLionMat(0xd4c4a6, 0.7, 0, 0.16);
+  const maneInnerMat = makeLionMat(0xbda984, 0.74, 0, 0.14);
+  const noseMat = makeLionMat(0x9c5249, 0.44, 0.02, 0.34);
+  const darkOutlineMat = makeLionMat(0x140d0b, 0.58, 0.02, 0.2);
+  const innerEarMat = makeLionMat(0xd8a397, 0.66, 0, 0.2);
+
+  // Rich metallic gold bling (metalness 0.88, roughness 0.22)
   const goldMat = new THREE.MeshStandardMaterial({
     color: 0xd4af37,
-    roughness: 0.25,
-    metalness: 0.95,
-    envMapIntensity: 1.35,
+    roughness: 0.22,
+    metalness: 0.88,
+    envMapIntensity: 1.45,
     emissive: new THREE.Color(0x000000),
     emissiveIntensity: 0,
   });
 
-  // Sleek glossy jet-black aviator lenses
+  // Dark tinted reflective aviator lenses
   const aviatorLensMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a0a,
-    roughness: 0.1,
-    metalness: 0.9,
-    envMapIntensity: 1.25,
+    color: 0x0b111c,
+    roughness: 0.14,
+    metalness: 0.88,
+    envMapIntensity: 1.5,
     emissive: new THREE.Color(0xd4af37),
-    emissiveIntensity: 0.03,
+    emissiveIntensity: 0.04,
   });
   rig.shadesLensMat = aviatorLensMat;
 
@@ -459,6 +521,20 @@ function buildSheruBhai(rig: FighterRig): void {
     outerPiping.rotation.z = side * 0.16;
     outerPiping.rotation.y = -side * 0.18;
     rig.torso.add(outerPiping);
+
+    // Sharp tailored peak-lapel notch accent & structured boss shoulder pad
+    const lapelPeak = new THREE.Mesh(new THREE.ConeGeometry(0.068, 0.12, 4), lapelMat);
+    lapelPeak.position.set(side * 0.28, 0.62, 0.32);
+    lapelPeak.rotation.z = -side * 0.92;
+    lapelPeak.rotation.y = -side * 0.18;
+    lapelPeak.scale.set(1.0, 1.0, 0.38);
+    rig.torso.add(lapelPeak);
+
+    const shoulderPad = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.11, 0.36), blazerMat);
+    shoulderPad.position.set(side * 0.41, 0.72, 0.0);
+    shoulderPad.rotation.z = -side * 0.14;
+    shoulderPad.castShadow = true;
+    rig.torso.add(shoulderPad);
   });
 
   // Blazer collar wrapping behind neck with subtle charcoal piping edge
@@ -515,9 +591,9 @@ function buildSheruBhai(rig: FighterRig): void {
   const headMesh = createHeadMesh(rig.face.texture, 0.41);
   headMesh.position.y = 0.22;
   headMesh.scale.set(1.02, 1.0, 1.04);
-  // Override default glossy head material so face fur is matte (roughness 0.85) with low envMapIntensity & zero emissive washout
+  // Balanced satin-matte fur finish (roughness 0.64) with zero emissive washout
   const headMat = headMesh.material as THREE.MeshStandardMaterial;
-  headMat.roughness = 0.85;
+  headMat.roughness = 0.64;
   headMat.metalness = 0;
   headMat.envMapIntensity = 0.24;
   headMat.emissive.setHex(0x000000);
@@ -908,12 +984,14 @@ function buildBlueBilla(rig: FighterRig): void {
   rig.leftKnee.position.set(0, -0.28, 0);
   rig.rightKnee.position.set(0, -0.28, 0);
 
-  // Matte Sky-Blue Cat Materials (low envMapIntensity keeps vibrant #55BCE8 crisp under bright studio spotlights)
+  // Balanced Satin-Matte Sky-Blue Fur (0.62) + Matte Cotton Gloves (0.86) + Metallic Gold Studs (0.85/0.22)
+  const billaFurTex = createFabricWeaveTexture('#55BCE8', 'rgba(20,90,130,0.08)', 'rgba(224,242,254,0.08)', 4);
   const skyBlueMat = new THREE.MeshStandardMaterial({
-    color: 0x55bce8,
-    roughness: 0.75,
+    map: billaFurTex,
+    color: 0xffffff,
+    roughness: 0.62,
     metalness: 0,
-    envMapIntensity: 0.24,
+    envMapIntensity: 0.26,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
@@ -921,7 +999,7 @@ function buildBlueBilla(rig: FighterRig): void {
 
   const jetBlackMat = new THREE.MeshStandardMaterial({
     color: 0x111111,
-    roughness: 0.62,
+    roughness: 0.58,
     metalness: 0.04,
     envMapIntensity: 0.28,
     emissive: new THREE.Color(0x000000),
@@ -929,30 +1007,30 @@ function buildBlueBilla(rig: FighterRig): void {
   });
 
   const whiteGloveMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.72,
+    color: 0xf5f7fa,
+    roughness: 0.86,
     metalness: 0,
-    envMapIntensity: 0.22,
+    envMapIntensity: 0.18,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(whiteGloveMat);
 
-  // Oversized Glossy Bright-Red Jellybean Nose Material
+  // Sculpted Glossy Bright-Red Jellybean Nose Material
   const redNoseMat = new THREE.MeshStandardMaterial({
     color: 0xd91e2a,
-    roughness: 0.15,
-    metalness: 0.1,
-    envMapIntensity: 1.15,
+    roughness: 0.2,
+    metalness: 0.08,
+    envMapIntensity: 1.0,
     emissive: new THREE.Color(0x000000),
     emissiveIntensity: 0,
   });
 
   const yellowStudMat = new THREE.MeshStandardMaterial({
     color: 0xfacc15,
-    roughness: 0.28,
-    metalness: 0.25,
-    envMapIntensity: 0.8,
+    roughness: 0.22,
+    metalness: 0.85,
+    envMapIntensity: 1.2,
   });
 
   const eyeWhiteMat = new THREE.MeshStandardMaterial({
@@ -1032,9 +1110,9 @@ function buildBlueBilla(rig: FighterRig): void {
   headMesh.position.y = 0.21;
   headMesh.scale.set(1.26, 0.86, 0.9);
   const headMat = headMesh.material as THREE.MeshStandardMaterial;
-  headMat.roughness = 0.75;
+  headMat.roughness = 0.62;
   headMat.metalness = 0;
-  headMat.envMapIntensity = 0.24;
+  headMat.envMapIntensity = 0.26;
   rig.flashMaterials.push(headMat);
   rig.head.add(headMesh);
 
@@ -1108,8 +1186,19 @@ function buildBlueBilla(rig: FighterRig): void {
     sclera.scale.set(0.94, 1.56, 0.44);
     eyeSocket.add(sclera);
 
+    // Sculpted sly/determined angled 3D eyelid hood & jet-black arcade fighter brow ridge!
+    const eyelidHood = new THREE.Mesh(new THREE.BoxGeometry(0.195, 0.085, 0.072), skyBlueMat);
+    eyelidHood.position.set(0, 0.115, 0.032);
+    eyelidHood.rotation.z = side * 0.28;
+    eyeSocket.add(eyelidHood);
+
+    const browRidge = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.034, 0.082), jetBlackMat);
+    browRidge.position.set(0, 0.084, 0.044);
+    browRidge.rotation.z = side * 0.28;
+    eyeSocket.add(browRidge);
+
     const pupilGroup = new THREE.Group();
-    pupilGroup.position.set(-side * 0.012, 0, 0.044);
+    pupilGroup.position.set(-side * 0.012, -0.012, 0.044);
     eyeSocket.add(pupilGroup);
     rig.billaPupils.push(pupilGroup);
 
@@ -1530,21 +1619,25 @@ function buildGaribSenaNeta(rig: FighterRig): void {
   });
   rig.flashMaterials.push(kurtaPlacketMat);
 
+  const pajamaWeaveTex = createFabricWeaveTexture('#CBBFA9', 'rgba(92,80,62,0.12)', 'rgba(255,248,236,0.10)', 3);
+  const jholaWeaveTex = createFabricWeaveTexture('#A8977C', 'rgba(66,54,38,0.16)', 'rgba(235,222,198,0.10)', 4);
+
   const pajamaMat = new THREE.MeshStandardMaterial({
-    color: 0xcbbfa9, // Slightly deeper dusty beige cotton pajama
-    roughness: 0.94,
+    map: pajamaWeaveTex,
+    color: 0xffffff,
+    roughness: 0.9,
     metalness: 0,
-    envMapIntensity: 0.13,
+    envMapIntensity: 0.14,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(pajamaMat);
 
   const skinMat = new THREE.MeshStandardMaterial({
-    color: 0xb87d56, // Warm medium-brown skin (#B87D56)
-    roughness: 0.85,
+    color: 0xb87d56, // Warm medium-brown skin (#B87D56) in satin-matte finish
+    roughness: 0.62,
     metalness: 0,
-    envMapIntensity: 0.2,
+    envMapIntensity: 0.24,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
@@ -1563,28 +1656,29 @@ function buildGaribSenaNeta(rig: FighterRig): void {
 
   const fringeCreamMat = new THREE.MeshStandardMaterial({
     color: 0xede6da,
-    roughness: 0.92,
+    roughness: 0.9,
     metalness: 0,
     envMapIntensity: 0.18,
   });
   const fringeRedMat = new THREE.MeshStandardMaterial({
     color: 0xc84b42,
-    roughness: 0.9,
+    roughness: 0.88,
     metalness: 0,
     envMapIntensity: 0.18,
   });
 
   const jholaMat = new THREE.MeshStandardMaterial({
-    color: 0xa8977c, // Earthy worn khaki/beige cloth jhola (reads clearly against dusty beige kurta)
-    roughness: 0.95,
+    map: jholaWeaveTex,
+    color: 0xffffff,
+    roughness: 0.92,
     metalness: 0,
-    envMapIntensity: 0.12,
+    envMapIntensity: 0.14,
   });
   const jholaStrapMat = new THREE.MeshStandardMaterial({
-    color: 0x877459, // Darker woven khaki sling strap so the diagonal strap pops across the chest
-    roughness: 0.94,
+    color: 0x877459,
+    roughness: 0.9,
     metalness: 0,
-    envMapIntensity: 0.12,
+    envMapIntensity: 0.14,
   });
   const jholaInsideMat = new THREE.MeshStandardMaterial({
     color: 0x423a2e,
@@ -1651,10 +1745,18 @@ function buildGaribSenaNeta(rig: FighterRig): void {
   torsoMesh.castShadow = true;
   rig.torso.add(torsoMesh);
 
-  // Modest banded Nehru kurta collar
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.21, 0.11, 14), kurtaPlainMat);
+  // Crisp tailored mandarin kurta collar with subtle dark top-stitch rim
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.188, 0.212, 0.115, 14), kurtaPlainMat);
   collar.position.y = 0.74;
   rig.torso.add(collar);
+
+  const collarEdgeTrim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.188, 0.012, 6, 16),
+    jholaStrapMat,
+  );
+  collarEdgeTrim.rotation.x = Math.PI / 2;
+  collarEdgeTrim.position.y = 0.795;
+  rig.torso.add(collarEdgeTrim);
 
   // Neck
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.16, 12), skinMat);
@@ -1782,9 +1884,9 @@ function buildGaribSenaNeta(rig: FighterRig): void {
   headMesh.position.y = 0.2;
   headMesh.scale.set(0.95, 1.05, 0.96);
   const headMat = headMesh.material as THREE.MeshStandardMaterial;
-  headMat.roughness = 0.85;
+  headMat.roughness = 0.62;
   headMat.metalness = 0;
-  headMat.envMapIntensity = 0.2;
+  headMat.envMapIntensity = 0.24;
   rig.flashMaterials.push(headMat);
   rig.head.add(headMesh);
 
@@ -2096,13 +2198,13 @@ function buildAndaBhai(rig: FighterRig): void {
   const eggGeo = new THREE.LatheGeometry(lathePts, 24);
   eggGeo.computeVertexNormals();
 
-  // Warm Peach-Tan Semi-Glossy Eggshell + Lower Red Vest Canvas Material (roughness: 0.45)
+  // Warm Peach-Tan Satin-Matte Eggshell + Lower Red Vest Canvas Material (roughness: 0.60, no shiny plastic look!)
   const eggMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     map: rig.face.texture,
-    roughness: 0.45,
-    metalness: 0.02,
-    envMapIntensity: 0.28,
+    roughness: 0.6,
+    metalness: 0,
+    envMapIntensity: 0.24,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
@@ -2113,73 +2215,78 @@ function buildAndaBhai(rig: FighterRig): void {
   eggMesh.castShadow = true;
   rig.torso.add(eggMesh);
 
-  // Shared materials for Anda Bhai's dapper Humpty outfit & accessories
+  // Grounded satin-matte eggshell & woven matte cloth materials for Anda Bhai
+  const redVestWeaveTex = createFabricWeaveTexture('#D92323', 'rgba(127,29,29,0.18)', 'rgba(255,210,210,0.08)', 3);
+  const topHatFeltTex = createFabricWeaveTexture('#1B3B6F', 'rgba(15,23,42,0.22)', 'rgba(148,163,184,0.08)', 3);
+
   const peachNoseMat = new THREE.MeshStandardMaterial({
     color: 0xf0ba88,
-    roughness: 0.45,
-    metalness: 0.02,
-    envMapIntensity: 0.28,
+    roughness: 0.6,
+    metalness: 0,
+    envMapIntensity: 0.24,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(peachNoseMat);
 
   const topHatNavyMat = new THREE.MeshStandardMaterial({
-    color: 0x1b3b6f, // Glossy dark navy-blue top hat (#1B3B6F, roughness: 0.3)
-    roughness: 0.3,
-    metalness: 0.08,
-    envMapIntensity: 0.55,
+    map: topHatFeltTex,
+    color: 0xffffff,
+    roughness: 0.78, // Tailored wool felt top hat instead of shiny plastic
+    metalness: 0,
+    envMapIntensity: 0.22,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(topHatNavyMat);
 
   const ribbonRedMat = new THREE.MeshStandardMaterial({
-    color: 0xd92b2b, // Bright red ribbon band (#D92B2B)
-    roughness: 0.45,
-    metalness: 0.04,
-    envMapIntensity: 0.3,
+    color: 0xc82323,
+    roughness: 0.72,
+    metalness: 0,
+    envMapIntensity: 0.22,
   });
 
   const redVestMat = new THREE.MeshStandardMaterial({
-    color: 0xd92323, // Bright matte red vest & cuffs (#D92323, roughness: 0.75)
-    roughness: 0.75,
-    metalness: 0.02,
-    envMapIntensity: 0.2,
+    map: redVestWeaveTex,
+    color: 0xffffff,
+    roughness: 0.86,
+    metalness: 0,
+    envMapIntensity: 0.18,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(redVestMat);
 
   const whiteCollarMat = new THREE.MeshStandardMaterial({
-    color: 0xf4f4f4, // Crisp folded white collar & white boot sole rim (#F4F4F4)
-    roughness: 0.62,
+    color: 0xf4f4f4,
+    roughness: 0.84,
     metalness: 0,
-    envMapIntensity: 0.22,
+    envMapIntensity: 0.18,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(whiteCollarMat);
 
   const bowTieYellowMat = new THREE.MeshStandardMaterial({
-    color: 0xffd426, // Chunky bright yellow bow tie (#FFD426)
-    roughness: 0.38,
-    metalness: 0.05,
-    envMapIntensity: 0.35,
+    color: 0xf5c518,
+    roughness: 0.72,
+    metalness: 0.02,
+    envMapIntensity: 0.24,
   });
 
   const greenButtonMat = new THREE.MeshStandardMaterial({
-    color: 0x22c55e, // Small glossy green vest buttons
-    roughness: 0.32,
-    metalness: 0.08,
-    envMapIntensity: 0.45,
+    color: 0x16a34a,
+    roughness: 0.28,
+    metalness: 0.25,
+    envMapIntensity: 0.55,
   });
 
   const navySuspenderMat = new THREE.MeshStandardMaterial({
-    color: 0x183059, // Dark navy-blue suspenders & skinny legs (#183059)
-    roughness: 0.68,
-    metalness: 0.04,
-    envMapIntensity: 0.22,
+    color: 0x183059,
+    roughness: 0.86,
+    metalness: 0,
+    envMapIntensity: 0.18,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
@@ -2188,19 +2295,19 @@ function buildAndaBhai(rig: FighterRig): void {
   const stripeSleeveMat = new THREE.MeshStandardMaterial({
     map: createAndaStripeTexture(),
     color: 0xffffff,
-    roughness: 0.68,
-    metalness: 0.02,
-    envMapIntensity: 0.22,
+    roughness: 0.86,
+    metalness: 0,
+    envMapIntensity: 0.18,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
   rig.flashMaterials.push(stripeSleeveMat);
 
   const tealBootMat = new THREE.MeshStandardMaterial({
-    color: 0x269484, // Chunky teal-green boots (#269484)
-    roughness: 0.44,
-    metalness: 0.06,
-    envMapIntensity: 0.35,
+    color: 0x228476,
+    roughness: 0.52,
+    metalness: 0.04,
+    envMapIntensity: 0.28,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
   });
@@ -2246,10 +2353,20 @@ function buildAndaBhai(rig: FighterRig): void {
   hatCrown.castShadow = true;
   hatPivot.add(hatCrown);
 
-  // Bright red ribbon band wrapped snugly around hat crown base (#D92B2B)
+  // Bright red ribbon band wrapped snugly around hat crown base + metallic gold buckle clasp
   const hatRibbon = new THREE.Mesh(new THREE.CylinderGeometry(0.246, 0.232, 0.105, 18), ribbonRedMat);
   hatRibbon.position.y = 0.075;
   hatPivot.add(hatRibbon);
+
+  const hatBuckleMat = new THREE.MeshStandardMaterial({
+    color: 0xeab308,
+    roughness: 0.22,
+    metalness: 0.86,
+    envMapIntensity: 1.3,
+  });
+  const hatClasp = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.078, 0.026), hatBuckleMat);
+  hatClasp.position.set(0, 0.075, 0.242);
+  hatPivot.add(hatClasp);
 
   // === 4. WIDE CRISP WHITE FOLDED COLLAR, CHUNKY 3D YELLOW BOW TIE, 2 GREEN BUTTONS & VEST HEM ===
   const collarPos = evalAndaEgg(0.42); // Right on the egg-to-red-vest seam!
@@ -2446,19 +2563,21 @@ function buildLaddooMausi(rig: FighterRig): void {
   const sareeDeepMat = makeMat(0x125e64, 0.9, 0, rig.flashMaterials);
   sareeDeepMat.envMapIntensity = 0.14;
 
-  const blouseMat = makeMat(0x1e5e3a, 0.86, 0, rig.flashMaterials);
+  const blouseWeaveTex = createFabricWeaveTexture('#1E5E3A', 'rgba(10,40,24,0.18)', 'rgba(134,239,172,0.06)', 3);
+  const blouseMat = makeMat(0xffffff, 0.86, 0, rig.flashMaterials);
+  blouseMat.map = blouseWeaveTex;
   blouseMat.envMapIntensity = 0.18;
 
-  const skinMat = makeMat(0xdfb48e, 0.85, 0, rig.flashMaterials);
-  skinMat.envMapIntensity = 0.16;
+  const skinMat = makeMat(0xdfb48e, 0.62, 0, rig.flashMaterials);
+  skinMat.envMapIntensity = 0.22;
 
-  const hairMat = makeMat(0x3a1412, 0.72, 0.04);
-  hairMat.envMapIntensity = 0.22;
+  const hairMat = makeMat(0x3a1412, 0.66, 0.04);
+  hairMat.envMapIntensity = 0.24;
   const hairBandMat = makeMat(0x210a09, 0.78, 0.02);
 
-  // Metallic gold jewelry (#F0C420, metalness 0.85, roughness 0.25)
-  const goldMat = makeMat(0xf0c420, 0.25, 0.85, rig.flashMaterials);
-  goldMat.envMapIntensity = 1.0;
+  // True metallic gold jewelry (#F0C420, metalness 0.86, roughness 0.22)
+  const goldMat = makeMat(0xf0c420, 0.22, 0.86, rig.flashMaterials);
+  goldMat.envMapIntensity = 1.35;
 
   const chappalMat = makeMat(0x4a2c1a, 0.78, 0.04, rig.flashMaterials);
   const chappalStrapMat = makeMat(0x361e10, 0.72, 0.05);
@@ -2586,12 +2705,12 @@ function buildLaddooMausi(rig: FighterRig): void {
   palluFold2.scale.set(1.06, 1.0, 0.94);
   mausiPalluGroup.add(palluFold2);
 
-  // Subtle dark-teal folded pallu edge trim running parallel along the inner edge
+  // Crisp metallic gold zari pallu border trim running parallel along the draped edge
   const palluEdge = new THREE.Mesh(
-    new THREE.TubeGeometry(palluFold2Curve, 22, 0.024, 7, false),
-    sareeDeepMat,
+    new THREE.TubeGeometry(palluFold2Curve, 22, 0.022, 7, false),
+    goldMat,
   );
-  palluEdge.position.set(0.03, 0.02, 0.03);
+  palluEdge.position.set(0.032, 0.02, 0.034);
   mausiPalluGroup.add(palluEdge);
 
   // --- 3. SIGNATURE THICK V-SHAPED METALLIC GOLD NECKLACE (#F0C420) ---
@@ -2626,9 +2745,9 @@ function buildLaddooMausi(rig: FighterRig): void {
   // --- 4. ROUND CHUBBY HEAD, CENTER-PARTED DARK REDDISH-BROWN HAIR, BACK BUN & GOLD EARRINGS ---
   const headMesh = createHeadMesh(rig.face.texture, 0.385);
   const headMat = headMesh.material as THREE.MeshStandardMaterial;
-  headMat.roughness = 0.85;
+  headMat.roughness = 0.62;
   headMat.metalness = 0;
-  headMat.envMapIntensity = 0.16;
+  headMat.envMapIntensity = 0.22;
   rig.flashMaterials.push(headMat);
   headMesh.position.set(0, 0.22, 0);
   headMesh.scale.set(1.07, 0.97, 1.03);
@@ -2695,6 +2814,20 @@ function buildLaddooMausi(rig: FighterRig): void {
   const hairBand = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.028, 8, 16), hairBandMat);
   hairBand.position.set(0, 0.34, -0.335);
   rig.head.add(hairBand);
+
+  // Crisp ivory jasmine gajra accent tucked neatly around her hair bun
+  const gajraMat = makeMat(0xfef9ec, 0.72, 0);
+  const gajraBeadGeo = new THREE.SphereGeometry(0.034, 7, 7);
+  for (let gi = 0; gi < 8; gi++) {
+    const ga = (gi / 8) * Math.PI * 2;
+    const bead = new THREE.Mesh(gajraBeadGeo, gajraMat);
+    bead.position.set(
+      Math.cos(ga) * 0.175,
+      0.34 + Math.sin(ga) * 0.165,
+      -0.345,
+    );
+    rig.head.add(bead);
+  }
 
   // --- 5. STURDY ARMS: DARK FOREST-GREEN HALF-SLEEVES + BARE ARMS + CHUNKY GOLD KADAS ---
   const halfSleeveGeo = new THREE.CylinderGeometry(0.158, 0.142, 0.25, 14);

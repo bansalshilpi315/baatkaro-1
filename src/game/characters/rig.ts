@@ -54,9 +54,10 @@ export function getContactShadowTexture(): THREE.CanvasTexture {
   c.width = 128;
   c.height = 128;
   const ctx = c.getContext('2d')!;
-  const grad = ctx.createRadialGradient(64, 64, 8, 64, 64, 60);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0.58)');
-  grad.addColorStop(0.65, 'rgba(0, 0, 0, 0.25)');
+  const grad = ctx.createRadialGradient(64, 64, 6, 64, 64, 60);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0.76)');
+  grad.addColorStop(0.5, 'rgba(0, 0, 0, 0.44)');
+  grad.addColorStop(0.8, 'rgba(0, 0, 0, 0.14)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 128);
@@ -143,17 +144,17 @@ export function createBaseRigSkeleton(
   rightFootAnchor.position.set(0, -0.4, 0.08);
   rightKnee.add(rightFootAnchor);
 
-  // Soft radial contact shadow on floor
-  const shadowGeo = new THREE.CircleGeometry(0.75, 24);
+  // Soft grounded dark contact shadow disc directly beneath fighter feet
+  const shadowGeo = new THREE.CircleGeometry(0.76, 24);
   const shadowMat = new THREE.MeshBasicMaterial({
     map: getContactShadowTexture(),
     transparent: true,
     depthWrite: false,
-    opacity: 0.72,
+    opacity: 0.84,
   });
   const contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
   contactShadow.rotation.x = -Math.PI / 2;
-  contactShadow.position.y = 0.018;
+  contactShadow.position.y = 0.02;
   root.add(contactShadow);
 
   // Dharna shield translucent saffron dome
@@ -272,11 +273,13 @@ export function animateFighterRig(
   rig.bodyGroup.scale.set(state.squashX, state.squashY, state.squashX);
 
   // Contact shadow shrinks & softens as fighter jumps higher
-  const shadowScale = Math.max(0.45, 1 - state.y * 0.14);
+  const baseShadowScale = state.id === 'mausi' ? 1.24 : 1.0;
+  const heightScale = Math.max(0.42, 1 - state.y * 0.16);
+  const shadowScale = baseShadowScale * heightScale;
   rig.contactShadow.scale.set(shadowScale, shadowScale, 1);
   (rig.contactShadow.material as THREE.MeshBasicMaterial).opacity = Math.max(
-    0.18,
-    0.72 - state.y * 0.12,
+    0.16,
+    0.84 - state.y * 0.16,
   );
 
   // Dynamic Face & Anda Bhai cracks (<70%, <40%, <20% HP)

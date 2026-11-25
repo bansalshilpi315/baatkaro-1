@@ -119,6 +119,14 @@
   animation: comicPop 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.comic-pop-signature {
+  -webkit-text-stroke: 4px #120906;
+  text-shadow:
+    0 5px 0 #120906,
+    0 0 24px rgba(250, 204, 21, 0.75);
+  animation: comicPopSignature 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @keyframes comicPop {
   0% {
     opacity: 0;
@@ -138,19 +146,36 @@
   }
 }
 
-@keyframes comicBubblePop {
+@keyframes comicPopSignature {
   0% {
     opacity: 0;
-    transform: scale(0.65) translateY(8px);
+    transform: translate(-50%, -25%) scale(0.42) skewX(-8deg) rotate(-5deg);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -68%) scale(1.22) skewX(-8deg) rotate(-2deg);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -86%) scale(1.04) skewX(-8deg) rotate(1deg);
   }
   100% {
-    opacity: 1;
+    opacity: 0;
+    transform: translate(-50%, -115%) scale(0.94) skewX(-8deg) rotate(2deg);
+  }
+}
+
+@keyframes comicBubblePop {
+  0% {
+    transform: scale(0.72) translateY(6px);
+  }
+  100% {
     transform: scale(1) translateY(0);
   }
 }
 
 .comic-bubble-pop {
-  animation: comicBubblePop 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: comicBubblePop 0.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes moveCalloutPop {

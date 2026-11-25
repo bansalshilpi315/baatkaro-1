@@ -320,6 +320,8 @@ export function stepMausiSuper(
         x: superState.targetX,
         y: 1.55,
         damage: dealt,
+        word: 'GOL-GOL LADDOO!',
+        isSuperSignature: true,
         color: '#FDE047',
         headline:
           defender.hp <= 0

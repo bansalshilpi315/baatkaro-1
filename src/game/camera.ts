@@ -76,11 +76,11 @@ export function computeIntroCameraTarget(
     };
   }
 
-  const p1End = introDuration >= 6.0 ? 4.0 : 0.95;
-  const p2End = introDuration >= 6.0 ? 8.0 : 1.85;
-  const panDuration = introDuration >= 6.0 ? 0.55 : 0.42;
+  const p1End = introDuration >= 4.0 ? 2.0 : 0.95;
+  const p2End = introDuration >= 4.0 ? 4.0 : 1.85;
+  const panDuration = introDuration >= 4.0 ? 0.42 : 0.42;
 
-  // Phase 1 (0.0s - 4.0s): 3/4 over-the-shoulder behind/beside P1 looking across at CPU
+  // Phase 1 (0.0s - 2.0s): 3/4 over-the-shoulder behind/beside P1 looking across at CPU
   const p1Shoulder: FixedZoomCameraTarget = {
     x: p1X - 1.85,
     y: 2.02,
@@ -90,7 +90,7 @@ export function computeIntroCameraTarget(
     lookZ: -0.25,
   };
 
-  // Phase 2 (4.0s - 8.0s): 3/4 over-the-shoulder behind/beside CPU looking across at P1
+  // Phase 2 (2.0s - 4.0s): 3/4 over-the-shoulder behind/beside CPU looking across at P1
   const p2Shoulder: FixedZoomCameraTarget = {
     x: p2X + 1.85,
     y: 2.02,
@@ -101,7 +101,7 @@ export function computeIntroCameraTarget(
   };
 
   if (introElapsed < p1End) {
-    // Subtle push-in drift during P1 4.0s taunt
+    // Subtle push-in drift during P1 2.0s taunt
     const drift = smoothstep(introElapsed / p1End);
     return {
       x: p1Shoulder.x + drift * 0.22,

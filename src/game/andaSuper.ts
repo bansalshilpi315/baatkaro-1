@@ -305,7 +305,9 @@ export function stepAndaSuper(
         x: superState.targetX,
         y: 1.45,
         damage: dealt,
-        color: '#EF4444',
+        word: 'THE GREAT WALL DROP!',
+        isSuperSignature: true,
+        color: '#FDE047',
         headline:
           defender.hp <= 0
             ? 'BREAKING: ANDA BHAI DROPS THE GREAT WALL FOR AN INSTANT K.O.!'

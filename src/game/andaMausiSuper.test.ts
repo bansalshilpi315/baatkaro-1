@@ -88,7 +88,13 @@ test('Anda Bhai Super deals exact 33% maxHp (~25% lightning + ~75% red-brick wal
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
         for (const ev of evs) {
-          if (ev.word) andaComicWords.push(ev.word);
+          if (ev.word) {
+            andaComicWords.push(ev.word);
+            if (state.andaSuper?.active) {
+              assert.equal(ev.isSuperSignature, true);
+              assert.equal(shouldAllowFloatingCallout(state, ev), true);
+            }
+          }
         }
         if (state.andaSuperSignals.some((s) => s.kind === 'wall_impact')) {
           sawWallImpact = true;
@@ -100,7 +106,7 @@ test('Anda Bhai Super deals exact 33% maxHp (~25% lightning + ~75% red-brick wal
           assert.equal(
             shouldAllowFloatingCallout(state),
             false,
-            'Floating comic callouts must be suppressed throughout Anda Bhai Super',
+            'Generic floating comic hit-text spam must remain suppressed throughout Anda Bhai Super',
           );
           if (!capturedPreWall && state.andaSuper.elapsed >= 2.45 && state.andaSuper.elapsed < 2.65) {
             preWallDamage = startHp - opp.hp;
@@ -117,8 +123,8 @@ test('Anda Bhai Super deals exact 33% maxHp (~25% lightning + ~75% red-brick wal
       assert.equal(sawWallShatter, true, 'Wall shatter beat must emit after flattened beat');
       assert.deepEqual(
         andaComicWords,
-        [],
-        'Anda Bhai Super must emit zero floating comic impact text pop-ups',
+        ['THE GREAT WALL DROP!'],
+        'Anda Bhai Super must emit ONLY his signature THE GREAT WALL DROP! pop-up with zero hit-spam',
       );
       assert.equal(
         preWallDamage,
@@ -237,7 +243,13 @@ test('Laddoo Mausi Super deals exact 33% maxHp (~50% laddoo storm + ~50% Mega La
         const evs = stepMatch(state, [idle, idle], dt);
         if (mausi.y > maxHoverY) maxHoverY = mausi.y;
         for (const ev of evs) {
-          if (ev.word) mausiComicWords.push(ev.word);
+          if (ev.word) {
+            mausiComicWords.push(ev.word);
+            if (state.mausiSuper?.active) {
+              assert.equal(ev.isSuperSignature, true);
+              assert.equal(shouldAllowFloatingCallout(state, ev), true);
+            }
+          }
         }
         laddooHitSignals += state.mausiSuperSignals.filter((s) => s.kind === 'laddoo_hit').length;
         if (state.mausiSuperSignals.some((s) => s.kind === 'mega_impact')) {
@@ -247,7 +259,7 @@ test('Laddoo Mausi Super deals exact 33% maxHp (~50% laddoo storm + ~50% Mega La
           assert.equal(
             shouldAllowFloatingCallout(state),
             false,
-            'Floating comic callouts must be suppressed throughout Laddoo Mausi Super',
+            'Generic floating comic hit-text spam must remain suppressed throughout Laddoo Mausi Super',
           );
           if (!capturedPreMega && state.mausiSuper.elapsed >= 4.08 && state.mausiSuper.elapsed < 4.24) {
             preMegaDamage = startHp - opp.hp;
@@ -266,8 +278,8 @@ test('Laddoo Mausi Super deals exact 33% maxHp (~50% laddoo storm + ~50% Mega La
       assert.equal(sawMegaImpact, true, 'Mega Laddoo impact VFX signal must fire');
       assert.deepEqual(
         mausiComicWords,
-        [],
-        'Laddoo Mausi Super must emit zero floating comic impact text pop-ups',
+        ['GOL-GOL LADDOO!'],
+        'Laddoo Mausi Super must emit ONLY her signature GOL-GOL LADDOO! pop-up with zero hit-spam',
       );
       assert.equal(
         preMegaDamage,

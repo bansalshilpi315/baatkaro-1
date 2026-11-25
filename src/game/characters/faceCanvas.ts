@@ -87,22 +87,31 @@ function paintWhiteLionFace(
     });
   }
 
-  // Darker, crisp stern lion brows (instantly readable above aviator rims)
-  ctx.strokeStyle = '#4B3F33';
-  ctx.lineWidth = 9;
+  // Sharp, angled stern arcade boss brows (instantly readable above aviator rims)
+  ctx.strokeStyle = '#3B2F25';
+  ctx.lineWidth = 10;
   ctx.lineCap = 'round';
   const browTilt =
     expression === 'attack' || expression === 'block'
-      ? 11
+      ? 14
       : expression === 'hit' || expression === 'ko'
-        ? -7
-        : 7;
+        ? -8
+        : 10;
   [-1, 1].forEach((side) => {
     const ex = cx + side * eyeOffsetX;
     ctx.beginPath();
-    ctx.moveTo(ex - side * 18, eyeY - 22 - browTilt * 0.25);
-    ctx.lineTo(ex + side * 14, eyeY - 22 + browTilt);
+    ctx.moveTo(ex - side * 19, eyeY - 24 - browTilt * 0.28);
+    ctx.lineTo(ex + side * 15, eyeY - 21 + browTilt);
     ctx.stroke();
+    // Crisp dark brow ridge shadow underneath for sculpted 3D arcade depth
+    ctx.strokeStyle = '#140D0B';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(ex - side * 17, eyeY - 19 - browTilt * 0.24);
+    ctx.lineTo(ex + side * 14, eyeY - 16 + browTilt);
+    ctx.stroke();
+    ctx.strokeStyle = '#3B2F25';
+    ctx.lineWidth = 10;
   });
 
   // Lion Nose: darker bold outline with rich pinkish-brown tip for fighting-camera clarity
@@ -202,11 +211,25 @@ function paintWhiteLionFace(
     ctx.closePath();
     ctx.fill();
   } else {
-    // Bold serious feline boss mouth
+    // Confident asymmetrical billionaire boss smirk with sharp fang glint
     ctx.beginPath();
-    ctx.moveTo(cx - 23, mouthY + 4);
-    ctx.quadraticCurveTo(cx - 10, mouthY - 4, cx, mouthY - 1);
-    ctx.quadraticCurveTo(cx + 10, mouthY - 4, cx + 23, mouthY + 3);
+    ctx.moveTo(cx - 22, mouthY + 4);
+    ctx.quadraticCurveTo(cx - 4, mouthY + 1, cx + 10, mouthY - 2);
+    ctx.quadraticCurveTo(cx + 18, mouthY - 5, cx + 25, mouthY - 7);
+    ctx.stroke();
+    // Subtle lower-lip crease & confident canine glint
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.moveTo(cx + 12, mouthY - 2);
+    ctx.lineTo(cx + 15, mouthY + 5);
+    ctx.lineTo(cx + 18, mouthY - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20, 13, 11, 0.45)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 8, mouthY + 10);
+    ctx.quadraticCurveTo(cx + 2, mouthY + 12, cx + 10, mouthY + 8);
     ctx.stroke();
   }
 }
@@ -513,62 +536,65 @@ function paintNetaFace(
       const ex = cx + side * eyeOffsetX;
       ctx.fillStyle = '#FFFDF9';
       ctx.beginPath();
-      ctx.ellipse(ex, eyeY, 13.5, expression === 'attack' ? 11.5 : 13, 0, 0, Math.PI * 2);
+      ctx.ellipse(ex, eyeY, 13.5, expression === 'attack' ? 11 : 12.2, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#1F2937';
+      ctx.strokeStyle = '#18110D';
       ctx.lineWidth = 3.5;
       ctx.stroke();
 
-      // Subtle relaxed upper eyelid droop for humble tired look in idle
-      if (expression === 'idle') {
-        ctx.fillStyle = '#A86D48';
-        ctx.beginPath();
-        ctx.ellipse(ex, eyeY - 10, 14, 5.5, 0, 0, Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#2B1B12';
-        ctx.lineWidth = 2.6;
-        ctx.beginPath();
-        ctx.moveTo(ex - 13, eyeY - 7);
-        ctx.quadraticCurveTo(ex, eyeY - 4, ex + 13, eyeY - 7);
-        ctx.stroke();
-      }
-
-      const pupilY = expression === 'attack' ? eyeY - 1 : eyeY + 1;
+      const pupilY = expression === 'attack' ? eyeY - 1 : eyeY + 0.5;
       ctx.fillStyle = '#18110D';
       ctx.beginPath();
-      ctx.arc(ex + side * 1.2, pupilY, 6.8, 0, Math.PI * 2);
+      ctx.arc(ex + side * 1.2, pupilY, 6.4, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
-      ctx.arc(ex + side * 1.2 - 2.4, pupilY - 2.5, 2.5, 0, Math.PI * 2);
+      ctx.arc(ex + side * 1.2 - 2.2, pupilY - 2.4, 2.3, 0, Math.PI * 2);
       ctx.fill();
+
+      // Sharp angled upper eyelid for intense determined neta glare behind spectacles
+      const lidDip = expression === 'attack' ? 2.5 : 1.0;
+      ctx.fillStyle = '#A86D48';
+      ctx.beginPath();
+      ctx.moveTo(ex - side * 15, eyeY - 14);
+      ctx.lineTo(ex + side * 15, eyeY - 14);
+      ctx.lineTo(ex + side * 15, eyeY - 5.5 - lidDip);
+      ctx.lineTo(ex - side * 15, eyeY - 2.0 + lidDip);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#1C110B';
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.moveTo(ex - side * 14, eyeY - 2.2 + lidDip);
+      ctx.lineTo(ex + side * 14, eyeY - 6.0 - lidDip);
+      ctx.stroke();
     });
   }
 
-  // Expressive Salt-and-Pepper Eyebrows
+  // Sharp Furrowed Salt-and-Pepper Arcade Fighter Eyebrows
   ctx.lineCap = 'round';
   const browTilt =
     expression === 'attack' || expression === 'block'
-      ? 11
+      ? 13
       : expression === 'hit' || expression === 'ko'
         ? -10
-        : 3;
+        : 8;
   const browLift = expression === 'hit' ? -7 : 0;
   [-1, 1].forEach((side) => {
     const ex = cx + side * eyeOffsetX;
-    ctx.strokeStyle = '#3F4348';
-    ctx.lineWidth = 7.5;
+    ctx.strokeStyle = '#2E3238';
+    ctx.lineWidth = 8.0;
     ctx.beginPath();
-    ctx.moveTo(ex - side * 16, eyeY - 21 + browLift - browTilt * 0.25);
-    ctx.lineTo(ex + side * 14, eyeY - 21 + browLift + browTilt);
+    ctx.moveTo(ex - side * 17, eyeY - 21 + browLift - browTilt * 0.25);
+    ctx.lineTo(ex + side * 15, eyeY - 21 + browLift + browTilt);
     ctx.stroke();
-    // Subtle grey salt-and-pepper highlight streak inside brow
+    // Crisp silver salt-and-pepper highlight streak inside brow
     ctx.strokeStyle = '#CBD5E1';
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(ex - side * 12, eyeY - 22 + browLift - browTilt * 0.2);
-    ctx.lineTo(ex + side * 6, eyeY - 21 + browLift + browTilt * 0.55);
+    ctx.moveTo(ex - side * 13, eyeY - 22 + browLift - browTilt * 0.2);
+    ctx.lineTo(ex + side * 7, eyeY - 21 + browLift + browTilt * 0.55);
     ctx.stroke();
   });
 
@@ -981,40 +1007,67 @@ function paintAndaEggFace(
       ctx.arc(irisX, irisY, pupilR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Bright glossy cartoon eye catchlight
+      // Bright crisp eye catchlight
       ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
-      ctx.arc(irisX - irisR * 0.35, irisY - irisR * 0.38, irisR * 0.3, 0, Math.PI * 2);
+      ctx.arc(irisX - irisR * 0.35, irisY - irisR * 0.38, irisR * 0.28, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(irisX + irisR * 0.25, irisY + irisR * 0.3, irisR * 0.14, 0, Math.PI * 2);
+      ctx.arc(irisX + irisR * 0.25, irisY + irisR * 0.3, irisR * 0.13, 0, Math.PI * 2);
       ctx.fill();
+
+      // Smug angled upper eyelids (sheds blank baby-eye look while keeping iconic Humpty Egg charm!)
+      if (!isHit) {
+        const lidSlope = isAttack ? 9.5 : 5.5;
+        const lidDrop = isBlock ? eyeRy * 0.25 : isAttack ? eyeRy * 0.42 : eyeRy * 0.48;
+        ctx.fillStyle = '#EFB884';
+        ctx.beginPath();
+        ctx.moveTo(ex - side * (rx + 4), eyeY - ry - 4);
+        ctx.lineTo(ex + side * (rx + 4), eyeY - ry - 4);
+        ctx.lineTo(ex + side * (rx + 4), eyeY - lidDrop - lidSlope);
+        ctx.lineTo(ex - side * (rx + 4), eyeY - lidDrop + lidSlope);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = '#1E293B';
+        ctx.lineWidth = 4.6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ex - side * (rx + 2), eyeY - lidDrop + lidSlope);
+        ctx.lineTo(ex + side * (rx + 2), eyeY - lidDrop - lidSlope);
+        ctx.stroke();
+      }
     });
   }
 
-  // === 5. ARCHED EXPRESSIVE DARK EYEBROWS ===
-  const browY = eyeY - eyeRy - h * 0.024;
-  ctx.strokeStyle = '#271A14';
-  ctx.lineWidth = 7;
+  // === 5. SMUG, CHEEKY ANGLED ARCADE FIGHTER EYEBROWS ===
+  const browY = eyeY - eyeRy - h * 0.018;
+  ctx.strokeStyle = '#231610';
+  ctx.lineWidth = 7.8;
   ctx.lineCap = 'round';
   [-1, 1].forEach((side) => {
     const bx = cx + side * eyeOffsetX;
     ctx.beginPath();
     if (expression === 'attack') {
-      // Cheeky determined inward-angled brows
-      ctx.moveTo(bx - side * 19, browY + 8);
-      ctx.quadraticCurveTo(bx, browY - 4, bx + side * 20, browY - 7);
+      // Fierce determined inward-angled brows
+      ctx.moveTo(bx - side * 20, browY + 11);
+      ctx.quadraticCurveTo(bx, browY - 3, bx + side * 21, browY - 8);
     } else if (expression === 'hit' || expression === 'ko') {
       // High alarmed surprised brows
       ctx.moveTo(bx - side * 18, browY - 12);
       ctx.quadraticCurveTo(bx, browY - 22, bx + side * 19, browY - 4);
     } else if (expression === 'block') {
-      ctx.moveTo(bx - side * 18, browY + 8);
+      ctx.moveTo(bx - side * 18, browY + 9);
       ctx.lineTo(bx + side * 18, browY + 2);
     } else {
-      // High, arched goofy Humpty eyebrows!
-      ctx.moveTo(bx - side * 18, browY - 2);
-      ctx.quadraticCurveTo(bx, browY - 16, bx + side * 18, browY + 2);
+      // Smug cheeky asymmetrical cocked brow (right brow arched high, left angled slickly!)
+      if (side === 1) {
+        ctx.moveTo(bx - 19, browY + 3);
+        ctx.quadraticCurveTo(bx, browY - 13, bx + 20, browY - 4);
+      } else {
+        ctx.moveTo(bx + 19, browY + 7);
+        ctx.quadraticCurveTo(bx, browY - 2, bx - 20, browY - 3);
+      }
     }
     ctx.stroke();
   });
@@ -1492,35 +1545,38 @@ function paintMausiFace(ctx: CanvasRenderingContext2D, expression: FaceExpressio
       ctx.lineTo(ex + side * (eyeRx + 4.2), eyeY - 6);
       ctx.stroke();
 
-      // Fierce angled upper lid on attack
-      if (expression === 'attack') {
+      // Fierce formidable aunty angled kajal upper eyelid (stronger on attack, sharp & commanding in idle!)
+      if (expression === 'attack' || expression === 'idle') {
+        const lidInnerY = expression === 'attack' ? eyeY - eyeRy * 0.08 : eyeY - eyeRy * 0.36;
+        const lidOuterY = expression === 'attack' ? eyeY - eyeRy * 0.92 : eyeY - eyeRy * 0.88;
         ctx.fillStyle = '#DFB48E';
         ctx.beginPath();
         ctx.moveTo(ex - side * (eyeRx + 3), eyeY - eyeRy - 2);
         ctx.lineTo(ex + side * (eyeRx + 3), eyeY - eyeRy - 2);
-        ctx.lineTo(ex - side * (eyeRx + 3), eyeY - eyeRy * 0.08);
+        ctx.lineTo(ex + side * (eyeRx + 3), lidOuterY);
+        ctx.lineTo(ex - side * (eyeRx + 3), lidInnerY);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#240E0C';
-        ctx.lineWidth = 3.2;
+        ctx.strokeStyle = '#1E0C0A';
+        ctx.lineWidth = expression === 'attack' ? 3.8 : 3.4;
         ctx.beginPath();
-        ctx.moveTo(ex - side * (eyeRx + 1.5), eyeY - eyeRy * 0.14);
-        ctx.lineTo(ex + side * (eyeRx + 2), eyeY - eyeRy * 0.9);
+        ctx.moveTo(ex - side * (eyeRx + 1.5), lidInnerY);
+        ctx.lineTo(ex + side * (eyeRx + 2.5), lidOuterY);
         ctx.stroke();
       }
     });
   }
 
-  // Neat arched dark reddish-brown eyebrows (#3A1412, aspect-compensated)
-  ctx.strokeStyle = '#3A1412';
-  ctx.lineWidth = expression === 'attack' ? 5.2 : 4.2;
+  // Fierce sculpted arched dark eyebrows (#2D0E0C, aspect-compensated)
+  ctx.strokeStyle = '#2D0E0C';
+  ctx.lineWidth = expression === 'attack' ? 5.6 : 4.8;
   ctx.lineCap = 'round';
   [-1, 1].forEach((side) => {
     const ex = cx + side * eyeOffsetX;
     ctx.beginPath();
     if (expression === 'attack') {
-      ctx.moveTo(ex - side * 9.5, eyeY - 12);
-      ctx.quadraticCurveTo(ex, eyeY - 18, ex + side * 9.5, eyeY - 24);
+      ctx.moveTo(ex - side * 9.8, eyeY - 11);
+      ctx.quadraticCurveTo(ex, eyeY - 18, ex + side * 9.8, eyeY - 25);
     } else if (expression === 'hit') {
       ctx.moveTo(ex - side * 9.2, eyeY - 24);
       ctx.quadraticCurveTo(ex, eyeY - 33, ex + side * 9.5, eyeY - 22);
@@ -1528,8 +1584,9 @@ function paintMausiFace(ctx: CanvasRenderingContext2D, expression: FaceExpressio
       ctx.moveTo(ex - side * 9.5, eyeY - 13);
       ctx.lineTo(ex + side * 9.2, eyeY - 19);
     } else {
-      ctx.moveTo(ex - side * 9.2, eyeY - 18);
-      ctx.quadraticCurveTo(ex + side * 0.5, eyeY - 27, ex + side * 9.8, eyeY - 17);
+      // Formidable commanding aunty brow angle
+      ctx.moveTo(ex - side * 9.6, eyeY - 14);
+      ctx.quadraticCurveTo(ex + side * 1.2, eyeY - 24, ex + side * 10.2, eyeY - 21);
     }
     ctx.stroke();
   });

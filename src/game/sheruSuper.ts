@@ -354,6 +354,8 @@ export function stepSheruSuper(
         x: defender.x,
         y: 1.6,
         damage: dealt,
+        word: '$ TRILLION $',
+        isSuperSignature: true,
         color: '#FDE047',
         headline:
           defender.hp <= 0

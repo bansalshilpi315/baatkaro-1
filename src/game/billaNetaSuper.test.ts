@@ -245,7 +245,13 @@ test('Garib Sena Neta "VANS, ATTACK!" deals exact 33% opponent maxHp (~45% van h
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
         for (const ev of evs) {
-          if (ev.word) netaComicWords.push(ev.word);
+          if (ev.word) {
+            netaComicWords.push(ev.word);
+            if (state.netaSuper?.active) {
+              assert.equal(ev.isSuperSignature, true);
+              assert.equal(shouldAllowFloatingCallout(state, ev), true);
+            }
+          }
         }
         vanHitSignals += state.netaSuperSignals.filter((s) => s.kind === 'van_hit').length;
         if (neta.y > maxNetaY) maxNetaY = neta.y;
@@ -253,7 +259,7 @@ test('Garib Sena Neta "VANS, ATTACK!" deals exact 33% opponent maxHp (~45% van h
           assert.equal(
             shouldAllowFloatingCallout(state),
             false,
-            'Floating comic callouts must be suppressed throughout Garib Sena Neta Super',
+            'Generic floating comic hit-text spam must remain suppressed throughout Garib Sena Neta Super',
           );
           if (!capturedPreFinisher && state.netaSuper.elapsed >= 3.72 && state.netaSuper.elapsed < 4.0) {
             preFinisherDamage = startHp - opp.hp;
@@ -271,8 +277,8 @@ test('Garib Sena Neta "VANS, ATTACK!" deals exact 33% opponent maxHp (~45% van h
       assert.equal(vanHitSignals, 4, 'All 4 convoy van_hit signals must still fire intact');
       assert.deepEqual(
         netaComicWords,
-        [],
-        'Garib Sena Neta Super must emit zero floating comic impact text pop-ups',
+        ['VANS, ATTACK!'],
+        'Garib Sena Neta Super must emit ONLY his signature VANS, ATTACK! pop-up with zero hit-spam',
       );
       assert.equal(
         preFinisherDamage,

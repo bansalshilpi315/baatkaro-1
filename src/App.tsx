@@ -138,7 +138,7 @@ export default function App() {
         setCallouts((prev) => [...prev.slice(-5), callout]);
         window.setTimeout(() => {
           setCallouts((prev) => prev.filter((c) => c.id !== callout.id));
-        }, 720);
+        }, callout.isSignature ? 1250 : 720);
       },
       onClearCallouts: () => setCallouts([]),
       onHeadline: () => {},

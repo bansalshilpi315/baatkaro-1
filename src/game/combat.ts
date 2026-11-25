@@ -193,11 +193,13 @@ export function isAnySuperActive(state: MatchState): boolean {
 }
 
 /**
- * Floating comic impact text pop-ups are strictly disabled during ALL Super Powers,
- * with the sole exception of Blue Billa's Phase 3 swirling cartoon smoke-cloud beatdown.
+ * Generic comic hit-text spam is strictly disabled during ALL Super Powers,
+ * while permitting each character's signature Super finisher/punchline pop-up
+ * (marked `isSuperSignature: true`) and Blue Billa's sparse Phase 3 smoke-cloud pops.
  */
-export function shouldAllowFloatingCallout(state: MatchState): boolean {
+export function shouldAllowFloatingCallout(state: MatchState, event?: CombatEvent): boolean {
   if (!isAnySuperActive(state)) return true;
+  if (event?.isSuperSignature) return true;
   return Boolean(state.billaSuper?.active && state.billaSuper.phase === 'smoke_beatdown');
 }
 

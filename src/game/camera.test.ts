@@ -53,19 +53,19 @@ test('camera smoothly tracks horizontal midpoint and clamps strictly to [-6.5, +
   assert.equal(farRight.x, 6.5);
 });
 
-test('Round 1 intro camera sweeps from P1 (0..4.0s) to CPU (4.0..8.0s) to fixed fight angle (8.85s)', () => {
-  const p1Start = computeIntroCameraTarget(1, 0.2, 8.85, -2.4, 2.4);
-  const p1Late = computeIntroCameraTarget(1, 3.8, 8.85, -2.4, 2.4);
+test('Round 1 intro camera sweeps from P1 (0..2.0s) to CPU (2.0..4.0s) to fixed fight angle (4.85s)', () => {
+  const p1Start = computeIntroCameraTarget(1, 0.2, 4.85, -2.4, 2.4);
+  const p1Late = computeIntroCameraTarget(1, 1.85, 4.85, -2.4, 2.4);
   assert.ok(p1Start.x < -2.4, 'Opening pose should sit behind/beside P1 shoulder');
-  assert.ok(p1Late.x < -2.4, 'Camera should remain framed on P1 for the full 4.0s P1 intro dialogue');
+  assert.ok(p1Late.x < -2.4, 'Camera should remain framed on P1 for the full 2.0s P1 intro dialogue');
   assert.ok(p1Start.z < FIGHT_CAMERA_Z, 'Opening pose should be closer than fight camera');
   assert.ok(p1Start.lookX > p1Start.x, 'Opening pose should look across toward CPU');
 
-  const p2Mid = computeIntroCameraTarget(1, 5.2, 8.85, -2.4, 2.4);
-  const p2Late = computeIntroCameraTarget(1, 7.8, 8.85, -2.4, 2.4);
-  assert.ok(p2Mid.x > 0 && p2Late.x > 0, 'Camera should hold on CPU for the full 4.0s CPU intro dialogue');
+  const p2Mid = computeIntroCameraTarget(1, 2.6, 4.85, -2.4, 2.4);
+  const p2Late = computeIntroCameraTarget(1, 3.85, 4.85, -2.4, 2.4);
+  assert.ok(p2Mid.x > 0 && p2Late.x > 0, 'Camera should hold on CPU for the full 2.0s CPU intro dialogue');
 
-  const endPose = computeIntroCameraTarget(1, 8.85, 8.85, -2.4, 2.4);
+  const endPose = computeIntroCameraTarget(1, 4.85, 4.85, -2.4, 2.4);
   assert.equal(endPose.z, FIGHT_CAMERA_Z);
   assert.equal(endPose.y, FIGHT_CAMERA_Y);
   assert.equal(endPose.lookY, FIGHT_LOOK_Y);

@@ -21,10 +21,13 @@ import {
   stepMatch,
 } from './combat';
 import {
+  DIALOGUE_OUTWARD_NUDGE_PX,
   INTRO_ROUND1_CALLOUT_SECONDS,
   clampDialogueScreenPosition,
   clearAllMidFightDialogues,
+  computeDialogueBubbleOpacity,
   createDialogueTracker,
+  getDialogueHudTopSafePx,
   getIntroDialoguePhase,
   pauseDialogueTimers,
   pruneExpiredDialogues,
@@ -307,7 +310,7 @@ export class DesiShowdownEngine {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.setPixelRatio(
       this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2),
     );
@@ -334,12 +337,14 @@ export class DesiShowdownEngine {
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
 
-    // 3-Point Arcade Lighting Rig
-    this.hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x7c2d12, 0.85);
+    // Calibrated Studio 3-Point Arcade Lighting Rig
+    // 1. Subtle hemisphere fill light
+    this.hemiLight = new THREE.HemisphereLight(0xa5d8ff, 0x5c2b16, 0.78);
     this.scene.add(this.hemiLight);
 
-    this.keyLight = new THREE.DirectionalLight(0xfff3d1, 2.0);
-    this.keyLight.position.set(6, 11, 8);
+    // 2. Warm directional key light from front-top
+    this.keyLight = new THREE.DirectionalLight(0xfff1d6, 2.05);
+    this.keyLight.position.set(5.5, 11, 8.5);
     this.keyLight.castShadow = !this.isSoftwareGl;
     this.keyLight.shadow.mapSize.set(1024, 1024);
     this.keyLight.shadow.camera.near = 1;
@@ -353,8 +358,9 @@ export class DesiShowdownEngine {
     this.scene.add(this.keyLight);
     this.scene.add(this.keyLight.target);
 
-    this.rimLight = new THREE.DirectionalLight(0xf59e0b, 1.0);
-    this.rimLight.position.set(-6, 5, -7);
+    // 3. Crisp cool arcade rim/backlight from behind to carve sharp edge-highlights on fighter silhouettes
+    this.rimLight = new THREE.DirectionalLight(0xbae6fd, 1.45);
+    this.rimLight.position.set(-5.0, 6.2, -8.0);
     this.scene.add(this.rimLight);
 
     // Pooled Zero-GC Particle InstancedMesh
@@ -763,6 +769,7 @@ export class DesiShowdownEngine {
     this.camLook.set(initialCam.lookX, initialCam.lookY, initialCam.lookZ);
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
+    this.camera.updateMatrixWorld(true);
 
     this.clearInputs();
     this.emitHud(true);
@@ -785,9 +792,10 @@ export class DesiShowdownEngine {
     this.keyLight.intensity = stage.keyLightIntensity;
     this.hemiLight.color.setHex(stage.hemiSkyColor);
     this.hemiLight.groundColor.setHex(stage.hemiGroundColor);
-    this.hemiLight.intensity = stage.hemiIntensity;
-    this.rimLight.color.setHex(stage.rimLightColor);
-    this.rimLight.intensity = stage.rimLightIntensity;
+    this.hemiLight.intensity = stage.hemiIntensity * 0.92;
+    // Blend stage rim toward crisp cool arcade backlight so fighters always get clean silhouette edge highlights
+    this.rimLight.color.setHex(stage.rimLightColor).lerp(new THREE.Color(0xbae6fd), 0.72);
+    this.rimLight.intensity = Math.max(1.35, stage.rimLightIntensity * 1.15);
   }
 
   private loadFighters(p1: FighterId, p2: FighterId): void {
@@ -1045,8 +1053,10 @@ export class DesiShowdownEngine {
   }
 
   private projectToScreen(x: number, y: number): { sx: number; sy: number } | null {
-    _projVec.set(x, y, 0);
-    _projVec.project(this.camera);
+    this.camera.updateMatrixWorld();
+    _projVec.set(x, y, 0).applyMatrix4(this.camera.matrixWorldInverse);
+    if (_projVec.z >= -0.25) return null;
+    _projVec.applyMatrix4(this.camera.projectionMatrix);
     if (_projVec.z < -1 || _projVec.z > 1) return null;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
@@ -1230,8 +1240,8 @@ export class DesiShowdownEngine {
         this.moveCalloutTimer = 1.05;
       }
 
-      if (ev.word && shouldAllowFloatingCallout(this.matchState)) {
-        const pt = this.projectToScreen(ev.x, ev.y + 0.55);
+      if (ev.word && shouldAllowFloatingCallout(this.matchState, ev)) {
+        const pt = this.projectToScreen(ev.x, ev.y + (ev.isSuperSignature ? 0.72 : 0.55));
         if (pt) {
           this.callbacks.onCallout({
             id: this.nextCalloutId++,
@@ -1239,6 +1249,7 @@ export class DesiShowdownEngine {
             color: ev.color ?? '#FACC15',
             screenX: pt.sx,
             screenY: pt.sy,
+            isSignature: ev.isSuperSignature,
           });
         }
       }
@@ -1277,23 +1288,66 @@ export class DesiShowdownEngine {
     slot: 0 | 1,
     text: string,
     id: number,
+    opacity = 1,
     trackedEntry?: ActiveFighterDialogue,
     dt = 0.016,
   ): ComicSpeechBubble {
     const f = this.matchState.fighters[slot];
-    const headHeight = f.action === 'knockdown' ? 1.18 : f.id === 'billa' ? 2.15 : 2.38;
-    const pt = this.projectToScreen(f.x, f.y + headHeight);
+    const other = this.matchState.fighters[1 - slot];
+    // Anchor strictly well ABOVE the top of each fighter's head/hat (`headTopY + 0.85`)
+    // so the bubble NEVER overlaps faces or heads!
+    const standingHeadTopY: Record<FighterId, number> = {
+      sheru: 2.28,
+      billa: 2.12,
+      neta: 2.24,
+      anda: 2.22,
+      mausi: 2.18,
+    };
+    const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
     const h = Math.max(this.container.clientHeight, 240);
-    const bubbleW = w < 640 ? 224 : 268;
-    const bubbleH = w < 640 ? 78 : 88;
-    const topSafeY = Math.min(200, Math.max(176, Math.round(h * 0.45)));
-    const fallbackX = slot === 0 ? w * 0.3 : w * 0.7;
-    const fallbackY = topSafeY + 12;
+    const isCompact = h <= 520;
+    const bubbleW = isCompact ? 182 : w < 640 ? 196 : 228;
+    const bubbleH = isCompact ? 48 : w < 640 ? 58 : 64;
+    const topSafeY = getDialogueHudTopSafePx(h);
+
+    const isIntroCloseUp =
+      this.matchState.phase === 'intro' && this.matchState.roundNumber === 1;
+
+    let rawX: number;
+    let rawY: number;
+    let tailSide: 'center' | 'left' | 'right' = 'center';
+
+    if (isIntroCloseUp) {
+      // During the Round 1 3/4 over-the-shoulder close-up, the speaking fighter fills the
+      // foreground edge (P1 on left, CPU on right). Position the bubble cleanly BESIDE their
+      // upper head in open space with directional tail pointing at them — zero face overlap!
+      const headPt = this.projectToScreen(f.x, f.y + headTopY * 0.82);
+      if (slot === 0) {
+        const anchorX = headPt ? headPt.sx : w * 0.16;
+        rawX = Math.max(anchorX + bubbleW * 0.78, w * 0.37);
+        tailSide = 'left';
+      } else {
+        const anchorX = headPt ? headPt.sx : w * 0.84;
+        rawX = Math.min(anchorX - bubbleW * 0.78, w * 0.63);
+        tailSide = 'right';
+      }
+      rawY = topSafeY + bubbleH + 6;
+    } else {
+      const anchorY = f.y + headTopY + 0.85;
+      const pt = this.projectToScreen(f.x, anchorY);
+      // Nudge horizontally outward away from the center/opponent so faces stay 100% open
+      const isOnLeft = f.x < other.x || (f.x === other.x && slot === 0);
+      const outwardNudge = isOnLeft ? -DIALOGUE_OUTWARD_NUDGE_PX : DIALOGUE_OUTWARD_NUDGE_PX;
+      const fallbackX = slot === 0 ? w * 0.28 : w * 0.72;
+      const fallbackY = topSafeY + bubbleH + 4;
+      rawX = (pt ? pt.sx : fallbackX) + outwardNudge;
+      rawY = pt ? pt.sy : fallbackY;
+    }
 
     const clamped = clampDialogueScreenPosition(
-      pt ? pt.sx : fallbackX,
-      pt ? pt.sy : fallbackY,
+      rawX,
+      rawY,
       w,
       h,
       bubbleW,
@@ -1331,12 +1385,15 @@ export class DesiShowdownEngine {
       text,
       screenX: finalX,
       screenY: finalY,
+      opacity: Number(Math.max(0, Math.min(1, opacity)).toFixed(3)),
+      tailSide,
     };
   }
 
   private emitHud(force = false, dt = 0.016): void {
     const [p1, p2] = this.matchState.fighters;
     const introElapsed = Math.max(0, this.matchState.introDuration - this.matchState.phaseTimer);
+    const nowMs = performance.now();
 
     let bannerText: string | null = null;
     let bannerTone: 'round' | 'ko' | 'winner' = 'round';
@@ -1361,7 +1418,14 @@ export class DesiShowdownEngine {
         if (introPhase.activeSlot === 0) {
           const taunts = INTRO_TAUNTS[p1.id];
           speechBubbles.push(
-            this.buildSpeechBubble(0, taunts[this.introTauntSeed % taunts.length], -1, undefined, dt),
+            this.buildSpeechBubble(
+              0,
+              taunts[this.introTauntSeed % taunts.length],
+              -1,
+              computeDialogueBubbleOpacity(introPhase.slotElapsedMs),
+              undefined,
+              dt,
+            ),
           );
         } else if (introPhase.activeSlot === 1) {
           const taunts = INTRO_TAUNTS[p2.id];
@@ -1370,6 +1434,7 @@ export class DesiShowdownEngine {
               1,
               taunts[(this.introTauntSeed + 1) % taunts.length],
               -2,
+              computeDialogueBubbleOpacity(introPhase.slotElapsedMs),
               undefined,
               dt,
             ),
@@ -1403,6 +1468,7 @@ export class DesiShowdownEngine {
               winFighter.slot,
               quips[(this.introTauntSeed + this.matchState.roundNumber) % quips.length],
               -(10 + this.matchState.roundNumber),
+              1,
               undefined,
               dt,
             ),
@@ -1419,9 +1485,19 @@ export class DesiShowdownEngine {
         if (!isSuperCinematic) {
           for (const slotEntry of this.dialogueTracker.slots) {
             if (slotEntry) {
-              speechBubbles.push(
-                this.buildSpeechBubble(slotEntry.slot, slotEntry.text, slotEntry.id, slotEntry, dt),
-              );
+              const op = computeDialogueBubbleOpacity(nowMs - slotEntry.startedAt);
+              if (op > 0.01) {
+                speechBubbles.push(
+                  this.buildSpeechBubble(
+                    slotEntry.slot,
+                    slotEntry.text,
+                    slotEntry.id,
+                    op,
+                    slotEntry,
+                    dt,
+                  ),
+                );
+              }
             }
           }
         }
@@ -1429,9 +1505,19 @@ export class DesiShowdownEngine {
     } else if (this.matchState.phase === 'fighting' && !isSuperCinematic) {
       for (const slotEntry of this.dialogueTracker.slots) {
         if (slotEntry) {
-          speechBubbles.push(
-            this.buildSpeechBubble(slotEntry.slot, slotEntry.text, slotEntry.id, slotEntry, dt),
-          );
+          const op = computeDialogueBubbleOpacity(nowMs - slotEntry.startedAt);
+          if (op > 0.01) {
+            speechBubbles.push(
+              this.buildSpeechBubble(
+                slotEntry.slot,
+                slotEntry.text,
+                slotEntry.id,
+                op,
+                slotEntry,
+                dt,
+              ),
+            );
+          }
         }
       }
     }
@@ -1883,6 +1969,8 @@ export class DesiShowdownEngine {
           pruneExpiredDialogues(this.dialogueTracker, performance.now());
         }
 
+        // Update camera BEFORE emitting HUD so speech bubbles project with exact current-frame matrices
+        this.updateCamera(dt);
         this.hudThrottleTimer -= dt;
         this.emitHud(
           events.length > 0 ||
@@ -2028,10 +2116,11 @@ export class DesiShowdownEngine {
         this.keyLight.intensity =
           this.stage.keyLightIntensity * (1 - dimFactor * 0.82) + lightningFlash * 2.4;
         this.hemiLight.intensity =
-          this.stage.hemiIntensity * (1 - dimFactor * 0.78) + lightningFlash * 1.1;
-        this.rimLight.intensity = this.stage.rimLightIntensity * (1 - dimFactor * 0.65);
+          this.stage.hemiIntensity * 0.92 * (1 - dimFactor * 0.78) + lightningFlash * 1.1;
+        this.rimLight.intensity =
+          Math.max(1.35, this.stage.rimLightIntensity * 1.15) * (1 - dimFactor * 0.65);
         this.scene.environmentIntensity = 1 - dimFactor * 0.78;
-        this.renderer.toneMappingExposure = 1.08 * (1 - dimFactor * 0.18 + lightningFlash * 0.25);
+        this.renderer.toneMappingExposure = 1.05 * (1 - dimFactor * 0.18 + lightningFlash * 0.25);
 
         _stageBgColor.setHex(this.stage.backgroundColor).lerp(dimTargetColor, dimFactor * 0.84);
         if (lightningFlash > 0.01) {
@@ -2051,7 +2140,9 @@ export class DesiShowdownEngine {
 
       this.syncProjectiles();
       this.updateParticles(dt);
-      this.updateCamera(dt);
+      if (this.currentScreen !== 'playing') {
+        this.updateCamera(dt);
+      }
     }
 
     this.renderer.render(this.scene, this.camera);

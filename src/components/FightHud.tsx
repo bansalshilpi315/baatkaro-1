@@ -387,14 +387,19 @@ export function FightHud({
       </header>
 
       {/* =================================================================
-          FLOATING COMIC-BOOK CALLOUTS (DHISHUM!, PAISA VASOOL!, ETC.)
+          FLOATING COMIC-BOOK CALLOUTS (AND SIGNATURE SUPER FINISHER POP-UPS)
           ================================================================= */}
       <div className="pointer-events-none fixed inset-0 z-20 overflow-hidden">
         {callouts.map((c) => (
           <div
             key={c.id}
-            data-testid="floating-comic-callout"
-            className="comic-pop-text absolute text-2xl sm:text-4xl"
+            data-testid={c.isSignature ? 'super-signature-callout' : 'floating-comic-callout'}
+            data-signature={c.isSignature ? 'true' : 'false'}
+            className={`comic-pop-text absolute whitespace-nowrap ${
+              c.isSignature
+                ? 'comic-pop-signature text-3xl sm:text-5xl'
+                : 'text-2xl sm:text-4xl'
+            }`}
             style={{
               left: `${c.screenX}px`,
               top: `${c.screenY}px`,
@@ -407,35 +412,44 @@ export function FightHud({
       </div>
 
       {/* =================================================================
-          WHITE COMIC SPEECH BUBBLES (NON-BLOCKING, STRICT 4.0s LOCK)
+          WHITE COMIC SPEECH BUBBLES (NON-BLOCKING, 2.0s SMOOTH FADE-OUT)
           ================================================================= */}
-      {hud.speechBubbles.map((bubble) => (
-        <div
-          key={bubble.id}
-          data-testid="comic-speech-bubble"
-          data-slot={bubble.slot}
-          className="pointer-events-none fixed z-30"
-          style={{
-            left: `${bubble.screenX}px`,
-            top: `${bubble.screenY}px`,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <div className="comic-bubble-pop relative max-w-[14rem] rounded-xl border-[3px] border-[#110b08] bg-white px-3.5 py-2 text-[#110b08] shadow-[4px_4px_0_#110b08] sm:max-w-[17rem] sm:px-4 sm:py-2.5">
-            <div className="font-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#b45309] sm:text-xs">
-              {bubble.speakerName}
+      {hud.speechBubbles.map((bubble) => {
+        const tailPosClass =
+          bubble.tailSide === 'left'
+            ? '-left-[6px] bottom-2.5 border-b-2 border-l-2'
+            : bubble.tailSide === 'right'
+              ? '-right-[6px] bottom-2.5 border-t-2 border-r-2'
+              : '-bottom-[6px] left-1/2 -translate-x-1/2 border-r-2 border-b-2';
+        return (
+          <div
+            key={bubble.id}
+            data-testid="comic-speech-bubble"
+            data-slot={bubble.slot}
+            className="pointer-events-none fixed z-30"
+            style={{
+              left: `${bubble.screenX}px`,
+              top: `${bubble.screenY}px`,
+              opacity: bubble.opacity,
+              transform: 'translate(-50%, -100%)',
+            }}
+          >
+            <div className="comic-bubble-pop relative max-w-[11.25rem] rounded-lg border-2 border-[#110b08] bg-white/95 px-2 py-1 text-[#110b08] shadow-[3px_3px_0_#110b08] sm:max-w-[13.5rem] sm:px-2.5 sm:py-1.5">
+              <div className="font-display text-[9px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#b45309] sm:text-[10px]">
+                {bubble.speakerName}
+              </div>
+              <div className="mt-0.5 font-display text-[11px] font-extrabold leading-tight tracking-wide text-[#110b08] sm:text-xs">
+                &ldquo;{bubble.text}&rdquo;
+              </div>
+              {/* Crisp compact comic speech tail pointing toward fighter head */}
+              <div
+                aria-hidden="true"
+                className={`absolute h-2.5 w-2.5 rotate-45 bg-white/95 border-[#110b08] ${tailPosClass}`}
+              />
             </div>
-            <div className="font-display text-sm font-extrabold leading-tight tracking-wide text-[#110b08] sm:text-base">
-              &ldquo;{bubble.text}&rdquo;
-            </div>
-            {/* Crisp comic speech tail */}
-            <div
-              aria-hidden="true"
-              className="absolute -bottom-[11px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-r-[3px] border-b-[3px] border-[#110b08] bg-white"
-            />
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Subtle Tap to Skip overlay & badge during Round 1 intro dialogues ONLY */}
       {hud.canSkipIntro && (

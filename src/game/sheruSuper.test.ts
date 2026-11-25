@@ -66,13 +66,23 @@ test('Sheru Super deals exactly 33% opponent maxHp (~45% combo + ~55% finisher) 
       for (let i = 0; i < steps; i++) {
         const evs = stepMatch(state, [idle, idle], dt);
         for (const ev of evs) {
-          if (ev.word) emittedWords.push(ev.word);
+          if (ev.word) {
+            emittedWords.push(ev.word);
+            if (state.sheruSuper?.active) {
+              assert.equal(ev.isSuperSignature, true, 'Only signature Super callout may emit a word');
+              assert.equal(
+                shouldAllowFloatingCallout(state, ev),
+                true,
+                'Signature Super pop-up must pass callout filter',
+              );
+            }
+          }
         }
         if (state.sheruSuper?.active) {
           assert.equal(
             shouldAllowFloatingCallout(state),
             false,
-            'Floating comic callouts must be suppressed throughout Sheru Super',
+            'Generic floating comic hit-text spam must remain suppressed throughout Sheru Super',
           );
           if (state.sheruSuper.phase === 'paw_flurry' && state.sheruSuper.elapsed > 1.35) {
             if (Math.abs(sheru.x - opp.x) < 1.8) dashVerified = true;
@@ -91,8 +101,8 @@ test('Sheru Super deals exactly 33% opponent maxHp (~45% combo + ~55% finisher) 
       assert.equal(dashVerified, true, 'Sheru should auto-dash into melee range');
       assert.deepEqual(
         emittedWords,
-        [],
-        'Sheru Super must emit zero floating comic impact text pop-ups',
+        ['$ TRILLION $'],
+        'Sheru Super must emit ONLY his signature $ TRILLION $ finisher pop-up with zero hit-spam',
       );
       assert.equal(
         preFinisherDamage,

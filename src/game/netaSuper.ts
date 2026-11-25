@@ -306,7 +306,9 @@ export function stepNetaSuper(
         x: defender.x,
         y: 1.55,
         damage: dealt,
-        color: '#F97316',
+        word: 'VANS, ATTACK!',
+        isSuperSignature: true,
+        color: '#FACC15',
         headline:
           defender.hp <= 0
             ? 'BREAKING: GARIB SENA VAN CONVOY FLATTENS OPPONENT FOR K.O.!'
