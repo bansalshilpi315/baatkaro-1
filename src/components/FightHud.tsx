@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
 import { FIGHTER_CONFIGS } from '../game/characters';
+import type { OnlineRole } from '../game/friendRoomProtocol';
 import type { FighterId, FloatingCallout, HudSnapshot, StageId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
@@ -12,6 +13,8 @@ interface FightHudProps {
   hud: HudSnapshot;
   callouts: FloatingCallout[];
   muted: boolean;
+  onlineRole?: OnlineRole;
+  roomCode?: string;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   onPause: () => void;
@@ -28,6 +31,8 @@ export function FightHud({
   hud,
   callouts,
   muted,
+  onlineRole = 'offline',
+  roomCode = '',
   isFullscreen,
   fullscreenSupported,
   onPause,
@@ -39,6 +44,11 @@ export function FightHud({
 }: FightHudProps) {
   const p1Cfg = FIGHTER_CONFIGS[p1Id];
   const p2Cfg = FIGHTER_CONFIGS[p2Id];
+  const isGuest = onlineRole === 'guest';
+  const isOnline = onlineRole !== 'offline';
+  const localCfg = isGuest ? p2Cfg : p1Cfg;
+  const leftRoleLabel = onlineRole === 'host' ? '1P · YOU' : isGuest ? '1P · HOST' : 'P1';
+  const rightRoleLabel = isGuest ? '2P · YOU' : onlineRole === 'host' ? '2P · FRIEND' : 'CPU';
 
   const p1Pct = Math.max(0, Math.min(100, (hud.p1Hp / hud.p1MaxHp) * 100));
   const p2Pct = Math.max(0, Math.min(100, (hud.p2Hp / hud.p2MaxHp) * 100));
@@ -115,6 +125,10 @@ export function FightHud({
 
   const p1SuperReady = hud.p1Shakti >= 100;
   const p2SuperReady = hud.p2Shakti >= 100;
+  const localShakti = isGuest ? hud.p2Shakti : hud.p1Shakti;
+  const localSuperReady = localShakti >= 100;
+  const localSpecialCd = isGuest ? hud.p2SpecialCd : hud.p1SpecialCd;
+  const localSpecialMaxCd = isGuest ? hud.p2SpecialMaxCd : hud.p1SpecialMaxCd;
   const timerUrgent = hud.roundTime <= 10;
 
   return (
@@ -140,7 +154,7 @@ export function FightHud({
               <div className="mb-1 flex items-baseline justify-between gap-2 px-0.5">
                 <div className="flex min-w-0 items-baseline gap-1.5">
                   <span className="hud-role-tag font-display text-xs font-extrabold uppercase tracking-wider text-[#facc15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] sm:text-sm">
-                    P1
+                    {leftRoleLabel}
                   </span>
                   <span className="hud-fighter-name truncate font-display text-base font-extrabold uppercase tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] sm:text-xl">
                     {p1Cfg.name}
@@ -237,18 +251,23 @@ export function FightHud({
             >
               <Pause className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
             </button>
+            {isOnline && roomCode && (
+              <div className="mt-0.5 rounded bg-black/65 px-1.5 py-0.5 font-mono-num text-[9px] font-bold tracking-wider text-[#86efac]">
+                #{roomCode}
+              </div>
+            )}
           </div>
 
-          {/* ---------------- RIGHT: CPU HP + ROUNDS + SHAKTI + PORTRAIT ---------------- */}
+          {/* ---------------- RIGHT: CPU / 2P HP + ROUNDS + SHAKTI + PORTRAIT ---------------- */}
           <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-2.5">
             <div className="min-w-0 flex-1">
-              {/* Fighter Name + CPU Tag */}
+              {/* Fighter Name + CPU / 2P Tag */}
               <div className="mb-1 flex items-baseline justify-end gap-1.5 px-0.5">
                 <span className="hud-fighter-name truncate font-display text-base font-extrabold uppercase tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] sm:text-xl">
                   {p2Cfg.name}
                 </span>
                 <span className="hud-role-tag font-display text-xs font-extrabold uppercase tracking-wider text-[#facc15] drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] sm:text-sm">
-                  CPU
+                  {rightRoleLabel}
                 </span>
               </div>
 
@@ -643,22 +662,22 @@ export function FightHud({
 
           {/* SIGNATURE MOVE (5th Button) — Vibrant Purple/Violet Tint + Dynamic 2-Line Move Name + 3.5s Radial Cooldown Ring */}
           {(() => {
-            const maxCd = Math.max(0.5, hud.p1SpecialMaxCd || 3.5);
-            const cdRemaining = Math.max(0, hud.p1SpecialCd);
+            const maxCd = Math.max(0.5, localSpecialMaxCd || 3.5);
+            const cdRemaining = Math.max(0, localSpecialCd);
             const sigReady = cdRemaining <= 0.01;
             const fillRatio = sigReady ? 1 : Math.max(0, Math.min(1, 1 - cdRemaining / maxCd));
             const ringRadius = 29;
             const ringCirc = 2 * Math.PI * ringRadius;
             const dashOffset = ringCirc * (1 - fillRatio);
-            const words = p1Cfg.special.shortLabel.split(' ');
-            const line1 = words[0] ?? p1Cfg.special.shortLabel;
+            const words = localCfg.special.shortLabel.split(' ');
+            const line1 = words[0] ?? localCfg.special.shortLabel;
             const line2 = words.slice(1).join(' ');
             return (
               <button
                 type="button"
                 data-testid="btn-signature"
                 data-ready={sigReady ? 'true' : 'false'}
-                aria-label={`${p1Cfg.special.shortLabel}${sigReady ? ' ready' : ` cooling down ${cdRemaining.toFixed(1)} seconds`}`}
+                aria-label={`${localCfg.special.shortLabel}${sigReady ? ' ready' : ` cooling down ${cdRemaining.toFixed(1)} seconds`}`}
                 disabled={!sigReady}
                 onPointerDown={(e) => {
                   e.preventDefault();
@@ -714,13 +733,13 @@ export function FightHud({
           <button
             type="button"
             data-testid="btn-super"
-            disabled={!p1SuperReady}
+            disabled={!localSuperReady}
             onPointerDown={(e) => {
               e.preventDefault();
-              if (p1SuperReady) onTouchAction('superMove');
+              if (localSuperReady) onTouchAction('superMove');
             }}
             className={`hud-arc-btn hud-arc-super ${
-              p1SuperReady
+              localSuperReady
                 ? 'shakti-ready-pulse cursor-pointer border-[#fef9c3] bg-gradient-to-br from-[#fef08a]/92 via-[#facc15]/88 to-[#ea580c]/90 text-[#1c1004] shadow-[0_0_24px_rgba(250,204,21,0.95),inset_0_2px_5px_rgba(255,255,255,0.65)]'
                 : 'cursor-not-allowed border-zinc-400/45 bg-zinc-800/45 text-zinc-300/80'
             }`}
@@ -728,9 +747,9 @@ export function FightHud({
             <span className="hud-arc-label font-display text-sm font-extrabold uppercase tracking-wider">
               SUPER
             </span>
-            {!p1SuperReady && (
+            {!localSuperReady && (
               <span className="font-mono-num text-[10px] font-bold opacity-80">
-                {hud.p1Shakti}%
+                {localShakti}%
               </span>
             )}
           </button>

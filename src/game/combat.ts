@@ -26,6 +26,11 @@ import {
   stepNetaSuper,
 } from './netaSuper';
 import {
+  PRINCIPAL_SUPER_DURATION,
+  createPrincipalSuperState,
+  stepPrincipalSuper,
+} from './principalSuper';
+import {
   SAMYAK_SUPER_DURATION,
   createSamyakSuperState,
   stepSamyakSuper,
@@ -96,6 +101,7 @@ const COMBO_FINISHER_CALLOUTS: Record<FighterId, string> = {
   mausi: 'BELAN SMASH!',
   father: 'DISCIPLINE CHOP!',
   samyak: 'BEAST UPPERCUT!',
+  principal: 'RUK! DISCIPLINE CHOP!',
 };
 
 const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
@@ -106,6 +112,7 @@ const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
   mausi: 'AUNTY PATKI!',
   father: 'PRINCIPAL DISMISSAL!',
   samyak: 'BENCH-PRESS SLAM!',
+  principal: 'OFFICE DETENTION SLAM!',
 };
 
 export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
@@ -194,6 +201,8 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     fatherSuperSignals: [],
     samyakSuper: null,
     samyakSuperSignals: [],
+    principalSuper: null,
+    principalSuperSignals: [],
   };
 }
 
@@ -207,6 +216,7 @@ export function isAnySuperActive(state: MatchState): boolean {
       state.mausiSuper?.active ||
       state.fatherSuper?.active ||
       state.samyakSuper?.active ||
+      state.principalSuper?.active ||
       state.fighters[0].action === 'super' ||
       state.fighters[1].action === 'super',
   );
@@ -812,6 +822,25 @@ function startAction(
         color: '#FACC15',
         headline: `MISSION IAS: BEAST MODE! ${cfg.name.toUpperCase()} FLEXES AND UNLEASHES THE UPSC BARRAGE!`,
       });
+    } else if (fighter.id === 'principal') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = PRINCIPAL_SUPER_DURATION;
+      state.principalSuper = createPrincipalSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = PRINCIPAL_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.65,
+        damage: 0,
+        color: '#F97316',
+        headline: `RUSTICATION ORDER! ${cfg.name.toUpperCase()} LEVITATES WITH GOLDEN DISCIPLINE AURA!`,
+      });
     } else {
       fighter.invulnTimer = 0.65;
       fighter.vx = 0;
@@ -1330,6 +1359,8 @@ export function stepMatch(
         state.fatherSuperSignals = [];
         state.samyakSuper = null;
         state.samyakSuperSignals = [];
+        state.principalSuper = null;
+        state.principalSuperSignals = [];
         state.activeSuperSlot = null;
         state.activeSuperElapsed = 0;
         state.activeSuperDuration = 0;
@@ -1351,6 +1382,7 @@ export function stepMatch(
   state.mausiSuperSignals = [];
   state.fatherSuperSignals = [];
   state.samyakSuperSignals = [];
+  state.principalSuperSignals = [];
 
   // Hit-stop freezes simulation physics while camera shake / flashes still tick
   if (state.hitstopTimer > 0) {
@@ -1482,6 +1514,24 @@ export function stepMatch(
       return events;
     }
     state.samyakSuper = null;
+  }
+
+  // Choreographed 5.2s Principal Man "RUSTICATION ORDER!" Super sequence locks both fighters & pauses round clock
+  if (state.principalSuper) {
+    if (state.principalSuper.active) {
+      state.principalSuperSignals = stepPrincipalSuper(state, state.principalSuper, dt, events);
+      state.activeSuperSlot = state.principalSuper.attackerSlot;
+      state.activeSuperElapsed = state.principalSuper.elapsed;
+      state.activeSuperDuration = state.principalSuper.duration;
+      if (!state.principalSuper.active) {
+        state.principalSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.principalSuper = null;
   }
 
   // Track active non-Sheru Super cutscene timer
@@ -2183,7 +2233,8 @@ export function computeCpuInput(
         cpu.id === 'sheru' ||
         cpu.id === 'anda' ||
         cpu.id === 'father' ||
-        cpu.id === 'samyak';
+        cpu.id === 'samyak' ||
+        cpu.id === 'principal';
       if (rangedSpecial && cpu.specialCooldown <= 0 && dist < 5.4 && rng() < params.specialChance) {
         input.special = true;
       } else if (rng() < 0.18) {
@@ -2267,6 +2318,11 @@ const WINNER_SATIRE_HEADLINES: Record<FighterId, string[]> = {
     'AIR 1 BEAST MODE: SAMYAK BENCH-PRESSES THE ENTIRE ROSTER!',
     'POLITY BY MORNING, DEADLIFTS BY NIGHT — SAMYAK SWEEPS MOHALLA!',
   ],
+  principal: [
+    'PRINCIPAL MAN ENFORCES PIN-DROP SILENCE ACROSS THE MOHALLA!',
+    'DIARY NOTE DELIVERED — PRINCIPAL MAN RUSTICATES THE COMPETITION!',
+    'CHASM-E-BADDOOR! DISCIPLINE SE KHELO — PRINCIPAL MAN ON TOP!',
+  ],
 };
 
 const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
@@ -2297,6 +2353,10 @@ const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
   samyak: [
     '"That was just my Prelims warm-up — wait for Mains and Interview!" — Samyak Study Circle',
     '"Forgot my pre-workout shake today, rematch after leg day!" — Team Samyak',
+  ],
+  principal: [
+    '"No fighting inside school hours — wait till PT period tomorrow!" — Principal Man Office',
+    '"Read the school diary twice and return in neat uniform!" — Principal Man Camp',
   ],
 };
 

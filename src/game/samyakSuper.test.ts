@@ -22,7 +22,8 @@ import {
 import type { CombatEvent, FighterId } from './types';
 
 test('Samyak is registered as the 7th fighter with /audio/supers/ias.mp3 and NO new stage added', () => {
-  assert.equal(FIGHTER_LIST.length, 7, 'Roster must have 7 playable fighters');
+  assert.ok(FIGHTER_LIST.length >= 7, 'Roster must preserve Samyak and all playable fighters');
+  assert.equal(FIGHTER_LIST[6].id, 'samyak');
   assert.equal(STAGE_LIST.length, 6, 'No new stage should be added (must remain 6 existing stages)');
 
   const samyak = FIGHTER_CONFIGS.samyak;

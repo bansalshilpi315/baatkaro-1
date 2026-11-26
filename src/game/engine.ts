@@ -52,11 +52,27 @@ import { MAUSI_SUPER_BANNER } from './mausiSuper';
 import { MausiSuperVfx } from './mausiSuperVfx';
 import { NETA_SUPER_BANNER } from './netaSuper';
 import { NetaSuperVfx } from './netaSuperVfx';
+import { PRINCIPAL_SUPER_BANNER } from './principalSuper';
+import { PrincipalSuperVfx } from './principalSuperVfx';
 import { SAMYAK_SUPER_BANNER } from './samyakSuper';
 import { SamyakSuperVfx } from './samyakSuperVfx';
 import { SHERU_SUPER_BANNER } from './sheruSuper';
 import { SheruSuperVfx } from './sheruSuperVfx';
 import { buildStage, type StageInstance } from './stages';
+import {
+  applyRemoteInputPacket,
+  applyStateSnapshotToGuest,
+  consumeRemoteInput,
+  createRemoteInputBuffer,
+  packMatchStateSnapshot,
+  resetRemoteInputBuffer,
+  type FriendRoomPacket,
+  type GuestActionName,
+  type GuestInterpolationTarget,
+  type OnlineRole,
+  type RemoteInputBuffer,
+  type SyncedSuperSignals,
+} from './friendRoomProtocol';
 import type {
   CombatEvent,
   ComicSpeechBubble,
@@ -121,6 +137,7 @@ const _andaFlashColor = new THREE.Color(0xdbeafe);
 const _mausiFestiveDimColor = new THREE.Color(0x2d1404);
 const _fatherCrimsonDimColor = new THREE.Color(0x1f0709);
 const _samyakBlueGoldDimColor = new THREE.Color(0x071324);
+const _principalOrangeDimColor = new THREE.Color(0x231003);
 
 const INTRO_TAUNTS: Record<FighterId, string[]> = {
   sheru: [
@@ -158,6 +175,11 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Body bhi hai aur dimaag bhi — ab dekh IAS ki power!',
     '18 ghante padhai aur 2 ghante gym — aaj teri Prelims fail!',
   ],
+  principal: [
+    'Chashm-e-Baddoor! Discipline se khelo warna diary note milega!',
+    'Mere school mein NO fighting! Seedha Principal office aao!',
+    'Tie kahan hai?! Kal parents ko leke assembly ground mein aana!',
+  ],
 };
 
 const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
@@ -168,6 +190,7 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
   father: ['This is gross indiscipline!', 'Wait till I sign your diary!'],
   samyak: ['Arre mera pre-workout gir gaya!', 'Prelims mein jhatka, Mains mein phod dunga!'],
+  principal: ['Arre meri Nehru jacket gandi kar di!', 'Ye rule violation hai — ab dekh Rustication!'],
 };
 
 const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
@@ -206,6 +229,11 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Article 21 tera defense suspend kar diya!',
     'No pain, no AIR 1 — full beast mode ON!',
   ],
+  principal: [
+    'Ruk! Laal ink se DIARY NOTE sign kar diya!',
+    'Assembly line mein seedha khada ho ja beta!',
+    'No discipline? Seedha parent-teacher meeting!',
+  ],
 };
 
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
@@ -216,6 +244,7 @@ const VICTORY_QUIPS: Record<FighterId, string[]> = {
   mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai kya?'],
   father: ['Assembly dismissed! Maintain pin-drop silence.', 'Rustication order stands — bring your parents!'],
   samyak: ['First attempt mein hi knockout — AIR 1 confirmed!', 'Gym pump bhi solid, Polity bhi solid!'],
+  principal: ['School discipline zindabad! Kal uniform check hoga!', 'Rusticated! Ab seedha ghar jao aur padhai karo!'],
 };
 
 function detectSoftwareWebGL(): boolean {
@@ -289,7 +318,7 @@ export class DesiShowdownEngine {
   private impactInnerGeo: THREE.RingGeometry;
   private impactOuterGeo: THREE.RingGeometry;
 
-  // Pre-pooled 3D Super Power VFX managers (all 7 fighters)
+  // Pre-pooled 3D Super Power VFX managers (all 8 fighters)
   private sheruSuperVfx: SheruSuperVfx;
   private billaSuperVfx: BillaSuperVfx;
   private netaSuperVfx: NetaSuperVfx;
@@ -297,6 +326,7 @@ export class DesiShowdownEngine {
   private mausiSuperVfx: MausiSuperVfx;
   private fatherSuperVfx: FatherSuperVfx;
   private samyakSuperVfx: SamyakSuperVfx;
+  private principalSuperVfx: PrincipalSuperVfx;
 
   // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
   private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
@@ -352,6 +382,21 @@ export class DesiShowdownEngine {
   private previewSuperWasActive = false;
   private previewResetTimer = 0;
   private lastNotifiedPreviewPlaying = false;
+
+  // Online 2-Player Friend Room (PeerJS WebRTC) state
+  private onlineRole: OnlineRole = 'offline';
+  private onlineSendPacket: ((pkt: FriendRoomPacket) => void) | null = null;
+  private remoteP2Input: RemoteInputBuffer = createRemoteInputBuffer();
+  private hostBroadcastTimer = 0;
+  private hostSnapshotSeq = 0;
+  private guestLastSeq = -1;
+  private guestTargets: [GuestInterpolationTarget, GuestInterpolationTarget] = [
+    { x: -2.4, y: 0, initialized: false },
+    { x: 2.4, y: 0, initialized: false },
+  ];
+  private guestLastMoveDir: -1 | 0 | 1 = 0;
+  private guestLastDown = false;
+  private pendingBroadcastDialogues: Array<{ slot: 0 | 1; text: string }> = [];
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -502,6 +547,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx = new MausiSuperVfx(this.scene);
     this.fatherSuperVfx = new FatherSuperVfx(this.scene);
     this.samyakSuperVfx = new SamyakSuperVfx(this.scene);
+    this.principalSuperVfx = new PrincipalSuperVfx(this.scene);
 
     this.strikeTrails = [new StrikeTrailRibbon(), new StrikeTrailRibbon()];
     this.scene.add(this.strikeTrails[0].mesh);
@@ -608,6 +654,7 @@ export class DesiShowdownEngine {
       this.mausiSuperVfx.setPrewarmVisible(true);
       this.fatherSuperVfx.setPrewarmVisible(true);
       this.samyakSuperVfx.setPrewarmVisible(true);
+      this.principalSuperVfx.setPrewarmVisible(true);
       this.shockwaveRing.visible = true;
       this.strikeTrails[0].mesh.visible = true;
       this.renderer.compile(this.scene, this.camera);
@@ -618,6 +665,7 @@ export class DesiShowdownEngine {
       this.mausiSuperVfx.setPrewarmVisible(false);
       this.fatherSuperVfx.setPrewarmVisible(false);
       this.samyakSuperVfx.setPrewarmVisible(false);
+      this.principalSuperVfx.setPrewarmVisible(false);
       this.shockwaveRing.visible = false;
       this.strikeTrails[0].mesh.visible = false;
     }
@@ -738,6 +786,64 @@ export class DesiShowdownEngine {
     this.oneShotQueue[action] = true;
   }
 
+  public setOnlineMode(role: OnlineRole, sendPacket?: (pkt: FriendRoomPacket) => void): void {
+    this.onlineRole = role;
+    this.onlineSendPacket = role === 'offline' ? null : (sendPacket ?? null);
+    resetRemoteInputBuffer(this.remoteP2Input);
+    this.hostBroadcastTimer = 0;
+    this.hostSnapshotSeq = 0;
+    this.guestLastSeq = -1;
+    this.guestLastMoveDir = 0;
+    this.guestLastDown = false;
+    this.guestTargets[0].initialized = false;
+    this.guestTargets[1].initialized = false;
+    this.pendingBroadcastDialogues = [];
+  }
+
+  public receiveFriendPacket(pkt: FriendRoomPacket): void {
+    if (this.onlineRole === 'host') {
+      if (pkt.type === 'INPUT') {
+        applyRemoteInputPacket(this.remoteP2Input, pkt);
+      } else if (pkt.type === 'SKIP_INTRO') {
+        this.skipPreFightIntro();
+      }
+      return;
+    }
+
+    if (this.onlineRole === 'guest') {
+      if (pkt.type === 'STATE') {
+        if (pkt.seq <= this.guestLastSeq) return;
+        this.guestLastSeq = pkt.seq;
+        applyStateSnapshotToGuest(this.matchState, pkt, this.guestTargets);
+      } else if (pkt.type === 'EVENTS') {
+        if (pkt.events && pkt.events.length > 0) {
+          this.handleCombatEvents(pkt.events, true);
+        }
+        if (pkt.superSignals) {
+          this.processSuperSignals(pkt.superSignals);
+        }
+        if (pkt.dialogues && pkt.dialogues.length > 0) {
+          const nowMs = performance.now();
+          for (const d of pkt.dialogues) {
+            triggerMidFightDialogue(this.dialogueTracker, d.slot, d.text, nowMs);
+          }
+        }
+        if (pkt.koDahi) {
+          audioEngine.playDahiKoAudio();
+        }
+      } else if (pkt.type === 'MATCH_END') {
+        if (!this.resultDispatched) {
+          this.resultDispatched = true;
+          this.currentScreen = 'victory';
+          audioEngine.playVictoryFanfare();
+          this.callbacks.onMatchFinish(pkt.result);
+        }
+      } else if (pkt.type === 'SKIP_INTRO') {
+        this.skipPreFightIntro();
+      }
+    }
+  }
+
   public setScreen(screen: GameScreen): void {
     this.currentScreen = screen;
     if (screen === 'playing') {
@@ -767,6 +873,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.fatherSuperVfx.reset();
     this.samyakSuperVfx.reset();
+    this.principalSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
   }
@@ -782,6 +889,7 @@ export class DesiShowdownEngine {
         this.matchState.mausiSuper?.active ||
         this.matchState.fatherSuper?.active ||
         this.matchState.samyakSuper?.active ||
+        this.matchState.principalSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -937,6 +1045,7 @@ export class DesiShowdownEngine {
     skipIntro = false,
     initialP1Shakti = 0,
     testOverrides?: { p1RoundsWon?: number; p2RoundsWon?: number; p1Hp?: number; p2Hp?: number },
+    syncSeed?: number,
   ): void {
     this.p1Id = p1;
     this.p2Id = p2;
@@ -954,6 +1063,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.fatherSuperVfx.reset();
     this.samyakSuperVfx.reset();
+    this.principalSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
     // Explicit match start/restart: stop any prior Super/KO audio and ensure buffers are preloaded
@@ -989,7 +1099,7 @@ export class DesiShowdownEngine {
         );
       }
     }
-    this.introTauntSeed = Math.floor(Math.random() * 100);
+    this.introTauntSeed = typeof syncSeed === 'number' ? syncSeed : Math.floor(Math.random() * 100);
     this.moveCalloutText = null;
     this.moveCalloutTimer = 0;
     clearAllMidFightDialogues(this.dialogueTracker);
@@ -998,6 +1108,17 @@ export class DesiShowdownEngine {
     this.resultDispatched = false;
     this.trauma = 0;
     this.currentScreen = 'playing';
+
+    // Reset online sync counters cleanly for the new match
+    resetRemoteInputBuffer(this.remoteP2Input);
+    this.hostBroadcastTimer = 0;
+    this.hostSnapshotSeq = 0;
+    this.guestLastSeq = -1;
+    this.guestLastMoveDir = 0;
+    this.guestLastDown = false;
+    this.guestTargets[0] = { x: this.matchState.fighters[0].x, y: 0, initialized: true };
+    this.guestTargets[1] = { x: this.matchState.fighters[1].x, y: 0, initialized: true };
+    this.pendingBroadcastDialogues = [];
 
     // Snap camera immediately to either the Round 1 over-the-shoulder opening or standard 2.5D fight frame
     const [f1, f2] = this.matchState.fighters;
@@ -1434,7 +1555,7 @@ export class DesiShowdownEngine {
     };
   }
 
-  private handleCombatEvents(events: CombatEvent[]): void {
+  private handleCombatEvents(events: CombatEvent[], isGuestReplay = false): void {
     for (const ev of events) {
       if (ev.type === 'hit') {
         const attacker = this.matchState.fighters[ev.attackerSlot];
@@ -1462,7 +1583,11 @@ export class DesiShowdownEngine {
           audioEngine.playSwatterSlap();
           this.spawnParticles(ev.x, ev.y, 12, 0x4ade80, 6.4);
           this.spawnParticles(ev.x, ev.y, 10, 0xfef08a, 5.8);
-        } else if (ev.type === 'heavy_hit' && attacker?.id === 'father' && ev.moveCallout === 'DIARY NOTE!') {
+        } else if (
+          ev.type === 'heavy_hit' &&
+          (attacker?.id === 'father' || attacker?.id === 'principal') &&
+          ev.moveCallout === 'DIARY NOTE!'
+        ) {
           audioEngine.playHeavyHit();
           this.spawnParticles(ev.x, ev.y, 12, 0xef4444, 6.0);
           this.spawnParticles(ev.x, ev.y, 10, 0xfef2f2, 5.2);
@@ -1486,6 +1611,7 @@ export class DesiShowdownEngine {
         this.trauma = Math.min(1, this.trauma + (ev.type === 'grab_throw' ? 0.58 : 0.52));
         this.stage?.triggerExcitement(1.5);
         if (
+          !isGuestReplay &&
           (ev.type === 'heavy_hit' || ev.type === 'grab_throw' || ev.type === 'dharna_counter') &&
           this.matchState.phase === 'fighting' &&
           this.matchState.activeSuperSlot === null &&
@@ -1495,6 +1621,9 @@ export class DesiShowdownEngine {
           const roasts = MID_FIGHT_ROASTS[attacker.id];
           const text = roasts[(this.introTauntSeed + Math.floor(this.elapsed * 5)) % roasts.length];
           triggerMidFightDialogue(this.dialogueTracker, attacker.slot, text, performance.now());
+          if (this.onlineRole === 'host') {
+            this.pendingBroadcastDialogues.push({ slot: attacker.slot, text });
+          }
         }
       } else if (ev.type === 'block') {
         audioEngine.playBlock();
@@ -1511,6 +1640,7 @@ export class DesiShowdownEngine {
         }
         this.stage?.triggerExcitement(1.5);
         if (
+          !isGuestReplay &&
           this.matchState.phase === 'fighting' &&
           this.matchState.activeSuperSlot === null &&
           caster &&
@@ -1519,6 +1649,9 @@ export class DesiShowdownEngine {
           const roasts = MID_FIGHT_ROASTS[caster.id];
           const text = roasts[(this.introTauntSeed + Math.floor(this.elapsed * 3) + 1) % roasts.length];
           triggerMidFightDialogue(this.dialogueTracker, caster.slot, text, performance.now());
+          if (this.onlineRole === 'host') {
+            this.pendingBroadcastDialogues.push({ slot: caster.slot, text });
+          }
         }
         if (caster?.id === 'sheru') {
           // Golden aura shockwave burst + emerald cash glint for PAISA FLEX!
@@ -1533,7 +1666,7 @@ export class DesiShowdownEngine {
           // Golden flour & laddoo sparkle burst on Belan Throw launch!
           this.spawnParticles(ev.x, ev.y, 12, 0xf0c420, 5.6);
           this.spawnParticles(ev.x, ev.y + 0.08, 10, 0xfff5d6, 4.6);
-        } else if (caster?.id === 'father') {
+        } else if (caster?.id === 'father' || caster?.id === 'principal') {
           // Crimson stamp & crisp paper burst on DIARY NOTE launch
           this.spawnParticles(ev.x, ev.y, 10, 0xef4444, 5.4);
           this.spawnParticles(ev.x, ev.y + 0.08, 8, 0xfef2f2, 4.4);
@@ -1553,7 +1686,8 @@ export class DesiShowdownEngine {
           caster?.id === 'anda' ||
           caster?.id === 'mausi' ||
           caster?.id === 'father' ||
-          caster?.id === 'samyak'
+          caster?.id === 'samyak' ||
+          caster?.id === 'principal'
         ) {
           audioEngine.playFighterSuperAudio(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
@@ -1578,7 +1712,9 @@ export class DesiShowdownEngine {
                     ? 0xef4444
                     : caster?.id === 'samyak'
                       ? 0x38bdf8
-                      : 0xfde047;
+                      : caster?.id === 'principal'
+                        ? 0xf59e0b
+                        : 0xfde047;
         this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -1593,6 +1729,7 @@ export class DesiShowdownEngine {
         this.spawnParticles(ev.x, 0.14, 14, 0xe7ddd0, 4.4);
         this.spawnParticles(ev.x, 0.18, 8, 0xd6cbb8, 3.2);
         if (
+          !isGuestReplay &&
           this.matchState.phase === 'fighting' &&
           this.matchState.activeSuperSlot === null
         ) {
@@ -1601,6 +1738,9 @@ export class DesiShowdownEngine {
             const quips = KNOCKDOWN_QUIPS[fallen.id];
             const text = quips[(this.introTauntSeed + Math.floor(this.elapsed * 3)) % quips.length];
             triggerMidFightDialogue(this.dialogueTracker, fallen.slot, text, performance.now());
+            if (this.onlineRole === 'host') {
+              this.pendingBroadcastDialogues.push({ slot: fallen.slot, text });
+            }
           }
         }
       } else if (ev.type === 'jump') {
@@ -1695,6 +1835,7 @@ export class DesiShowdownEngine {
       mausi: 2.18,
       father: 2.26,
       samyak: 2.28,
+      principal: 2.27,
     };
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
@@ -1802,6 +1943,7 @@ export class DesiShowdownEngine {
         this.matchState.mausiSuper?.active ||
         this.matchState.fatherSuper?.active ||
         this.matchState.samyakSuper?.active ||
+        this.matchState.principalSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -1927,21 +2069,24 @@ export class DesiShowdownEngine {
       const isMausi = caster.id === 'mausi';
       const isFather = caster.id === 'father';
       const isSamyak = caster.id === 'samyak';
+      const isPrincipal = caster.id === 'principal';
       const bannerWindow = isSheru
         ? 1.85
         : isSamyak
           ? 1.75
-          : isFather
-            ? 1.65
-            : isMausi
-              ? 1.6
-              : isNeta
-                ? 1.55
-                : isAnda
-                  ? 1.45
-                  : isBilla
-                    ? 1.4
-                    : 1.15;
+          : isPrincipal
+            ? 1.7
+            : isFather
+              ? 1.65
+              : isMausi
+                ? 1.6
+                : isNeta
+                  ? 1.55
+                  : isAnda
+                    ? 1.45
+                    : isBilla
+                      ? 1.4
+                      : 1.15;
       if (this.matchState.activeSuperElapsed < bannerWindow) {
         const cfg = FIGHTER_CONFIGS[caster.id];
         superBanner = {
@@ -1961,7 +2106,9 @@ export class DesiShowdownEngine {
                       ? FATHER_SUPER_BANNER
                       : isSamyak
                         ? SAMYAK_SUPER_BANNER
-                        : cfg.superName,
+                        : isPrincipal
+                          ? PRINCIPAL_SUPER_BANNER
+                          : cfg.superName,
           slot: caster.slot,
         };
       }
@@ -2096,7 +2243,9 @@ export class DesiShowdownEngine {
                     ? 'father'
                     : attacker.id === 'samyak'
                       ? 'samyak'
-                      : 'generic';
+                      : attacker.id === 'principal'
+                        ? 'principal'
+                        : 'generic';
       target = computeSuperCameraTarget(
         this.matchState.activeSuperElapsed,
         this.matchState.activeSuperDuration,
@@ -2173,6 +2322,274 @@ export class DesiShowdownEngine {
     this.frameId = window.setTimeout(poll, 5);
   }
 
+  private processSuperSignals(bundle: SyncedSuperSignals): boolean {
+    let anySignal = false;
+
+    const signals = bundle.sheru;
+    if (signals && signals.length > 0) {
+      anySignal = true;
+      this.sheruSuperVfx.handleBeatSignals(signals, this.graphics === 'low');
+      for (const sig of signals) {
+        if (sig.kind === 'spotlight_start') {
+          this.trauma = Math.min(1, this.trauma + 0.35);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'flurry_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.22);
+          this.spawnParticles(sig.x, sig.y, 8, 0xfde047, 5.6);
+        } else if (sig.kind === 'standing_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.55);
+          this.spawnParticles(sig.x, sig.y, 18, 0xfacc15, 7.2);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'lying_kick' || sig.kind === 'lying_slap') {
+          this.trauma = Math.min(1, this.trauma + 0.42);
+          this.spawnParticles(sig.x, sig.y, 14, 0xfde047, 6.2);
+        } else if (sig.kind === 'finisher_snap') {
+          this.trauma = 1.0;
+          this.spawnParticles(sig.x, sig.y, 28, 0xfde047, 9.2);
+          this.stage?.triggerExcitement(2.5);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const billaSignals = bundle.billa;
+    if (billaSignals && billaSignals.length > 0) {
+      anySignal = true;
+      this.billaSuperVfx.handleBeatSignals(billaSignals, this.graphics === 'low');
+      for (const sig of billaSignals) {
+        if (sig.kind === 'eye_glow_start') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'roach_launch') {
+          this.trauma = Math.min(1, this.trauma + 0.32);
+          this.spawnParticles(sig.x, sig.y, 12, 0xa3e635, 6.4);
+        } else if (sig.kind === 'smoke_start') {
+          this.trauma = Math.min(1, this.trauma + 0.42);
+          this.stage?.triggerExcitement(1.8);
+        } else if (sig.kind === 'smoke_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.34);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 10, 0xfde047, 6.2);
+        } else if (sig.kind === 'pop_finisher') {
+          this.callbacks.onClearCallouts();
+          this.trauma = 0.96;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 26, 0x4ade80, 9.0);
+          this.stage?.triggerExcitement(2.4);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const netaSignals = bundle.neta;
+    if (netaSignals && netaSignals.length > 0) {
+      anySignal = true;
+      this.netaSuperVfx.handleBeatSignals(netaSignals, this.graphics === 'low');
+      for (const sig of netaSignals) {
+        if (sig.kind === 'levitate_start') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'command_point') {
+          this.trauma = Math.min(1, this.trauma + 0.3);
+          this.spawnParticles(sig.x, sig.y, 14, 0xf97316, 5.8);
+        } else if (sig.kind === 'stampede_start') {
+          this.stage?.triggerExcitement(2.0);
+        } else if (sig.kind === 'van_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.52);
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 16, 0xfb923c, 7.6);
+        } else if (sig.kind === 'van_finisher') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 28, 0xfacc15, 9.4);
+          this.stage?.triggerExcitement(2.5);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const andaSignals = bundle.anda;
+    if (andaSignals && andaSignals.length > 0) {
+      anySignal = true;
+      this.andaSuperVfx.handleBeatSignals(andaSignals, this.graphics === 'low');
+      for (const sig of andaSignals) {
+        if (sig.kind === 'hat_bow_start') {
+          this.trauma = Math.min(1, this.trauma + 0.22);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'lightning_strike') {
+          this.trauma = Math.min(1, this.trauma + 0.42);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 14, 0x38bdf8, 7.0);
+        } else if (sig.kind === 'wall_impact') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 28, 0xc8452e, 9.2);
+          this.stage?.triggerExcitement(2.5);
+        } else if (sig.kind === 'wall_shatter') {
+          this.trauma = Math.min(1, this.trauma + 0.52);
+          this.spawnParticles(sig.x, sig.y, 22, 0xd97706, 8.2);
+          this.stage?.triggerExcitement(2.0);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const mausiSignals = bundle.mausi;
+    if (mausiSignals && mausiSignals.length > 0) {
+      anySignal = true;
+      this.mausiSuperVfx.handleBeatSignals(mausiSignals, this.graphics === 'low');
+      for (const sig of mausiSignals) {
+        if (sig.kind === 'gulp_start') {
+          this.trauma = Math.min(1, this.trauma + 0.22);
+          this.stage?.triggerExcitement(1.5);
+        } else if (sig.kind === 'aura_ignite') {
+          this.trauma = Math.min(1, this.trauma + 0.36);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 16, 0xfbbf24, 6.8);
+          this.stage?.triggerExcitement(1.8);
+        } else if (sig.kind === 'levitate_start') {
+          this.stage?.triggerExcitement(1.9);
+        } else if (sig.kind === 'laddoo_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 10, 0xfbbf24, 6.4);
+        } else if (sig.kind === 'mega_impact') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 30, 0xf97316, 9.5);
+          this.stage?.triggerExcitement(2.6);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const fatherSignals = bundle.father;
+    if (fatherSignals && fatherSignals.length > 0) {
+      anySignal = true;
+      this.fatherSuperVfx.handleBeatSignals(fatherSignals, this.graphics === 'low');
+      for (const sig of fatherSignals) {
+        if (sig.kind === 'levitate_start') {
+          this.trauma = Math.min(1, this.trauma + 0.25);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'papers_summon') {
+          this.trauma = Math.min(1, this.trauma + 0.34);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 16, 0xef4444, 6.2);
+          this.stage?.triggerExcitement(1.9);
+        } else if (sig.kind === 'barrage_start') {
+          this.stage?.triggerExcitement(2.1);
+        } else if (sig.kind === 'paper_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 10, 0xef4444, 6.0);
+        } else if (sig.kind === 'master_notice_impact') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 28, 0xdc2626, 9.4);
+          this.spawnParticles(sig.x, sig.y + 0.2, 16, 0xfacc15, 7.6);
+          this.stage?.triggerExcitement(2.6);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const samyakSignals = bundle.samyak;
+    if (samyakSignals && samyakSignals.length > 0) {
+      anySignal = true;
+      this.samyakSuperVfx.handleBeatSignals(samyakSignals, this.graphics === 'low');
+      for (const sig of samyakSignals) {
+        if (sig.kind === 'flex_start') {
+          this.trauma = Math.min(1, this.trauma + 0.3);
+          this.spawnParticles(sig.x, sig.y, 16, 0x38bdf8, 6.2);
+          this.stage?.triggerExcitement(1.7);
+        } else if (sig.kind === 'lens_glint') {
+          this.trauma = Math.min(1, this.trauma + 0.24);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 14, 0xfacc15, 6.6);
+          this.stage?.triggerExcitement(1.9);
+        } else if (sig.kind === 'barrage_summon') {
+          this.stage?.triggerExcitement(2.1);
+        } else if (sig.kind === 'barrage_hit') {
+          const isHeavyDumbbell = (sig.hitIndex ?? 0) % 2 === 1;
+          this.trauma = Math.min(1, this.trauma + (isHeavyDumbbell ? 0.36 : 0.26));
+          this.spawnImpactRing(sig.x, sig.y, isHeavyDumbbell);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(
+            sig.x,
+            sig.y,
+            isHeavyDumbbell ? 14 : 10,
+            isHeavyDumbbell ? 0x38bdf8 : 0xfacc15,
+            6.8,
+          );
+        } else if (sig.kind === 'slam_leap') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.spawnParticles(sig.x, 0.16, 14, 0xfacc15, 5.8);
+          this.stage?.triggerExcitement(2.2);
+        } else if (sig.kind === 'air1_slam_impact') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 28, 0xfacc15, 9.6);
+          this.spawnParticles(sig.x, sig.y + 0.2, 18, 0x38bdf8, 8.2);
+          this.stage?.triggerExcitement(2.8);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    const principalSignals = bundle.principal;
+    if (principalSignals && principalSignals.length > 0) {
+      anySignal = true;
+      this.principalSuperVfx.handleBeatSignals(principalSignals, this.graphics === 'low');
+      for (const sig of principalSignals) {
+        if (sig.kind === 'levitate_start') {
+          this.trauma = Math.min(1, this.trauma + 0.25);
+          this.stage?.triggerExcitement(1.6);
+        } else if (sig.kind === 'papers_summon') {
+          this.trauma = Math.min(1, this.trauma + 0.34);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 16, 0xf59e0b, 6.2);
+          this.stage?.triggerExcitement(1.9);
+        } else if (sig.kind === 'barrage_start') {
+          this.stage?.triggerExcitement(2.1);
+        } else if (sig.kind === 'paper_hit') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 10, 0xef4444, 6.0);
+        } else if (sig.kind === 'master_notice_impact') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 28, 0xdc2626, 9.4);
+          this.spawnParticles(sig.x, sig.y + 0.2, 16, 0xfacc15, 7.6);
+          this.stage?.triggerExcitement(2.7);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
+    return anySignal;
+  }
+
   private tick = (): void => {
     if (this.disposed) return;
 
@@ -2187,270 +2604,189 @@ export class DesiShowdownEngine {
 
       if (this.currentScreen === 'playing' || this.currentScreen === 'super_preview') {
         const isSuperPreview = this.currentScreen === 'super_preview';
-        let p1Input: FighterInput;
-        let p2Input: FighterInput;
-        if (isSuperPreview) {
-          p1Input = createEmptyInput();
-          if (this.previewPendingSuper) {
-            p1Input.superMove = true;
-            this.previewPendingSuper = false;
+        const isGuestOnline = !isSuperPreview && this.onlineRole === 'guest';
+        const isHostOnline = !isSuperPreview && this.onlineRole === 'host';
+
+        let forceHud = false;
+
+        if (isGuestOnline) {
+          // Guest sends local touch/keyboard controls immediately to Host over WebRTC DataChannel
+          const localInput = this.samplePlayerInput();
+          const moveDir: -1 | 0 | 1 =
+            localInput.right && !localInput.left
+              ? 1
+              : localInput.left && !localInput.right
+                ? -1
+                : 0;
+          const actions: GuestActionName[] = [];
+          if (localInput.up) actions.push('up');
+          if (localInput.punch) actions.push('punch');
+          if (localInput.kick) actions.push('kick');
+          if (localInput.grab) actions.push('grab');
+          if (localInput.special) actions.push('special');
+          if (localInput.superMove) actions.push('superMove');
+
+          const dirChanged =
+            moveDir !== this.guestLastMoveDir || localInput.down !== this.guestLastDown;
+          if (actions.length > 0) {
+            this.guestLastMoveDir = moveDir;
+            this.guestLastDown = localInput.down;
+            for (const action of actions) {
+              this.onlineSendPacket?.({
+                type: 'INPUT',
+                moveDir,
+                down: localInput.down,
+                action,
+              });
+            }
+          } else if (dirChanged) {
+            this.guestLastMoveDir = moveDir;
+            this.guestLastDown = localInput.down;
+            this.onlineSendPacket?.({
+              type: 'INPUT',
+              moveDir,
+              down: localInput.down,
+            });
           }
-          p2Input = createEmptyInput();
+
+          // Smooth 60 FPS position & visual timer interpolation between 28 Hz Host snapshots
+          for (let i = 0; i < 2; i++) {
+            const f = this.matchState.fighters[i];
+            const tgt = this.guestTargets[i];
+            if (tgt.initialized) {
+              f.x = THREE.MathUtils.damp(f.x, tgt.x, 22, dt);
+              f.y = THREE.MathUtils.damp(f.y, tgt.y, 22, dt);
+            }
+            if (f.actionDuration > 0 && f.actionTimer < f.actionDuration) {
+              f.actionTimer = Math.min(f.actionDuration, f.actionTimer + dt);
+            }
+            if (f.action === 'walk') {
+              f.walkCycle += dt * 11;
+            }
+            if (f.hitFlashTimer > 0) {
+              f.hitFlashTimer = Math.max(0, f.hitFlashTimer - dt);
+            }
+          }
+          if (this.matchState.phase === 'intro' && this.matchState.phaseTimer > 0) {
+            this.matchState.phaseTimer = Math.max(0, this.matchState.phaseTimer - dt);
+          }
+          if (this.matchState.activeSuperSlot !== null) {
+            this.matchState.activeSuperElapsed = Math.min(
+              this.matchState.activeSuperDuration,
+              this.matchState.activeSuperElapsed + dt,
+            );
+          }
+          for (const proj of this.matchState.projectiles) {
+            proj.x += proj.vx * dt;
+            proj.y += proj.vy * dt;
+            proj.spin += dt * 12;
+          }
         } else {
-          p1Input = this.samplePlayerInput();
-          p2Input = computeCpuInput(this.matchState, this.difficulty, dt);
-        }
-
-        const events = stepMatch(this.matchState, [p1Input, p2Input], dt);
-        if (events.length > 0) {
-          this.handleCombatEvents(events);
-        }
-
-        if (isSuperPreview) {
-          // Keep preview sandbox strictly non-lethal with no timer countdown or KO/Game Over
-          this.matchState.roundTime = 60;
-          this.matchState.phase = 'fighting';
-          if (this.matchState.fighters[1].hp < 1) {
-            this.matchState.fighters[1].hp = 1;
+          // Offline VS CPU, Super Preview, or Host-Authoritative Online 2P simulation
+          let p1Input: FighterInput;
+          let p2Input: FighterInput;
+          if (isSuperPreview) {
+            p1Input = createEmptyInput();
+            if (this.previewPendingSuper) {
+              p1Input.superMove = true;
+              this.previewPendingSuper = false;
+            }
+            p2Input = createEmptyInput();
+          } else if (isHostOnline) {
+            // CPU AI completely disabled in Friend Room mode — P2 is 100% controlled by Guest's phone
+            p1Input = this.samplePlayerInput();
+            p2Input = consumeRemoteInput(this.remoteP2Input);
+          } else {
+            p1Input = this.samplePlayerInput();
+            p2Input = computeCpuInput(this.matchState, this.difficulty, dt);
           }
-        }
 
-        // Trigger custom "DAHI KHATAM!" KO MP3 once at the exact frame the KO banner slams on screen (normal fight only)
-        if (
-          !isSuperPreview &&
-          this.matchState.phase === 'ko_freeze' &&
-          this.matchState.koSubPhase === 'impact_slowmo' &&
-          this.matchState.finishReason === 'ko'
-        ) {
-          if (!this.koBannerAudioTriggered) {
-            this.koBannerAudioTriggered = true;
-            audioEngine.playDahiKoAudio();
+          this.pendingBroadcastDialogues.length = 0;
+          const events = stepMatch(this.matchState, [p1Input, p2Input], dt);
+          if (events.length > 0) {
+            this.handleCombatEvents(events, false);
           }
-        } else if (this.matchState.phase !== 'ko_freeze') {
-          this.koBannerAudioTriggered = false;
-        }
 
-        // Process Sheru Bhai Super beat signals (cash/coin explosions, micro-shake, crowd cheer, audio restore)
-        const signals = this.matchState.sheruSuperSignals;
-        if (signals.length > 0) {
-          this.sheruSuperVfx.handleBeatSignals(signals, this.graphics === 'low');
-          for (const sig of signals) {
-            if (sig.kind === 'spotlight_start') {
-              this.trauma = Math.min(1, this.trauma + 0.35);
-              this.stage?.triggerExcitement(1.6);
-            } else if (sig.kind === 'flurry_hit') {
-              this.trauma = Math.min(1, this.trauma + 0.22);
-              this.spawnParticles(sig.x, sig.y, 8, 0xfde047, 5.6);
-            } else if (sig.kind === 'standing_hit') {
-              this.trauma = Math.min(1, this.trauma + 0.55);
-              this.spawnParticles(sig.x, sig.y, 18, 0xfacc15, 7.2);
-              this.stage?.triggerExcitement(1.6);
-            } else if (sig.kind === 'lying_kick' || sig.kind === 'lying_slap') {
-              this.trauma = Math.min(1, this.trauma + 0.42);
-              this.spawnParticles(sig.x, sig.y, 14, 0xfde047, 6.2);
-            } else if (sig.kind === 'finisher_snap') {
-              this.trauma = 1.0;
-              this.spawnParticles(sig.x, sig.y, 28, 0xfde047, 9.2);
-              this.stage?.triggerExcitement(2.5);
-            } else if (sig.kind === 'super_end') {
-              // Never cut off active Super MP3 early — let source.onended restore BGM naturally
-              audioEngine.notifySuperAnimationEnd();
+          if (isSuperPreview) {
+            this.matchState.roundTime = 60;
+            this.matchState.phase = 'fighting';
+            if (this.matchState.fighters[1].hp < 1) {
+              this.matchState.fighters[1].hp = 1;
             }
           }
-        }
 
-        // Process Blue Billa "CHIRKUT CHAOS" Super beat signals
-        const billaSignals = this.matchState.billaSuperSignals;
-        if (billaSignals.length > 0) {
-          this.billaSuperVfx.handleBeatSignals(billaSignals, this.graphics === 'low');
-          for (const sig of billaSignals) {
-            if (sig.kind === 'eye_glow_start') {
-              this.trauma = Math.min(1, this.trauma + 0.28);
-              this.stage?.triggerExcitement(1.6);
-            } else if (sig.kind === 'roach_launch') {
-              this.trauma = Math.min(1, this.trauma + 0.32);
-              this.spawnParticles(sig.x, sig.y, 12, 0xa3e635, 6.4);
-            } else if (sig.kind === 'smoke_start') {
-              this.trauma = Math.min(1, this.trauma + 0.42);
-              this.stage?.triggerExcitement(1.8);
-            } else if (sig.kind === 'smoke_hit') {
-              this.trauma = Math.min(1, this.trauma + 0.34);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnStarburstSparks(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 10, 0xfde047, 6.2);
-            } else if (sig.kind === 'pop_finisher') {
-              // Immediately clear all smoke-cloud comic pop-ups the moment the smoke cloud bursts open
-              this.callbacks.onClearCallouts();
-              this.trauma = 0.96;
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, true);
-              this.spawnParticles(sig.x, sig.y, 26, 0x4ade80, 9.0);
-              this.stage?.triggerExcitement(2.4);
-            } else if (sig.kind === 'super_end') {
-              audioEngine.notifySuperAnimationEnd();
+          // Trigger custom "DAHI KHATAM!" KO MP3 once at the exact frame the KO banner slams on screen
+          let koDahiFired = false;
+          if (
+            !isSuperPreview &&
+            this.matchState.phase === 'ko_freeze' &&
+            this.matchState.koSubPhase === 'impact_slowmo' &&
+            this.matchState.finishReason === 'ko'
+          ) {
+            if (!this.koBannerAudioTriggered) {
+              this.koBannerAudioTriggered = true;
+              koDahiFired = true;
+              audioEngine.playDahiKoAudio();
             }
+          } else if (this.matchState.phase !== 'ko_freeze') {
+            this.koBannerAudioTriggered = false;
           }
-        }
 
-        // Process Garib Sena Neta "VANS, ATTACK!" Super beat signals
-        const netaSignals = this.matchState.netaSuperSignals;
-        if (netaSignals.length > 0) {
-          this.netaSuperVfx.handleBeatSignals(netaSignals, this.graphics === 'low');
-          for (const sig of netaSignals) {
-            if (sig.kind === 'levitate_start') {
-              this.trauma = Math.min(1, this.trauma + 0.28);
-              this.stage?.triggerExcitement(1.6);
-            } else if (sig.kind === 'command_point') {
-              this.trauma = Math.min(1, this.trauma + 0.3);
-              this.spawnParticles(sig.x, sig.y, 14, 0xf97316, 5.8);
-            } else if (sig.kind === 'stampede_start') {
-              this.stage?.triggerExcitement(2.0);
-            } else if (sig.kind === 'van_hit') {
-              this.trauma = Math.min(1, this.trauma + 0.52);
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 16, 0xfb923c, 7.6);
-            } else if (sig.kind === 'van_finisher') {
-              this.trauma = 1.0;
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, true);
-              this.spawnParticles(sig.x, sig.y, 28, 0xfacc15, 9.4);
-              this.stage?.triggerExcitement(2.5);
-            } else if (sig.kind === 'super_end') {
-              audioEngine.notifySuperAnimationEnd();
+          const signalBundle: SyncedSuperSignals = {};
+          if (this.matchState.sheruSuperSignals.length > 0) {
+            signalBundle.sheru = this.matchState.sheruSuperSignals;
+          }
+          if (this.matchState.billaSuperSignals.length > 0) {
+            signalBundle.billa = this.matchState.billaSuperSignals;
+          }
+          if (this.matchState.netaSuperSignals.length > 0) {
+            signalBundle.neta = this.matchState.netaSuperSignals;
+          }
+          if (this.matchState.andaSuperSignals.length > 0) {
+            signalBundle.anda = this.matchState.andaSuperSignals;
+          }
+          if (this.matchState.mausiSuperSignals.length > 0) {
+            signalBundle.mausi = this.matchState.mausiSuperSignals;
+          }
+          if (this.matchState.fatherSuperSignals.length > 0) {
+            signalBundle.father = this.matchState.fatherSuperSignals;
+          }
+          if (this.matchState.samyakSuperSignals.length > 0) {
+            signalBundle.samyak = this.matchState.samyakSuperSignals;
+          }
+          if (this.matchState.principalSuperSignals.length > 0) {
+            signalBundle.principal = this.matchState.principalSuperSignals;
+          }
+
+          const anySignal = this.processSuperSignals(signalBundle);
+          forceHud = events.length > 0 || anySignal;
+
+          // Broadcast Host-authoritative state (~28 Hz) & immediate one-shot event packets to Guest
+          if (isHostOnline && this.onlineSendPacket) {
+            if (
+              events.length > 0 ||
+              anySignal ||
+              this.pendingBroadcastDialogues.length > 0 ||
+              koDahiFired
+            ) {
+              this.onlineSendPacket({
+                type: 'EVENTS',
+                events: events.length > 0 ? events : undefined,
+                superSignals: anySignal ? signalBundle : undefined,
+                dialogues:
+                  this.pendingBroadcastDialogues.length > 0
+                    ? [...this.pendingBroadcastDialogues]
+                    : undefined,
+                koDahi: koDahiFired || undefined,
+              });
             }
-          }
-        }
 
-        // Process Anda Bhai "THE GREAT WALL DROP!" Super beat signals
-        const andaSignals = this.matchState.andaSuperSignals;
-        if (andaSignals.length > 0) {
-          this.andaSuperVfx.handleBeatSignals(andaSignals, this.graphics === 'low');
-          for (const sig of andaSignals) {
-            if (sig.kind === 'hat_bow_start') {
-              this.trauma = Math.min(1, this.trauma + 0.22);
-              this.stage?.triggerExcitement(1.6);
-            } else if (sig.kind === 'lightning_strike') {
-              this.trauma = Math.min(1, this.trauma + 0.42);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnStarburstSparks(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 14, 0x38bdf8, 7.0);
-            } else if (sig.kind === 'wall_impact') {
-              this.trauma = 1.0;
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, true);
-              this.spawnParticles(sig.x, sig.y, 28, 0xc8452e, 9.2);
-              this.stage?.triggerExcitement(2.5);
-            } else if (sig.kind === 'wall_shatter') {
-              this.trauma = Math.min(1, this.trauma + 0.52);
-              this.spawnParticles(sig.x, sig.y, 22, 0xd97706, 8.2);
-              this.stage?.triggerExcitement(2.0);
-            } else if (sig.kind === 'super_end') {
-              audioEngine.notifySuperAnimationEnd();
-            }
-          }
-        }
-
-        // Process Laddoo Mausi "GOL-GOL LADDOO BARRAGE!" Super beat signals
-        const mausiSignals = this.matchState.mausiSuperSignals;
-        if (mausiSignals.length > 0) {
-          this.mausiSuperVfx.handleBeatSignals(mausiSignals, this.graphics === 'low');
-          for (const sig of mausiSignals) {
-            if (sig.kind === 'gulp_start') {
-              this.trauma = Math.min(1, this.trauma + 0.22);
-              this.stage?.triggerExcitement(1.5);
-            } else if (sig.kind === 'aura_ignite') {
-              this.trauma = Math.min(1, this.trauma + 0.36);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 16, 0xfbbf24, 6.8);
-              this.stage?.triggerExcitement(1.8);
-            } else if (sig.kind === 'levitate_start') {
-              this.stage?.triggerExcitement(1.9);
-            } else if (sig.kind === 'laddoo_hit') {
-              this.trauma = Math.min(1, this.trauma + 0.28);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnStarburstSparks(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 10, 0xfbbf24, 6.4);
-            } else if (sig.kind === 'mega_impact') {
-              this.trauma = 1.0;
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, true);
-              this.spawnParticles(sig.x, sig.y, 30, 0xf97316, 9.5);
-              this.stage?.triggerExcitement(2.6);
-            } else if (sig.kind === 'super_end') {
-              audioEngine.notifySuperAnimationEnd();
-            }
-          }
-        }
-
-        // Process Father Roy Dolphus "RUSTICATION ORDER!" Super beat signals
-        const fatherSignals = this.matchState.fatherSuperSignals;
-        if (fatherSignals.length > 0) {
-          this.fatherSuperVfx.handleBeatSignals(fatherSignals, this.graphics === 'low');
-          for (const sig of fatherSignals) {
-            if (sig.kind === 'levitate_start') {
-              this.trauma = Math.min(1, this.trauma + 0.25);
-              this.stage?.triggerExcitement(1.6);
-            } else if (sig.kind === 'papers_summon') {
-              this.trauma = Math.min(1, this.trauma + 0.34);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 16, 0xef4444, 6.2);
-              this.stage?.triggerExcitement(1.9);
-            } else if (sig.kind === 'barrage_start') {
-              this.stage?.triggerExcitement(2.1);
-            } else if (sig.kind === 'paper_hit') {
-              this.trauma = Math.min(1, this.trauma + 0.28);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnStarburstSparks(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 10, 0xef4444, 6.0);
-            } else if (sig.kind === 'master_notice_impact') {
-              this.trauma = 1.0;
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, true);
-              this.spawnParticles(sig.x, sig.y, 28, 0xdc2626, 9.4);
-              this.spawnParticles(sig.x, sig.y + 0.2, 16, 0xfacc15, 7.6);
-              this.stage?.triggerExcitement(2.6);
-            } else if (sig.kind === 'super_end') {
-              audioEngine.notifySuperAnimationEnd();
-            }
-          }
-        }
-
-        // Process Samyak "MISSION IAS: BEAST MODE!" Super beat signals
-        const samyakSignals = this.matchState.samyakSuperSignals;
-        if (samyakSignals.length > 0) {
-          this.samyakSuperVfx.handleBeatSignals(samyakSignals, this.graphics === 'low');
-          for (const sig of samyakSignals) {
-            if (sig.kind === 'flex_start') {
-              this.trauma = Math.min(1, this.trauma + 0.3);
-              this.spawnParticles(sig.x, sig.y, 16, 0x38bdf8, 6.2);
-              this.stage?.triggerExcitement(1.7);
-            } else if (sig.kind === 'lens_glint') {
-              this.trauma = Math.min(1, this.trauma + 0.24);
-              this.spawnImpactRing(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, 14, 0xfacc15, 6.6);
-              this.stage?.triggerExcitement(1.9);
-            } else if (sig.kind === 'barrage_summon') {
-              this.stage?.triggerExcitement(2.1);
-            } else if (sig.kind === 'barrage_hit') {
-              const isHeavyDumbbell = (sig.hitIndex ?? 0) % 2 === 1;
-              this.trauma = Math.min(1, this.trauma + (isHeavyDumbbell ? 0.36 : 0.26));
-              this.spawnImpactRing(sig.x, sig.y, isHeavyDumbbell);
-              this.spawnStarburstSparks(sig.x, sig.y, false);
-              this.spawnParticles(sig.x, sig.y, isHeavyDumbbell ? 14 : 10, isHeavyDumbbell ? 0x38bdf8 : 0xfacc15, 6.8);
-            } else if (sig.kind === 'slam_leap') {
-              this.trauma = Math.min(1, this.trauma + 0.28);
-              this.spawnParticles(sig.x, 0.16, 14, 0xfacc15, 5.8);
-              this.stage?.triggerExcitement(2.2);
-            } else if (sig.kind === 'air1_slam_impact') {
-              this.trauma = 1.0;
-              this.spawnImpactRing(sig.x, sig.y, true);
-              this.spawnStarburstSparks(sig.x, sig.y, true);
-              this.spawnParticles(sig.x, sig.y, 28, 0xfacc15, 9.6);
-              this.spawnParticles(sig.x, sig.y + 0.2, 18, 0x38bdf8, 8.2);
-              this.stage?.triggerExcitement(2.8);
-            } else if (sig.kind === 'super_end') {
-              audioEngine.notifySuperAnimationEnd();
+            this.hostBroadcastTimer -= dt;
+            if (this.hostBroadcastTimer <= 0 || forceHud || koDahiFired) {
+              this.hostBroadcastTimer = 0.036; // ~28 Hz compact state snapshots
+              this.onlineSendPacket(
+                packMatchStateSnapshot(this.matchState, ++this.hostSnapshotSeq),
+              );
             }
           }
         }
@@ -2471,7 +2807,8 @@ export class DesiShowdownEngine {
           this.matchState.andaSuper?.active ||
           this.matchState.mausiSuper?.active ||
           this.matchState.fatherSuper?.active ||
-          this.matchState.samyakSuper?.active
+          this.matchState.samyakSuper?.active ||
+          this.matchState.principalSuper?.active
         ) {
           clearAllMidFightDialogues(this.dialogueTracker);
         } else {
@@ -2481,17 +2818,7 @@ export class DesiShowdownEngine {
         // Update camera BEFORE emitting HUD so speech bubbles project with exact current-frame matrices
         this.updateCamera(dt);
         this.hudThrottleTimer -= dt;
-        this.emitHud(
-          events.length > 0 ||
-            signals.length > 0 ||
-            billaSignals.length > 0 ||
-            netaSignals.length > 0 ||
-            andaSignals.length > 0 ||
-            mausiSignals.length > 0 ||
-            fatherSignals.length > 0 ||
-            samyakSignals.length > 0,
-          dt,
-        );
+        this.emitHud(forceHud, dt);
 
         if (isSuperPreview) {
           const superActiveNow = this.isAnySuperSequenceActive();
@@ -2502,7 +2829,6 @@ export class DesiShowdownEngine {
           } else if (this.previewSuperWasActive) {
             this.previewResetTimer = Math.max(0, this.previewResetTimer - dt);
             if (this.previewResetTimer <= 0) {
-              // Smoothly reset both fighters to idle positions & restore full HP + Shakti after Super finishes
               this.matchState = this.createSuperPreviewState(this.p1Id);
               this.clearProjectiles();
               this.callbacks.onClearCallouts();
@@ -2511,11 +2837,14 @@ export class DesiShowdownEngine {
               this.emitHud(true, dt);
             }
           }
-        } else if (this.matchState.phase === 'finished' && !this.resultDispatched) {
+        } else if (!isGuestOnline && this.matchState.phase === 'finished' && !this.resultDispatched) {
           this.resultDispatched = true;
           this.currentScreen = 'victory';
           audioEngine.playVictoryFanfare();
           const result = buildMatchResultSnapshot(this.matchState, this.stageId, this.difficulty);
+          if (isHostOnline && this.onlineSendPacket) {
+            this.onlineSendPacket({ type: 'MATCH_END', result });
+          }
           this.callbacks.onMatchFinish(result);
         }
       }
@@ -2662,6 +2991,21 @@ export class DesiShowdownEngine {
         samyakDef?.x ?? 2,
       );
 
+      const principalSuper = this.matchState.principalSuper;
+      const principalSlot = principalSuper?.attackerSlot ?? 0;
+      const principalDefSlot = principalSuper?.defenderSlot ?? 1;
+      const principalFighter = this.matchState.fighters[principalSlot];
+      const principalDef = this.matchState.fighters[principalDefSlot];
+      const principalDim = this.principalSuperVfx.update(
+        dt,
+        this.elapsed,
+        principalSuper,
+        principalFighter?.x ?? 0,
+        principalFighter?.y ?? 0,
+        principalFighter?.facing ?? 1,
+        principalDef?.x ?? 2,
+      );
+
       const dimFactor = Math.max(
         sheruDim,
         billaDim,
@@ -2670,6 +3014,7 @@ export class DesiShowdownEngine {
         mausiDim,
         fatherDim,
         samyakDim,
+        principalDim,
       );
       if (this.stage) {
         const lightningFlash = andaVfxResult.skyFlash;
@@ -2678,11 +3023,13 @@ export class DesiShowdownEngine {
             ? _andaStormDimColor
             : samyakDim > 0.01
               ? _samyakBlueGoldDimColor
-              : fatherDim > 0.01
-                ? _fatherCrimsonDimColor
-                : mausiDim > 0.01
-                  ? _mausiFestiveDimColor
-                  : _superDimColor;
+              : principalDim > 0.01
+                ? _principalOrangeDimColor
+                : fatherDim > 0.01
+                  ? _fatherCrimsonDimColor
+                  : mausiDim > 0.01
+                    ? _mausiFestiveDimColor
+                    : _superDimColor;
 
         this.keyLight.intensity =
           this.stage.keyLightIntensity * (1 - dimFactor * 0.82) + lightningFlash * 2.4;
@@ -2755,6 +3102,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.dispose(this.scene);
     this.fatherSuperVfx.dispose(this.scene);
     this.samyakSuperVfx.dispose(this.scene);
+    this.principalSuperVfx.dispose(this.scene);
     for (const trail of this.strikeTrails) {
       this.scene.remove(trail.mesh);
       trail.dispose();

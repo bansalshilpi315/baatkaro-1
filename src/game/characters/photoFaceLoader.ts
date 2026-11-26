@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import type { FighterId } from '../types';
 
-export type PhotoFaceFighterId = 'father' | 'samyak';
+export type PhotoFaceFighterId = 'father' | 'samyak' | 'principal';
 
 export const REAL_FACE_PHOTO_URLS: Record<PhotoFaceFighterId, string> = {
   father: '/textures/faces/father.png',
   samyak: '/textures/faces/samyak.png',
+  principal: '/textures/faces/principal_man.png',
 };
 
 export interface PhotoFaceCropSpec {
@@ -39,6 +40,13 @@ export const PHOTO_FACE_CROP_SPECS: Record<PhotoFaceFighterId, PhotoFaceCropSpec
     sw: 0.59,
     sh: 0.855,
     skinHex: 0xa67452,
+  },
+  principal: {
+    sx: 0.245,
+    sy: 0.065,
+    sw: 0.51,
+    sh: 0.75,
+    skinHex: 0xb67a54,
   },
 };
 
@@ -122,13 +130,20 @@ const cache: Record<PhotoFaceFighterId, CachedPhotoEntry> = {
     sampledSkinHex: null,
     listeners: new Set(),
   },
+  principal: {
+    status: 'idle',
+    rawTexture: null,
+    featheredTexture: null,
+    sampledSkinHex: null,
+    listeners: new Set(),
+  },
 };
 
 const failedPortraitUrls = new Set<string>();
 let sharedTextureLoader: THREE.TextureLoader | null = null;
 
 export function isPhotoFaceFighter(id: FighterId): id is PhotoFaceFighterId {
-  return id === 'father' || id === 'samyak';
+  return id === 'father' || id === 'samyak' || id === 'principal';
 }
 
 export function getRealFacePhotoUrl(id: FighterId): string | null {
@@ -287,6 +302,7 @@ function loadSinglePhotoFace(id: PhotoFaceFighterId): void {
 export function preloadRealFaceTextures(): void {
   loadSinglePhotoFace('father');
   loadSinglePhotoFace('samyak');
+  loadSinglePhotoFace('principal');
 }
 
 /**

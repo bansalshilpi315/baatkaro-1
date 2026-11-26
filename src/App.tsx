@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { WifiOff } from 'lucide-react';
 import { FightHud } from './components/FightHud';
+import { FriendRoomModal } from './components/FriendRoomModal';
 import { AboutModal, HowToPlayModal } from './components/InfoModals';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PauseModal } from './components/PauseModal';
@@ -18,6 +20,11 @@ import {
 } from './game/careerStats';
 import { preloadRealFaceTextures } from './game/characters';
 import { DesiShowdownEngine } from './game/engine';
+import {
+  FriendRoomManager,
+  type FriendRoomStateSnapshot,
+} from './game/friendRoomPeer';
+import type { FriendRoomPacket, OnlineRole } from './game/friendRoomProtocol';
 import type {
   Difficulty,
   FighterId,
@@ -57,6 +64,14 @@ const INITIAL_HUD: HudSnapshot = {
   canSkipIntro: false,
 };
 
+const INITIAL_FRIEND_ROOM: FriendRoomStateSnapshot = {
+  role: 'offline',
+  status: 'idle',
+  roomCode: '',
+  statusMessage: '',
+  errorMessage: null,
+};
+
 function isAutostartRequested(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('autostart') === '1';
@@ -90,7 +105,8 @@ function getFighterQueryParam(key: string, fallback: FighterId): FighterId {
     raw === 'anda' ||
     raw === 'mausi' ||
     raw === 'father' ||
-    raw === 'samyak'
+    raw === 'samyak' ||
+    raw === 'principal'
   ) {
     return raw;
   }
@@ -130,6 +146,10 @@ export default function App() {
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [friendRoomModalOpen, setFriendRoomModalOpen] = useState(false);
+  const [friendRoomState, setFriendRoomState] =
+    useState<FriendRoomStateSnapshot>(INITIAL_FRIEND_ROOM);
+  const [disconnectNotice, setDisconnectNotice] = useState<string | null>(null);
   const [previewFighterId, setPreviewFighterId] = useState<FighterId>(initialP1);
   const [previewSuperPlaying, setPreviewSuperPlaying] = useState(false);
   const {
@@ -145,10 +165,25 @@ export default function App() {
 
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<DesiShowdownEngine | null>(null);
+  const friendRoomRef = useRef<FriendRoomManager | null>(null);
   const screenRef = useRef<GameScreen>(screen);
   const musicMutedRef = useRef(musicMuted);
+  const p1IdRef = useRef(p1Id);
+  const p2IdRef = useRef(p2Id);
+  const stageIdRef = useRef(stageId);
+  const difficultyRef = useRef(difficulty);
+  const onlineRoleRef = useRef<OnlineRole>('offline');
+
+  const activeOnlineRole: OnlineRole =
+    friendRoomState.status === 'connected' ? friendRoomState.role : 'offline';
+
   screenRef.current = screen;
   musicMutedRef.current = musicMuted;
+  p1IdRef.current = p1Id;
+  p2IdRef.current = p2Id;
+  stageIdRef.current = stageId;
+  difficultyRef.current = difficulty;
+  onlineRoleRef.current = activeOnlineRole;
 
   // Mirror game state to document.body.dataset.state
   useEffect(() => {
@@ -180,7 +215,15 @@ export default function App() {
       onClearCallouts: () => setCallouts([]),
       onHeadline: () => {},
       onMatchFinish: (result) => {
-        const updatedStats = recordMatchCareerStats(result.winnerSlot);
+        const localPerspectiveOutcome: 0 | 1 | 'draw' =
+          result.winnerSlot === 'draw'
+            ? 'draw'
+            : onlineRoleRef.current === 'guest'
+              ? result.winnerSlot === 1
+                ? 0
+                : 1
+              : result.winnerSlot;
+        const updatedStats = recordMatchCareerStats(localPerspectiveOutcome);
         setCareerStats(updatedStats);
         setMatchResult(result);
         setScreen('victory');
@@ -220,9 +263,151 @@ export default function App() {
     };
   }, []);
 
+  // Initialize PeerJS Friend Room Manager once
+  useEffect(() => {
+    const startSyncedHostMatch = () => {
+      const curP1 = p1IdRef.current;
+      const curP2 = p2IdRef.current;
+      const curStage = stageIdRef.current;
+      const seed = Math.floor(Math.random() * 1000000);
+      setHowToPlayOpen(false);
+      setAboutOpen(false);
+      setSettingsOpen(false);
+      setFriendRoomModalOpen(false);
+      setMatchResult(null);
+      setCallouts([]);
+      friendRoomRef.current?.send({
+        type: 'START_MATCH',
+        p1Id: curP1,
+        p2Id: curP2,
+        stageId: curStage,
+        seed,
+      });
+      engineRef.current?.startMatch(
+        curP1,
+        curP2,
+        curStage,
+        'normal',
+        false,
+        0,
+        undefined,
+        seed,
+      );
+      setScreen('playing');
+    };
+
+    const manager = new FriendRoomManager({
+      onStateChange: (snapshot) => {
+        setFriendRoomState(snapshot);
+      },
+      onPeerConnected: (role) => {
+        setDisconnectNotice(null);
+        setFriendRoomModalOpen(false);
+        engineRef.current?.setOnlineMode(role, (pkt) => {
+          manager.send(pkt);
+        });
+        if (role === 'host') {
+          manager.send({
+            type: 'LOBBY_STATE',
+            p1Id: p1IdRef.current,
+            p2Id: p2IdRef.current,
+            stageId: stageIdRef.current,
+          });
+        }
+      },
+      onPacket: (pkt: FriendRoomPacket) => {
+        if (pkt.type === 'LOBBY_STATE') {
+          setP1Id(pkt.p1Id);
+          setP2Id(pkt.p2Id);
+          setStageId(pkt.stageId);
+          engineRef.current?.setPreviewSelection(
+            pkt.p1Id,
+            pkt.p2Id,
+            pkt.stageId,
+            difficultyRef.current,
+          );
+          return;
+        }
+        if (pkt.type === 'GUEST_SELECT') {
+          setP2Id(pkt.p2Id);
+          engineRef.current?.setPreviewSelection(
+            p1IdRef.current,
+            pkt.p2Id,
+            stageIdRef.current,
+            difficultyRef.current,
+          );
+          return;
+        }
+        if (pkt.type === 'START_MATCH') {
+          audioEngine.unlock();
+          setP1Id(pkt.p1Id);
+          setP2Id(pkt.p2Id);
+          setStageId(pkt.stageId);
+          setHowToPlayOpen(false);
+          setAboutOpen(false);
+          setSettingsOpen(false);
+          setFriendRoomModalOpen(false);
+          setMatchResult(null);
+          setCallouts([]);
+          engineRef.current?.startMatch(
+            pkt.p1Id,
+            pkt.p2Id,
+            pkt.stageId,
+            'normal',
+            false,
+            0,
+            undefined,
+            pkt.seed,
+          );
+          setScreen('playing');
+          return;
+        }
+        if (pkt.type === 'REMATCH_REQUEST') {
+          if (onlineRoleRef.current === 'host') {
+            startSyncedHostMatch();
+          }
+          return;
+        }
+        if (pkt.type === 'BACK_TO_SELECT') {
+          audioEngine.stopSuperAudio();
+          audioEngine.stopDahiKoAudio();
+          if (!musicMutedRef.current) audioEngine.startMusic();
+          setMatchResult(null);
+          setCallouts([]);
+          engineRef.current?.setScreen('select');
+          engineRef.current?.setPreviewSelection(
+            p1IdRef.current,
+            p2IdRef.current,
+            stageIdRef.current,
+            difficultyRef.current,
+          );
+          setScreen('select');
+          return;
+        }
+        engineRef.current?.receiveFriendPacket(pkt);
+      },
+      onPeerDisconnected: (reason) => {
+        engineRef.current?.setOnlineMode('offline');
+        audioEngine.stopSuperAudio();
+        audioEngine.stopDahiKoAudio();
+        setDisconnectNotice(reason || 'Your friend disconnected from the room.');
+      },
+    });
+
+    friendRoomRef.current = manager;
+    return () => {
+      manager.dispose();
+      friendRoomRef.current = null;
+    };
+  }, []);
+
   // Global Esc / P pause and M mute shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        return;
+      }
       if (e.code === 'Escape' || e.code === 'KeyP') {
         if (screenRef.current === 'playing') {
           e.preventDefault();
@@ -272,30 +457,55 @@ export default function App() {
 
   const handleSelectP1 = useCallback(
     (id: FighterId) => {
+      if (onlineRoleRef.current === 'guest') return;
       audioEngine.unlock();
       audioEngine.playUiClick();
       setP1Id(id);
       engineRef.current?.setPreviewSelection(id, p2Id, stageId, difficulty);
+      if (onlineRoleRef.current === 'host') {
+        friendRoomRef.current?.send({
+          type: 'LOBBY_STATE',
+          p1Id: id,
+          p2Id,
+          stageId,
+        });
+      }
     },
     [p2Id, stageId, difficulty],
   );
 
   const handleSelectP2 = useCallback(
     (id: FighterId) => {
+      if (onlineRoleRef.current === 'host') return;
       audioEngine.unlock();
       audioEngine.playUiClick();
       setP2Id(id);
       engineRef.current?.setPreviewSelection(p1Id, id, stageId, difficulty);
+      if (onlineRoleRef.current === 'guest') {
+        friendRoomRef.current?.send({
+          type: 'GUEST_SELECT',
+          p2Id: id,
+        });
+      }
     },
     [p1Id, stageId, difficulty],
   );
 
   const handleSelectStage = useCallback(
     (id: StageId) => {
+      if (onlineRoleRef.current === 'guest') return;
       audioEngine.unlock();
       audioEngine.playUiClick();
       setStageId(id);
       engineRef.current?.setPreviewSelection(p1Id, p2Id, id, difficulty);
+      if (onlineRoleRef.current === 'host') {
+        friendRoomRef.current?.send({
+          type: 'LOBBY_STATE',
+          p1Id,
+          p2Id,
+          stageId: id,
+        });
+      }
     },
     [p1Id, p2Id, difficulty],
   );
@@ -313,21 +523,83 @@ export default function App() {
   const handleStartFight = useCallback(() => {
     audioEngine.unlock();
     audioEngine.playUiClick();
+
+    // Guest clicking Rematch requests Host to launch the next match
+    if (onlineRoleRef.current === 'guest') {
+      friendRoomRef.current?.send({ type: 'REMATCH_REQUEST' });
+      return;
+    }
+
     setHowToPlayOpen(false);
     setAboutOpen(false);
     setSettingsOpen(false);
+    setFriendRoomModalOpen(false);
     (document.activeElement as HTMLElement | null)?.blur?.();
     setMatchResult(null);
     setCallouts([]);
-    engineRef.current?.startMatch(p1Id, p2Id, stageId, difficulty, false);
+
+    if (onlineRoleRef.current === 'host') {
+      const seed = Math.floor(Math.random() * 1000000);
+      friendRoomRef.current?.send({
+        type: 'START_MATCH',
+        p1Id,
+        p2Id,
+        stageId,
+        seed,
+      });
+      engineRef.current?.startMatch(p1Id, p2Id, stageId, 'normal', false, 0, undefined, seed);
+    } else {
+      engineRef.current?.startMatch(p1Id, p2Id, stageId, difficulty, false);
+    }
     setScreen('playing');
   }, [p1Id, p2Id, stageId, difficulty]);
+
+  const handleCreateFriendRoom = useCallback(() => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    setDisconnectNotice(null);
+    friendRoomRef.current?.createRoom();
+  }, []);
+
+  const handleJoinFriendRoom = useCallback((code: string) => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    setDisconnectNotice(null);
+    friendRoomRef.current?.joinRoom(code);
+  }, []);
+
+  const handleLeaveFriendRoom = useCallback(() => {
+    audioEngine.playUiClick();
+    friendRoomRef.current?.leaveRoom();
+    engineRef.current?.setOnlineMode('offline');
+    setDisconnectNotice(null);
+    setFriendRoomModalOpen(false);
+  }, []);
+
+  const handleReturnToVsCpu = useCallback(() => {
+    audioEngine.playUiClick();
+    friendRoomRef.current?.leaveRoom();
+    engineRef.current?.setOnlineMode('offline');
+    setDisconnectNotice(null);
+    setMatchResult(null);
+    setCallouts([]);
+    if (!musicMutedRef.current) audioEngine.startMusic();
+    engineRef.current?.setScreen('select');
+    engineRef.current?.setPreviewSelection(
+      p1IdRef.current,
+      p2IdRef.current,
+      stageIdRef.current,
+      difficultyRef.current,
+    );
+    setScreen('select');
+  }, []);
 
   const handleStartSuperPreview = useCallback(() => {
     audioEngine.unlock();
     audioEngine.playUiClick();
     setSettingsOpen(false);
     setHowToPlayOpen(false);
+    setFriendRoomModalOpen(false);
     setCallouts([]);
     setPreviewFighterId(p1Id);
     setPreviewSuperPlaying(false);
@@ -411,6 +683,9 @@ export default function App() {
     audioEngine.playUiClick();
     audioEngine.stopSuperAudio();
     audioEngine.stopDahiKoAudio();
+    if (onlineRoleRef.current !== 'offline') {
+      friendRoomRef.current?.send({ type: 'BACK_TO_SELECT' });
+    }
     if (!musicMutedRef.current) audioEngine.startMusic();
     engineRef.current?.setScreen('select');
     engineRef.current?.setPreviewSelection(p1Id, p2Id, stageId, difficulty);
@@ -419,6 +694,9 @@ export default function App() {
 
   const handleSkipIntro = useCallback(() => {
     audioEngine.playUiClick();
+    if (onlineRoleRef.current !== 'offline') {
+      friendRoomRef.current?.send({ type: 'SKIP_INTRO' });
+    }
     engineRef.current?.skipPreFightIntro();
   }, []);
 
@@ -478,6 +756,8 @@ export default function App() {
           p2Id={p2Id}
           stageId={stageId}
           difficulty={difficulty}
+          onlineRole={activeOnlineRole}
+          roomCode={friendRoomState.roomCode}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
           onSelectP1={handleSelectP1}
@@ -493,6 +773,11 @@ export default function App() {
             audioEngine.unlock();
             audioEngine.playUiClick();
             setSettingsOpen(true);
+          }}
+          onOpenFriendRoom={() => {
+            audioEngine.unlock();
+            audioEngine.playUiClick();
+            setFriendRoomModalOpen(true);
           }}
           onStartFight={handleStartFight}
         />
@@ -518,6 +803,8 @@ export default function App() {
           hud={hud}
           callouts={callouts}
           muted={muted}
+          onlineRole={activeOnlineRole}
+          roomCode={friendRoomState.roomCode}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
           onPause={handlePause}
@@ -546,9 +833,52 @@ export default function App() {
         <VictoryScreen
           result={matchResult}
           careerStats={careerStats}
+          onlineRole={activeOnlineRole}
           onRematch={handleStartFight}
           onCharacterSelect={handleQuitToSelect}
         />
+      )}
+
+      {/* Friend Room Modal */}
+      {friendRoomModalOpen && screen === 'select' && (
+        <FriendRoomModal
+          roomState={friendRoomState}
+          onCreateRoom={handleCreateFriendRoom}
+          onJoinRoom={handleJoinFriendRoom}
+          onLeaveRoom={handleLeaveFriendRoom}
+          onClose={() => {
+            audioEngine.playUiClick();
+            setFriendRoomModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Clean Friend Disconnected Banner */}
+      {disconnectNotice && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          data-testid="friend-disconnected-banner"
+          className="safe-pad-modal fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-sm border-2 border-[#ef4444] bg-[#140e0b]/96 p-4 text-center text-white shadow-[0_18px_45px_rgba(0,0,0,0.85),6px_6px_0_#0a0705]">
+            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#ef4444] bg-[#450a0a]">
+              <WifiOff className="h-5 w-5 text-[#fca5a5]" aria-hidden="true" />
+            </div>
+            <h2 className="font-display text-2xl font-extrabold uppercase italic tracking-wider text-[#fca5a5]">
+              FRIEND DISCONNECTED
+            </h2>
+            <p className="mt-1 text-xs font-medium text-[#d6d3d1]">{disconnectNotice}</p>
+            <button
+              type="button"
+              data-testid="return-to-vs-cpu-btn"
+              onClick={handleReturnToVsCpu}
+              className="mt-4 w-full cursor-pointer border-2 border-[#0f0a06] bg-[#facc15] px-4 py-2 font-display text-lg font-extrabold uppercase tracking-wider text-[#110b08] shadow-[4px_4px_0_#dc2626] transition hover:bg-[#fde047]"
+            >
+              RETURN TO VS CPU
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Settings, How to Play & About Modals */}
@@ -573,3 +903,4 @@ export default function App() {
     </main>
   );
 }
+

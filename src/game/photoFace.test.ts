@@ -3,16 +3,20 @@ import assert from 'node:assert/strict';
 import {
   createFrontProjectedFaceShellGeometry,
   getPhotoFaceCropRect,
+  isPhotoFaceFighter,
   PHOTO_FACE_CROP_SPECS,
+  REAL_FACE_PHOTO_URLS,
 } from './characters/photoFaceLoader';
 
-test('Father Roy Dolphus and Samyak face crop rects stay tightly inside portrait bounds and exclude collar/margins', () => {
-  for (const id of ['father', 'samyak'] as const) {
+test('Father Roy Dolphus, Samyak, and Principal Man face crop rects stay tightly inside portrait bounds and exclude collar/margins', () => {
+  for (const id of ['father', 'samyak', 'principal'] as const) {
+    assert.equal(isPhotoFaceFighter(id), true);
+    assert.ok(REAL_FACE_PHOTO_URLS[id].endsWith('.png'));
     const spec = PHOTO_FACE_CROP_SPECS[id];
     const rect = getPhotoFaceCropRect(id, 1024, 1024);
 
-    assert.ok(spec.sx >= 0.18 && spec.sx <= 0.25, `${id} trims left grey studio margin`);
-    assert.ok(spec.sx + spec.sw <= 0.84, `${id} trims right grey studio margin`);
+    assert.ok(spec.sx >= 0.18 && spec.sx <= 0.25, `${id} trims left margin`);
+    assert.ok(spec.sx + spec.sw <= 0.84, `${id} trims right margin`);
     assert.ok(spec.sy >= 0.04 && spec.sy <= 0.12, `${id} starts at crown/hairline`);
     assert.ok(spec.sy + spec.sh <= 0.94, `${id} ends cleanly at chin/beard without collar`);
     assert.equal(rect.sx, Math.round(1024 * spec.sx));

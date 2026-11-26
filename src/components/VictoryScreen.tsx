@@ -1,12 +1,14 @@
 import { RotateCcw, Users } from 'lucide-react';
 import { getWinRatePercent, type CareerStats } from '../game/careerStats';
 import { FIGHTER_CONFIGS } from '../game/characters';
+import type { OnlineRole } from '../game/friendRoomProtocol';
 import type { MatchResultSnapshot } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 
 interface VictoryScreenProps {
   result: MatchResultSnapshot;
   careerStats: CareerStats;
+  onlineRole?: OnlineRole;
   onRematch: () => void;
   onCharacterSelect: () => void;
 }
@@ -25,6 +27,7 @@ function formatTodayEditionDate(): string {
 export function VictoryScreen({
   result,
   careerStats,
+  onlineRole = 'offline',
   onRematch,
   onCharacterSelect,
 }: VictoryScreenProps) {
@@ -36,7 +39,8 @@ export function VictoryScreen({
         ? FIGHTER_CONFIGS[result.p2Id]
         : FIGHTER_CONFIGS[result.p1Id];
 
-  const isPlayerWin = result.winnerSlot === 0;
+  const localSlot = onlineRole === 'guest' ? 1 : 0;
+  const isLocalWin = result.winnerSlot === localSlot;
   const isDraw = result.winnerSlot === 'draw';
   const editionDate = formatTodayEditionDate();
 
@@ -46,13 +50,25 @@ export function VictoryScreen({
 
   const announcementEyebrow = isDraw
     ? 'FINAL VERDICT · DRAW'
-    : isPlayerWin
-      ? 'P1 VICTORY · BEST OF 3'
-      : 'CPU VICTORY · BEST OF 3';
+    : onlineRole !== 'offline'
+      ? result.winnerSlot === 0
+        ? '1P (HOST) VICTORY · ONLINE 2P'
+        : '2P (FRIEND) VICTORY · ONLINE 2P'
+      : isLocalWin
+        ? 'P1 VICTORY · BEST OF 3'
+        : 'CPU VICTORY · BEST OF 3';
+
+  const displayStampText = isDraw
+    ? 'DRAW!'
+    : onlineRole === 'guest'
+      ? isLocalWin
+        ? 'YOU WIN!'
+        : 'YOU LOSE!'
+      : result.stampText;
 
   const stampColorClass = isDraw
     ? 'border-[#b45309] text-[#b45309]'
-    : isPlayerWin
+    : isLocalWin
       ? 'border-[#15803d] text-[#15803d]'
       : 'border-[#dc2626] text-[#dc2626]';
 
@@ -136,7 +152,7 @@ export function VictoryScreen({
               data-testid="newspaper-stamp"
               className={`victory-stamp shrink-0 -rotate-12 border-[3px] bg-[#f5efe0]/85 px-3 py-1 font-display text-2xl font-extrabold uppercase tracking-widest shadow-[inset_0_0_0_1px_currentColor] sm:text-3xl ${stampColorClass}`}
             >
-              {result.stampText}
+              {displayStampText}
             </div>
           </div>
         </article>

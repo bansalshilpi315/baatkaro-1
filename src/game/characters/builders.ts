@@ -3613,6 +3613,592 @@ function buildFatherRoyDolphus(rig: FighterRig): void {
 }
 
 /**
+ * Builds Principal Man — 8th playable character — as a high-quality 3D caricature parody:
+ * - Expressive 1.45x caricature head with /textures/faces/principal_man.png front-projected photo shell,
+ *   3D ears, visible gray-dappled temples, sculpted eyelids, playful animated dark eyebrows, and confident smirk
+ * - Closed pleated off-white cassock (#F0F2F5) with subtle vertical shadow folds & articulated kick panels
+ * - Vibrant powder-blue sleeveless Nehru vest (#7EC4E6) with dark-blue stitching/buttons & chest-pocket pen
+ * - Left silver-dial wristwatch & polished black formal dress shoes
+ */
+function buildPrincipalMan(rig: FighterRig): void {
+  rig.pelvis.position.set(0, 1.06, 0);
+  rig.torso.position.set(0, 0.09, 0);
+  rig.head.position.set(0, 0.905, 0);
+  rig.head.scale.setScalar(1.45);
+
+  const shoulderX = 0.305;
+  const shoulderY = 0.61;
+  rig.leftShoulder.position.set(-shoulderX, shoulderY, 0);
+  rig.rightShoulder.position.set(shoulderX, shoulderY, 0);
+  rig.leftElbow.position.set(0, -0.34, 0);
+  rig.rightElbow.position.set(0, -0.34, 0);
+
+  rig.leftHip.position.set(-0.135, -0.02, 0);
+  rig.rightHip.position.set(0.135, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.49, 0);
+  rig.rightKnee.position.set(0, -0.49, 0);
+
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xb57853,
+    roughness: 0.6,
+    metalness: 0.01,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(skinMat);
+
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x161418,
+    roughness: 0.76,
+    metalness: 0.05,
+    envMapIntensity: 0.2,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(hairMat);
+
+  const grayTempleMat = new THREE.MeshStandardMaterial({
+    color: 0xcbd5e1,
+    roughness: 0.68,
+    metalness: 0.08,
+    envMapIntensity: 0.25,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(grayTempleMat);
+
+  const browMat = new THREE.MeshStandardMaterial({
+    color: 0x141111,
+    roughness: 0.68,
+    metalness: 0.04,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(browMat);
+
+  const eyelidMat = new THREE.MeshStandardMaterial({
+    color: 0x9c6240,
+    roughness: 0.58,
+    metalness: 0.02,
+    envMapIntensity: 0.2,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(eyelidMat);
+
+  const cassockTex = createFatherCassockTexture();
+  const cassockMat = new THREE.MeshStandardMaterial({
+    map: cassockTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.01,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(cassockMat);
+
+  const cassockDoubleMat = new THREE.MeshStandardMaterial({
+    map: cassockTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.01,
+    envMapIntensity: 0.16,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(cassockDoubleMat);
+
+  const collarWhiteMat = new THREE.MeshStandardMaterial({
+    color: 0xf4f7fb,
+    roughness: 0.84,
+    metalness: 0.01,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(collarWhiteMat);
+
+  const vestTex = createFatherNehruVestTexture();
+  const vestMat = new THREE.MeshStandardMaterial({
+    map: vestTex,
+    color: 0xd0ecfc,
+    roughness: 0.82,
+    metalness: 0.02,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(vestMat);
+
+  const vestTrimMat = new THREE.MeshStandardMaterial({
+    color: 0x2a7ab0,
+    roughness: 0.76,
+    metalness: 0.03,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(vestTrimMat);
+
+  const buttonMat = new THREE.MeshStandardMaterial({
+    color: 0x172554,
+    roughness: 0.34,
+    metalness: 0.22,
+    envMapIntensity: 0.35,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(buttonMat);
+
+  const trouserMat = new THREE.MeshStandardMaterial({
+    color: 0x1c212b,
+    roughness: 0.86,
+    metalness: 0.02,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(trouserMat);
+
+  const shoeMat = new THREE.MeshStandardMaterial({
+    color: 0x111317,
+    roughness: 0.32,
+    metalness: 0.2,
+    envMapIntensity: 0.44,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(shoeMat);
+
+  const shoeSoleMat = makeMat(0x0c0e11, 0.75, 0.05);
+  const watchSilverMat = makeMat(0xe2e8f0, 0.2, 0.88);
+  const watchDialMat = makeMat(0xf8fafc, 0.28, 0.15);
+  const leatherStrapMat = makeMat(0x1c1917, 0.68, 0.05);
+  const penDarkMat = makeMat(0x0f172a, 0.3, 0.58);
+  const penClipMat = makeMat(0xe2e8f0, 0.18, 0.92);
+
+  // === CARICATURE HEAD WITH PHOTO FACE SHELL + 3D EARS, TEMPLES, ANIMATED BROWS & SMIRK ===
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: rig.face.texture,
+    roughness: 0.6,
+    metalness: 0.01,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(faceMat);
+
+  const headSphere = new THREE.Mesh(new THREE.SphereGeometry(0.156, 24, 18), faceMat);
+  headSphere.scale.set(0.88, 1.07, 0.96);
+  headSphere.rotation.y = -Math.PI / 2;
+  headSphere.castShadow = true;
+  rig.head.add(headSphere);
+  attachSubtleOutline(rig.head, headSphere, 1.036);
+
+  // Fallback sculpted jaw & nose (hidden once principal_man.png loads)
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.098, 14, 12), skinMat);
+  jaw.scale.set(0.94, 0.74, 0.88);
+  jaw.position.set(0, -0.104, 0.028);
+  rig.head.add(jaw);
+
+  const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.064, 0.042), skinMat);
+  noseBridge.position.set(0, -0.008, 0.145);
+  noseBridge.rotation.x = -0.18;
+  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.021, 10, 8), skinMat);
+  noseTip.scale.set(1.08, 0.84, 0.96);
+  noseTip.position.set(0, -0.032, 0.159);
+  rig.head.add(noseBridge, noseTip);
+
+  // Front-projected face shell wrapping full front 194-degree face
+  const photoFaceMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.58,
+    metalness: 0.01,
+    envMapIntensity: 0.2,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(photoFaceMat);
+  const photoFaceShell = new THREE.Mesh(
+    createFrontProjectedFaceShellGeometry(0.1605),
+    photoFaceMat,
+  );
+  photoFaceShell.scale.set(0.89, 1.08, 0.98);
+  photoFaceShell.visible = false;
+  rig.head.add(photoFaceShell);
+
+  // Expressive 3D caricature ears flanking head cleanly behind front photo shell
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.033, 10, 8), skinMat);
+    ear.scale.set(0.46, 1.32, 0.78);
+    ear.position.set(side * 0.146, -0.008, -0.03);
+    rig.head.add(ear);
+  });
+
+  // 3D Sculpted hair cap, crown sweep & visible gray-dappled temples
+  const hairCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.162, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.52),
+    hairMat,
+  );
+  hairCap.scale.set(0.9, 1.06, 0.99);
+  hairCap.position.set(0, 0.024, -0.032);
+  hairCap.rotation.x = -0.35;
+  hairCap.castShadow = true;
+  rig.head.add(hairCap);
+
+  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.148, 16, 12), hairMat);
+  hairBack.scale.set(0.9, 0.99, 0.8);
+  hairBack.position.set(0, 0.008, -0.064);
+  rig.head.add(hairBack);
+
+  const hairSweep = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.125, 6, 10), hairMat);
+  hairSweep.rotation.z = Math.PI * 0.46;
+  hairSweep.rotation.y = 0.12;
+  hairSweep.position.set(0.02, 0.154, 0.01);
+  rig.head.add(hairSweep);
+
+  // Gray-dappled 3D temples clearly visible from side & 3/4 angles without clipping photo shell
+  [-1, 1].forEach((side) => {
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.082, 0.062), hairMat);
+    temple.position.set(side * 0.132, 0.036, -0.042);
+    rig.head.add(temple);
+
+    const grayStreak1 = new THREE.Mesh(new THREE.BoxGeometry(0.027, 0.016, 0.054), grayTempleMat);
+    grayStreak1.position.set(side * 0.133, 0.054, -0.036);
+    grayStreak1.rotation.x = 0.18;
+    const grayStreak2 = new THREE.Mesh(new THREE.BoxGeometry(0.027, 0.013, 0.048), grayTempleMat);
+    grayStreak2.position.set(side * 0.133, 0.022, -0.038);
+    grayStreak2.rotation.x = 0.14;
+    rig.head.add(grayStreak1, grayStreak2);
+  });
+
+  // Subtle 3D fallback eyelid & brow meshes (hidden once photoFaceShell loads so no double-eyebrows appear)
+  const lidHoods: THREE.Object3D[] = [];
+  [-1, 1].forEach((side) => {
+    const lidHood = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.03, 4, 8), eyelidMat);
+    lidHood.rotation.z = Math.PI * 0.5 + side * 0.08;
+    lidHood.scale.set(1, 1, 0.45);
+    lidHood.position.set(side * 0.048, 0.024, 0.149);
+    rig.head.add(lidHood);
+    lidHoods.push(lidHood);
+  });
+
+  const browGeo = new THREE.CapsuleGeometry(0.0085, 0.036, 4, 8);
+  const leftBrow = new THREE.Mesh(browGeo, browMat);
+  leftBrow.rotation.z = Math.PI * 0.5 - 0.08;
+  leftBrow.scale.set(1, 1, 0.5);
+  leftBrow.position.set(-0.048, 0.042, 0.151);
+
+  const rightBrow = new THREE.Mesh(browGeo, browMat);
+  rightBrow.rotation.z = Math.PI * 0.5 + 0.08;
+  rightBrow.scale.set(1, 1, 0.5);
+  rightBrow.position.set(0.048, 0.042, 0.151);
+  rig.head.add(leftBrow, rightBrow);
+  rig.principalBrows = { left: leftBrow, right: rightBrow, baseY: 0.042 };
+
+  // Subtle 3D smirk cheek-corner accent (and fallback smile curve)
+  const smirkAccent = new THREE.Mesh(new THREE.CapsuleGeometry(0.005, 0.028, 4, 8), eyelidMat);
+  smirkAccent.rotation.z = Math.PI * 0.5 + 0.28;
+  smirkAccent.scale.set(1, 1, 0.4);
+  smirkAccent.position.set(0.014, -0.064, 0.146);
+  rig.head.add(smirkAccent);
+
+  bindRealPhotoFaceShell(
+    'principal',
+    photoFaceShell,
+    photoFaceMat,
+    [noseBridge, noseTip, jaw, hairSweep, smirkAccent, ...lidHoods, leftBrow, rightBrow],
+    faceMat,
+  );
+
+  // === NECK, STANDING WHITE COLLAR, CLOSED PLEATED CASSOCK & POWDER-BLUE NEHRU VEST ===
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.074, 0.15, 14), skinMat);
+  neck.position.set(0, 0.71, 0);
+  rig.torso.add(neck);
+
+  const whiteCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.084, 0.092, 0.094, 18),
+    collarWhiteMat,
+  );
+  whiteCollar.position.set(0, 0.676, 0.002);
+  rig.torso.add(whiteCollar);
+
+  const innerChest = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.214, 0.182, 0.59, 18),
+    cassockMat,
+  );
+  innerChest.scale.set(1.16, 1, 0.76);
+  innerChest.position.set(0, 0.34, 0);
+  innerChest.castShadow = true;
+  rig.torso.add(innerChest);
+
+  const vestTorso = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.23, 0.214, 0.63, 20),
+    vestMat,
+  );
+  vestTorso.scale.set(1.18, 1, 0.8);
+  vestTorso.position.set(0, 0.335, 0.003);
+  vestTorso.castShadow = true;
+  rig.torso.add(vestTorso);
+  attachSubtleOutline(rig.torso, vestTorso, 1.03);
+
+  [-1, 1].forEach((side) => {
+    const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.126, 0.074, 0.265), vestMat);
+    yoke.position.set(side * 0.205, 0.614, 0.002);
+    yoke.rotation.z = -side * 0.12;
+    rig.torso.add(yoke);
+  });
+
+  const vestCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.102, 0.116, 0.074, 18, 1, true, 0.32, Math.PI * 1.82),
+    vestTrimMat,
+  );
+  vestCollar.rotation.y = Math.PI * 0.91;
+  vestCollar.position.set(0, 0.648, 0.003);
+  rig.torso.add(vestCollar);
+
+  const placket = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.59, 0.022), vestTrimMat);
+  placket.position.set(0, 0.33, 0.178);
+  rig.torso.add(placket);
+
+  for (let b = 0; b < 5; b++) {
+    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.014, 10), buttonMat);
+    btn.rotation.x = Math.PI / 2;
+    btn.position.set(0, 0.545 - b * 0.108, 0.193);
+    rig.torso.add(btn);
+  }
+
+  // Left chest pocket + clipped dark metallic pen
+  const chestPocket = new THREE.Mesh(new THREE.BoxGeometry(0.096, 0.084, 0.02), vestTrimMat);
+  chestPocket.position.set(-0.116, 0.47, 0.173);
+  const pocketWelt = new THREE.Mesh(new THREE.BoxGeometry(0.104, 0.018, 0.026), buttonMat);
+  pocketWelt.position.set(-0.116, 0.512, 0.179);
+  rig.torso.add(chestPocket, pocketWelt);
+
+  const penBody = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.0095, 0.125, 8), penDarkMat);
+  penBody.position.set(-0.096, 0.538, 0.186);
+  penBody.rotation.z = -0.09;
+  const penClip = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.064, 0.011), penClipMat);
+  penClip.position.set(-0.094, 0.544, 0.198);
+  penClip.rotation.z = -0.09;
+  const penCapTip = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), penClipMat);
+  penCapTip.position.set(-0.101, 0.598, 0.186);
+  rig.torso.add(penBody, penClip, penCapTip);
+
+  const vestSkirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.214, 0.236, 0.24, 20),
+    vestMat,
+  );
+  vestSkirt.scale.set(1.18, 1, 0.8);
+  vestSkirt.position.set(0, -0.032, 0.003);
+  vestSkirt.castShadow = true;
+  rig.torso.add(vestSkirt);
+  attachSubtleOutline(rig.torso, vestSkirt, 1.03);
+
+  const vestHemBand = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.237, 0.239, 0.028, 20),
+    vestTrimMat,
+  );
+  vestHemBand.scale.set(1.18, 1, 0.8);
+  vestHemBand.position.set(0, -0.145, 0.003);
+  rig.torso.add(vestHemBand);
+
+  [-1, 1].forEach((side) => {
+    const lowWelt = new THREE.Mesh(new THREE.BoxGeometry(0.096, 0.018, 0.02), vestTrimMat);
+    lowWelt.position.set(side * 0.128, 0.088, 0.174);
+    rig.torso.add(lowWelt);
+  });
+
+  // === FULL-LENGTH WHITE CASSOCK SLEEVES, NATURAL HANDS & LEFT WRISTWATCH ===
+  const upperSleeveGeo = new THREE.CapsuleGeometry(0.075, 0.23, 8, 12);
+  const lowerSleeveGeo = new THREE.CapsuleGeometry(0.062, 0.21, 8, 12);
+  const cuffGeo = new THREE.CylinderGeometry(0.063, 0.058, 0.056, 12);
+  const palmGeo = new THREE.BoxGeometry(0.074, 0.094, 0.048);
+
+  const armSpecs: Array<{ shoulder: THREE.Group; elbow: THREE.Group; isLeft: boolean }> = [
+    { shoulder: rig.leftShoulder, elbow: rig.leftElbow, isLeft: true },
+    { shoulder: rig.rightShoulder, elbow: rig.rightElbow, isLeft: false },
+  ];
+
+  for (const { shoulder, elbow, isLeft } of armSpecs) {
+    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.079, 12, 10), cassockMat);
+    shoulderCap.castShadow = true;
+    shoulder.add(shoulderCap);
+
+    const upper = new THREE.Mesh(upperSleeveGeo, cassockMat);
+    upper.position.y = -0.17;
+    upper.castShadow = true;
+    shoulder.add(upper);
+
+    const lower = new THREE.Mesh(lowerSleeveGeo, cassockMat);
+    lower.position.y = -0.15;
+    lower.castShadow = true;
+    elbow.add(lower);
+
+    const cuff = new THREE.Mesh(cuffGeo, collarWhiteMat);
+    cuff.position.y = -0.27;
+    elbow.add(cuff);
+
+    if (isLeft) {
+      const watchGroup = new THREE.Group();
+      const strap = new THREE.Mesh(
+        new THREE.TorusGeometry(0.048, 0.012, 8, 16),
+        leatherStrapMat,
+      );
+      strap.rotation.x = Math.PI / 2;
+      const bezel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.028, 0.028, 0.014, 14),
+        watchSilverMat,
+      );
+      bezel.rotation.z = Math.PI / 2;
+      bezel.position.set(-0.048, 0, 0.007);
+      const dial = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.021, 0.021, 0.016, 14),
+        watchDialMat,
+      );
+      dial.rotation.z = Math.PI / 2;
+      dial.position.set(-0.049, 0, 0.007);
+      watchGroup.add(strap, bezel, dial);
+      watchGroup.position.set(0, -0.305, 0);
+      elbow.add(watchGroup);
+    }
+
+    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.042, 0.048, 10), skinMat);
+    wrist.position.y = -0.312;
+    elbow.add(wrist);
+
+    const palm = new THREE.Mesh(palmGeo, skinMat);
+    palm.position.set(0, -0.372, 0.008);
+    palm.castShadow = true;
+    elbow.add(palm);
+
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.015, 0.038, 4, 8), skinMat);
+    thumb.position.set(isLeft ? 0.038 : -0.038, -0.366, 0.026);
+    thumb.rotation.z = isLeft ? -0.45 : 0.45;
+    elbow.add(thumb);
+  }
+
+  // === LEGS DRAPED IN CASSOCK CLOTH + POLISHED BLACK FORMAL DRESS SHOES ===
+  const thighGeo = new THREE.CapsuleGeometry(0.072, 0.33, 8, 12);
+  const shinGeo = new THREE.CapsuleGeometry(0.058, 0.31, 8, 12);
+  const ankleSockGeo = new THREE.CylinderGeometry(0.052, 0.05, 0.1, 10);
+
+  [
+    [rig.leftHip, rig.leftKnee],
+    [rig.rightHip, rig.rightKnee],
+  ].forEach(([hip, knee]) => {
+    const thigh = new THREE.Mesh(thighGeo, cassockMat);
+    thigh.position.y = -0.245;
+    thigh.castShadow = true;
+    hip.add(thigh);
+
+    const shin = new THREE.Mesh(shinGeo, cassockMat);
+    shin.position.y = -0.22;
+    shin.castShadow = true;
+    knee.add(shin);
+
+    const ankleSock = new THREE.Mesh(ankleSockGeo, trouserMat);
+    ankleSock.position.y = -0.455;
+    knee.add(ankleSock);
+
+    const shoeGroup = new THREE.Group();
+    const shoeHeel = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.092, 0.175), shoeMat);
+    shoeHeel.position.set(0, 0.058, -0.022);
+    shoeHeel.castShadow = true;
+    const shoeVamp = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.135, 6, 10), shoeMat);
+    shoeVamp.rotation.x = Math.PI / 2;
+    shoeVamp.scale.set(1.04, 1, 0.72);
+    shoeVamp.position.set(0, 0.048, 0.104);
+    shoeVamp.castShadow = true;
+    const shoeSole = new THREE.Mesh(new THREE.BoxGeometry(0.132, 0.024, 0.335), shoeSoleMat);
+    shoeSole.position.set(0, 0.012, 0.06);
+    shoeGroup.add(shoeHeel, shoeVamp, shoeSole);
+    shoeGroup.position.set(0, -0.555, 0);
+    knee.add(shoeGroup);
+  });
+
+  // === CLOSED PLEATED OFF-WHITE CASSOCK WITH KICK ARTICULATION ===
+  const waistBand = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.224, 0.252, 0.15, 24),
+    cassockMat,
+  );
+  waistBand.scale.set(1.18, 1, 0.92);
+  waistBand.position.set(0, -0.02, 0);
+  rig.pelvis.add(waistBand);
+
+  const closedCassockSkirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.236, 0.312, 0.87, 28, 1, true),
+    cassockDoubleMat,
+  );
+  closedCassockSkirt.scale.set(1.18, 1, 0.96);
+  closedCassockSkirt.position.set(0, -0.455, 0);
+  closedCassockSkirt.castShadow = true;
+  rig.pelvis.add(closedCassockSkirt);
+  attachSubtleOutline(rig.pelvis, closedCassockSkirt, 1.028);
+
+  const hemRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.312, 0.011, 8, 28),
+    cassockMat,
+  );
+  hemRing.rotation.x = Math.PI / 2;
+  hemRing.scale.set(1.18, 0.96, 1);
+  hemRing.position.set(0, -0.89, 0);
+  rig.pelvis.add(hemRing);
+
+  const panelHeight = 0.86;
+  const frontLeft = new THREE.Group();
+  frontLeft.position.set(-0.075, -0.03, 0.175);
+  const frontLeftMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.17, 0.23, panelHeight, 12, 1, true, -0.55, 1.05),
+    cassockDoubleMat,
+  );
+  frontLeftMesh.position.set(0, -panelHeight * 0.5, -0.09);
+  frontLeft.add(frontLeftMesh);
+  rig.pelvis.add(frontLeft);
+
+  const frontRight = new THREE.Group();
+  frontRight.position.set(0.075, -0.03, 0.175);
+  const frontRightMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.17, 0.23, panelHeight, 12, 1, true, -0.5, 1.05),
+    cassockDoubleMat,
+  );
+  frontRightMesh.position.set(0, -panelHeight * 0.5, -0.09);
+  frontRight.add(frontRightMesh);
+  rig.pelvis.add(frontRight);
+
+  const back = new THREE.Group();
+  back.position.set(0, -0.03, -0.175);
+  const backMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.21, 0.28, panelHeight, 14, 1, true, Math.PI - 0.65, 1.3),
+    cassockDoubleMat,
+  );
+  backMesh.position.set(0, -panelHeight * 0.5, 0.1);
+  back.add(backMesh);
+  rig.pelvis.add(back);
+
+  const leftSide = new THREE.Group();
+  leftSide.position.set(-0.22, -0.03, 0);
+  const rightSide = new THREE.Group();
+  rightSide.position.set(0.22, -0.03, 0);
+  rig.pelvis.add(leftSide, rightSide);
+
+  rig.cassockPanels = {
+    frontLeft,
+    frontRight,
+    back,
+    leftSide,
+    rightSide,
+  };
+}
+
+/**
  * Generates an anatomical shirtless bodybuilder upper-torso CanvasTexture (512x512)
  * with realistic warm-tan South Asian skin tone, pectoral cleft, 6-pack abdominal
  * definition, serratus/oblique shading, and sculpted back/latissimus contours so
@@ -4269,6 +4855,13 @@ export function buildFighterRig(id: FighterId): FighterRig {
       rig.rightFistAnchor.position.set(0, -0.37, 0.02);
       rig.leftFootAnchor.position.set(0, -0.48, 0.10);
       rig.rightFootAnchor.position.set(0, -0.48, 0.10);
+      break;
+    case 'principal':
+      buildPrincipalMan(rig);
+      rig.leftFistAnchor.position.set(0, -0.35, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.35, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.47, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.47, 0.10);
       break;
   }
 

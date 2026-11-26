@@ -45,6 +45,11 @@ export interface FighterRig {
     leftSide: THREE.Group;
     rightSide: THREE.Group;
   } | null;
+  principalBrows: {
+    left: THREE.Mesh;
+    right: THREE.Mesh;
+    baseY: number;
+  } | null;
   shieldAura: THREE.Mesh;
   superAura: THREE.Mesh;
   face: DynamicFace;
@@ -232,6 +237,7 @@ export function createBaseRigSkeleton(
     hatPivot: null,
     mausiPalluGroup: null,
     cassockPanels: null,
+    principalBrows: null,
     shieldAura,
     superAura,
     face,
@@ -335,7 +341,9 @@ export function animateFighterRig(
       state.id !== 'neta' &&
       state.id !== 'anda' &&
       state.id !== 'mausi' &&
-      state.id !== 'samyak') ||
+      state.id !== 'father' &&
+      state.id !== 'samyak' &&
+      state.id !== 'principal') ||
     state.shakti >= 100 ||
     isSheruPaisaFlex;
   if (rig.superAura.visible) {
@@ -367,7 +375,7 @@ export function animateFighterRig(
       ? 0.68
       : state.id === 'mausi'
         ? 0.88
-        : state.id === 'father'
+        : state.id === 'father' || state.id === 'principal'
           ? 1.06
           : state.id === 'samyak'
             ? 1.07
@@ -1594,6 +1602,167 @@ export function animateFighterRig(
       rShZ = 1.6 - pump;
       rElbX = -0.18;
       rElbZ = 1.86 + pump;
+    }
+  } else if (state.id === 'principal') {
+    if (state.action === 'special') {
+      // DIARY NOTE: Stern "Ruk!" upright windup -> authoritative forward pointing snap firing warning slip!
+      const isWindup = atkProgress < 0.25;
+      const wind = isWindup ? atkProgress / 0.25 : 1;
+      const snap = isWindup ? 0 : Math.min(1, (atkProgress - 0.25) / 0.3);
+      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
+      const thrust = snap * (1 - settle * 0.35);
+
+      pelvisX = 0.14 * thrust;
+      pelvisY = basePelvisY - 0.02 * thrust;
+      pelvisRotY = 0;
+      torsoRotX = isWindup ? -0.06 * wind : 0.14 * thrust;
+      torsoRotY = isWindup ? 0.35 * wind : -0.42 * thrust;
+      headRotX = isWindup ? 0.04 : 0.02;
+      headRotY = isWindup ? -0.22 * wind : 0.32 * thrust;
+      rShX = isWindup ? -0.95 - 0.45 * wind : -1.56 * thrust - 0.55 * (1 - thrust);
+      rShZ = isWindup ? 0.35 : 0.06;
+      rElbX = isWindup ? -1.35 : -0.08;
+      lShX = -0.35;
+      lShZ = -0.25;
+      lElbX = -1.15;
+    } else if (state.action === 'super') {
+      // RUSTICATION ORDER! (5.2s):
+      // 0.0–1.5s: Smooth levitation + confident "Ruk!" discipline hand gesture
+      // 1.5–2.8s: Commanding open-palm summon as 14 red notices orbit in rapid 3D vortex
+      // 2.8–4.55s: Dual-palm forward volley -> authoritative downward Master Stamp slam
+      // 4.55–5.2s: Smooth float-down descent & casual Nehru-vest jacket-dusting finish!
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 1.5) {
+        const rise = Math.min(1, t / 1.25);
+        const wag = Math.sin(t * 9.5) * 0.12 * rise;
+        pelvisY = basePelvisY + 0.02;
+        pelvisRotX = -0.04 * rise;
+        torsoRotX = -0.08 * rise;
+        headRotX = 0.05;
+        // Left arm calm at side, right hand raised in confident discipline gesture
+        lShX = -0.38 - 0.25 * rise;
+        lShZ = -0.26 - 0.22 * rise;
+        lElbX = -0.98;
+        rShX = -0.95 - 0.45 * rise + wag;
+        rShZ = 0.3 + 0.16 * rise;
+        rElbX = -0.85 + wag * 0.6;
+        lHipX = -0.14 + Math.sin(elapsed * 3.2) * 0.04;
+        lKneeX = 0.22;
+        rHipX = -0.06 - Math.sin(elapsed * 3.2) * 0.04;
+        rKneeX = 0.14;
+      } else if (t < 2.8) {
+        const pulse = Math.sin((t - 1.5) * 4.5);
+        pelvisY = basePelvisY + 0.02;
+        pelvisRotX = -0.05;
+        torsoRotX = -0.12;
+        headRotX = 0.04;
+        lShX = -1.18 + pulse * 0.08;
+        lShZ = -0.8;
+        lElbX = -0.4;
+        rShX = -1.18 - pulse * 0.08;
+        rShZ = 0.8;
+        rElbX = -0.4;
+        lHipX = -0.18 + Math.sin(elapsed * 3.6) * 0.04;
+        lKneeX = 0.26;
+        rHipX = -0.08 - Math.sin(elapsed * 3.6) * 0.04;
+        rKneeX = 0.16;
+      } else if (t < 4.55) {
+        jointAlpha = 1 - Math.exp(-24 * Math.max(dt, 0.008));
+        const isMasterSlam = t >= 4.25;
+        const volley = Math.sin((t - 2.8) * 16) * 0.12;
+        pelvisY = basePelvisY + 0.02;
+        pelvisRotX = 0.06;
+        torsoRotX = isMasterSlam ? 0.22 : 0.14;
+        headRotX = 0.1;
+        if (isMasterSlam) {
+          const slamDrop = Math.min(1, (t - 4.25) / 0.24);
+          lShX = -1.88 + slamDrop * 0.88;
+          lShZ = -0.18;
+          lElbX = -0.18;
+          rShX = -1.88 + slamDrop * 0.88;
+          rShZ = 0.18;
+          rElbX = -0.18;
+        } else {
+          lShX = -1.32 + volley;
+          lShZ = -0.22;
+          lElbX = -0.22;
+          rShX = -1.32 - volley;
+          rShZ = 0.22;
+          rElbX = -0.22;
+        }
+        lHipX = -0.22;
+        lKneeX = 0.3;
+        rHipX = -0.1;
+        rKneeX = 0.18;
+      } else {
+        // Smooth float-down & cool Nehru-vest jacket-dusting brush finish!
+        const landT = Math.min(1, (t - 4.55) / 0.65);
+        const brush = Math.sin(landT * Math.PI * 3.0);
+        const settle = landT > 0.78 ? (landT - 0.78) / 0.22 : 0;
+        const hold = 1 - settle;
+        pelvisY = basePelvisY;
+        pelvisRotX = 0;
+        torsoRotX = -0.04 * hold;
+        torsoRotY = 0.14 * hold;
+        headRotX = 0.05 * hold;
+        headRotY = -0.12 * hold;
+        // Right hand casually dusts left shoulder/vest lapel!
+        rShX = (-0.85 + brush * 0.18) * hold + pose.rShX * settle;
+        rShZ = (-0.28 + brush * 0.12) * hold + pose.rShZ * settle;
+        rElbX = -1.42 * hold + pose.rElbX * settle;
+        lShX = -0.28 * hold + pose.lShX * settle;
+        lShZ = -0.24 * hold + pose.lShZ * settle;
+        lElbX = -0.68 * hold + pose.lElbX * settle;
+        lHipX = pose.lHipX;
+        lKneeX = pose.lKneeX;
+        rHipX = pose.rHipX;
+        rKneeX = pose.rKneeX;
+      }
+    } else if (state.action === 'victory') {
+      // Playful smug Principal victory stance (confident chest-puff + finger wag)
+      const wag = Math.sin(elapsed * 6.5) * 0.16;
+      pelvisY = basePelvisY + Math.sin(elapsed * 2.6) * 0.014;
+      torsoRotX = -0.06;
+      torsoRotY = -0.12 * state.facing;
+      headRotX = 0.04 + Math.sin(elapsed * 2.6) * 0.03;
+      lShX = -0.35;
+      lShZ = -0.32;
+      lElbX = -1.15;
+      rShX = -1.25;
+      rShZ = 0.25 + wag;
+      rElbX = -0.88 + wag * 0.5;
+    }
+
+    // Subtle playful brow animation for Principal Man (furrow on attack/super, arch on victory/idle, spike on hit)
+    if (rig.principalBrows) {
+      const brows = rig.principalBrows;
+      const isFierce =
+        state.action === 'punch' ||
+        state.action === 'kick' ||
+        state.action === 'sweep' ||
+        state.action === 'grab' ||
+        state.action === 'special' ||
+        state.action === 'super';
+      const isHit = state.action === 'hit' || state.action === 'knockdown' || state.action === 'ko';
+      const offsetY = isHit ? 0.008 : isFierce ? -0.004 : Math.sin(elapsed * 2.8) * 0.0025;
+      const tilt = isHit ? -0.24 : isFierce ? 0.22 : state.action === 'victory' ? -0.14 : -0.06 + Math.sin(elapsed * 2.2) * 0.04;
+      brows.left.position.y = lerpAngle(brows.left.position.y, brows.baseY + offsetY, alpha);
+      brows.right.position.y = lerpAngle(brows.right.position.y, brows.baseY + offsetY + (state.action === 'victory' ? 0.004 : 0), alpha);
+      brows.left.rotation.z = lerpAngle(brows.left.rotation.z, -tilt, alpha);
+      brows.right.rotation.z = lerpAngle(brows.right.rotation.z, tilt, alpha);
     }
   }
 

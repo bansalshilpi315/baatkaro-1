@@ -10,6 +10,7 @@ export const ANDA_SUPER_AUDIO_URL = '/audio/supers/anda.mp3';
 export const MAUSI_SUPER_AUDIO_URL = '/audio/supers/mausi.mp3';
 export const FATHER_SUPER_AUDIO_URL = '/audio/supers/father.mp3';
 export const SAMYAK_SUPER_AUDIO_URL = '/audio/supers/ias.mp3';
+export const PRINCIPAL_SUPER_AUDIO_URL = '/audio/supers/principal.mp3';
 export const DAHI_KO_AUDIO_URL = '/audio/supers/dahi.mp3';
 
 export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
@@ -20,6 +21,7 @@ export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
   mausi: MAUSI_SUPER_AUDIO_URL,
   father: FATHER_SUPER_AUDIO_URL,
   samyak: SAMYAK_SUPER_AUDIO_URL,
+  principal: PRINCIPAL_SUPER_AUDIO_URL,
 };
 
 export function getSuperAudioUrl(fighterId: FighterId): string | null {
@@ -158,6 +160,7 @@ export class DesiAudioEngine {
       this.preloadSuperAudio(MAUSI_SUPER_AUDIO_URL),
       this.preloadSuperAudio(FATHER_SUPER_AUDIO_URL),
       this.preloadSuperAudio(SAMYAK_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(PRINCIPAL_SUPER_AUDIO_URL),
       this.preloadSuperAudio(DAHI_KO_AUDIO_URL),
     ]);
   }
@@ -295,6 +298,10 @@ export class DesiAudioEngine {
 
   public playFatherSuperAudio(): void {
     this.playSuperAudio(FATHER_SUPER_AUDIO_URL);
+  }
+
+  public playPrincipalSuperAudio(): void {
+    this.playSuperAudio(PRINCIPAL_SUPER_AUDIO_URL);
   }
 
   public playFighterSuperAudio(fighterId: FighterId): void {

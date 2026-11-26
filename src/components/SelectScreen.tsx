@@ -1,5 +1,7 @@
-import { HelpCircle, MapPin, Settings, Swords, Users } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { HelpCircle, Lock, MapPin, Settings, Swords, Users, Wifi } from 'lucide-react';
 import { FIGHTER_CONFIGS, FIGHTER_LIST, STAGE_CONFIGS, STAGE_LIST } from '../game/characters';
+import type { OnlineRole } from '../game/friendRoomProtocol';
 import type { Difficulty, FighterId, StageId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
@@ -9,6 +11,8 @@ interface SelectScreenProps {
   p2Id: FighterId;
   stageId: StageId;
   difficulty: Difficulty;
+  onlineRole: OnlineRole;
+  roomCode: string;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   onSelectP1: (id: FighterId) => void;
@@ -18,6 +22,7 @@ interface SelectScreenProps {
   onToggleFullscreen: () => void;
   onOpenHowToPlay: () => void;
   onOpenSettings: () => void;
+  onOpenFriendRoom: () => void;
   onStartFight: () => void;
 }
 
@@ -35,6 +40,7 @@ const SHORT_NAMES: Record<FighterId, string> = {
   mausi: 'MAUSI',
   father: 'FATHER ROY',
   samyak: 'SAMYAK',
+  principal: 'PRINCIPAL',
 };
 
 export function SelectScreen({
@@ -42,6 +48,8 @@ export function SelectScreen({
   p2Id,
   stageId,
   difficulty,
+  onlineRole,
+  roomCode,
   isFullscreen,
   fullscreenSupported,
   onSelectP1,
@@ -51,37 +59,86 @@ export function SelectScreen({
   onToggleFullscreen,
   onOpenHowToPlay,
   onOpenSettings,
+  onOpenFriendRoom,
   onStartFight,
 }: SelectScreenProps) {
   const p1Cfg = FIGHTER_CONFIGS[p1Id];
   const p2Cfg = FIGHTER_CONFIGS[p2Id];
   const activeStage = STAGE_CONFIGS[stageId];
 
+  const isOnline = onlineRole !== 'offline';
+  const isHost = onlineRole === 'host';
+  const isGuest = onlineRole === 'guest';
+
+  const canPickP1 = !isGuest;
+  const canPickP2 = !isHost;
+  const canPickStage = !isGuest;
+  const canStartFight = !isGuest;
+
+  const p1CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
+  const p2CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
+
+  useEffect(() => {
+    p1CardRefs.current[p1Id]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [p1Id]);
+
+  useEffect(() => {
+    p2CardRefs.current[p2Id]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [p2Id]);
+
+  const leftTag = isHost ? '1P · YOU (HOST)' : isGuest ? '1P · HOST' : '1P · YOU';
+  const rightTag = isGuest ? '2P · YOU' : isHost ? '2P · FRIEND' : 'CPU';
+
   return (
     <div className="safe-pad-select pointer-events-none fixed inset-0 z-30 flex h-[100dvh] w-[100dvw] flex-col justify-between overflow-hidden select-none touch-none sm:px-5 sm:py-3.5">
       {/* TOP BROADCAST HEADER */}
       <header className="pointer-events-auto mx-auto flex w-full max-w-6xl shrink-0 items-center justify-between gap-2">
-        <div className="select-header-badge flex items-center gap-2.5 border-2 border-[#facc15] bg-[#120d0a]/90 px-3 py-1.5 shadow-[4px_4px_0_#0f0a06]">
-          <span className="flex items-center gap-1.5 bg-[#dc2626] px-2 py-0.5 font-display text-xs font-extrabold tracking-widest text-white">
+        <div className="select-header-badge flex min-w-0 items-center gap-2 border-2 border-[#facc15] bg-[#120d0a]/90 px-3 py-1.5 shadow-[4px_4px_0_#0f0a06]">
+          <span
+            data-testid="select-mode-indicator"
+            className={`flex shrink-0 items-center gap-1.5 px-2 py-0.5 font-display text-xs font-extrabold tracking-widest ${
+              isOnline ? 'bg-[#16a34a] text-white' : 'bg-[#dc2626] text-white'
+            }`}
+          >
             <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
-            LIVE
+            {isOnline ? `ONLINE 2P · #${roomCode}` : 'VS CPU'}
           </span>
-          <h1 className="select-header-title font-display text-xl font-extrabold uppercase italic tracking-wider text-[#facc15] sm:text-2xl">
+          <h1 className="select-header-title truncate font-display text-xl font-extrabold uppercase italic tracking-wider text-[#facc15] sm:text-2xl">
             SELECT FIGHTERS
           </h1>
-          <span className="hidden border-l border-white/20 pl-2.5 text-xs font-bold uppercase tracking-wide text-[#e7e5e4] md:inline">
+          <span className="hidden border-l border-white/20 pl-2.5 text-xs font-bold uppercase tracking-wide text-[#e7e5e4] lg:inline">
             {p1Cfg.name} vs {p2Cfg.name}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* Prominent FRIEND ROOM Button (or Connected Room Status Button) */}
+          <button
+            type="button"
+            data-testid="friend-room-btn"
+            onClick={onOpenFriendRoom}
+            className={`select-help-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-2 px-3 py-1.5 font-display text-sm font-extrabold uppercase tracking-wider shadow-[3px_3px_0_#0f0a06] transition-colors sm:text-base ${
+              isOnline
+                ? 'border-[#4ade80] bg-[#14532d]/92 text-[#bbf7d0] hover:bg-[#16a34a] hover:text-white'
+                : 'border-[#fef08a] bg-[#dc2626] text-white hover:bg-[#ef4444]'
+            }`}
+          >
+            {isOnline ? (
+              <Wifi className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
+            ) : (
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
+            )}
+            <span>{isOnline ? `ROOM #${roomCode}` : 'FRIEND ROOM'}</span>
+          </button>
+
           <button
             type="button"
             onClick={onOpenHowToPlay}
-            className="select-help-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-2 border-[#facc15] bg-[#14100d]/92 px-3.5 py-1.5 font-display text-sm font-extrabold uppercase tracking-wider text-[#facc15] shadow-[3px_3px_0_#0f0a06] hover:bg-[#facc15] hover:text-[#0f0a06] sm:text-base"
+            className="select-help-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-2 border-[#facc15] bg-[#14100d]/92 px-3 py-1.5 font-display text-sm font-extrabold uppercase tracking-wider text-[#facc15] shadow-[3px_3px_0_#0f0a06] hover:bg-[#facc15] hover:text-[#0f0a06] sm:text-base"
           >
             <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
-            <span>? HOW TO PLAY</span>
+            <span className="hidden sm:inline">HOW TO PLAY</span>
+            <span className="sm:hidden">HELP</span>
           </button>
 
           <button
@@ -104,45 +161,60 @@ export function SelectScreen({
         </div>
       </header>
 
-      {/* MIDDLE OPEN-CENTER ARENA SHOWCASE — Left 1P Strip | Live 3D Face-Off | Right CPU Strip */}
-      <div className="select-middle mx-auto flex min-h-0 w-full max-w-6xl flex-1 items-center justify-between gap-2 py-2">
-        {/* LEFT: 1P · YOU Portrait Strip */}
-        <aside className="select-strip pointer-events-auto flex w-[132px] shrink-0 flex-col border-2 border-[#facc15] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[168px]">
-          <div className="select-strip-header mb-1.5 flex items-center justify-between border-b border-white/15 pb-1">
-            <span className="bg-[#facc15] px-1.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#0f0a06]">
-              1P · YOU
+      {/* MIDDLE OPEN-CENTER ARENA SHOWCASE — Scrollable Left 1P Strip | Live 3D Face-Off | Scrollable Right CPU/2P Strip */}
+      <div className="select-middle mx-auto flex min-h-0 w-full max-w-6xl flex-1 items-stretch justify-between gap-2 py-2">
+        {/* LEFT: 1P Portrait Strip (Vertically Scrollable) */}
+        <aside
+          data-testid="p1-roster-panel"
+          className="select-strip pointer-events-auto flex h-full max-h-full min-h-0 w-[156px] shrink-0 flex-col border-2 border-[#facc15] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[192px]"
+        >
+          <div className="select-strip-header mb-1.5 flex shrink-0 items-center justify-between gap-1 border-b border-white/15 pb-1">
+            <span className="flex items-center gap-1 truncate bg-[#facc15] px-1.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#0f0a06]">
+              {!canPickP1 && <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />}
+              <span className="truncate">{leftTag}</span>
             </span>
-            <span className="font-mono-num text-[11px] font-bold text-[#fde047]">
+            <span className="shrink-0 font-mono-num text-[11px] font-bold text-[#fde047]">
               HP {p1Cfg.maxHp}
             </span>
           </div>
 
-          <div className="select-strip-list flex flex-col gap-1.5">
+          <div
+            data-testid="p1-roster-scroll"
+            className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1.5 pr-1"
+          >
             {FIGHTER_LIST.map((f) => {
               const selected = f.id === p1Id;
               return (
                 <button
                   key={f.id}
+                  ref={(el) => {
+                    p1CardRefs.current[f.id] = el;
+                  }}
                   type="button"
-                  onClick={() => onSelectP1(f.id)}
+                  disabled={!canPickP1}
+                  onClick={() => {
+                    if (canPickP1) onSelectP1(f.id);
+                  }}
                   aria-label={`Select Player 1 ${f.name}`}
                   aria-pressed={selected}
-                  className={`select-fighter-btn flex cursor-pointer items-center gap-2 border-2 px-1.5 py-1 text-left transition-transform focus-visible:outline-2 focus-visible:outline-white ${
+                  className={`select-fighter-btn flex min-h-[56px] shrink-0 items-center gap-2 border-2 px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
                     selected
-                      ? 'translate-x-1 border-[#facc15] bg-[#dc2626] shadow-[3px_3px_0_#facc15]'
-                      : 'border-white/15 bg-[#1e1814] hover:border-white/55'
+                      ? 'border-[#facc15] bg-[#dc2626] shadow-[3px_3px_0_#facc15]'
+                      : canPickP1
+                        ? 'cursor-pointer border-white/15 bg-[#1e1814] hover:border-white/55'
+                        : 'cursor-not-allowed border-white/10 bg-[#181310]/70 opacity-65'
                   }`}
                 >
                   <FighterPortrait
                     id={f.id}
                     alt={f.name}
-                    className="select-fighter-avatar h-9 w-9 shrink-0 border border-black/60 object-cover sm:h-10 sm:w-10"
+                    className="select-fighter-avatar h-10 w-10 shrink-0 border border-black/60 object-cover sm:h-11 sm:w-11"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-none text-white sm:text-base">
+                    <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
                       {SHORT_NAMES[f.id]}
                     </div>
-                    <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fef08a]">
+                    <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fef08a] sm:text-[11px]">
                       {f.special.shortLabel}
                     </div>
                   </div>
@@ -151,9 +223,16 @@ export function SelectScreen({
             })}
           </div>
 
-          <div className="select-strip-footer mt-2 border-t border-white/15 pt-1.5 text-[10px] leading-tight text-[#e7e5e4]">
-            <div className="font-bold uppercase text-[#facc15]">{p1Cfg.name}</div>
-            <div className="mt-0.5 text-[#d6d3d1]">
+          <div className="select-strip-footer mt-1.5 shrink-0 border-t border-white/15 pt-1.5 text-[10px] leading-tight text-[#e7e5e4]">
+            <div className="flex items-center justify-between gap-1">
+              <span className="truncate font-bold uppercase text-[#facc15]">{p1Cfg.name}</span>
+              {!canPickP1 && (
+                <span className="shrink-0 text-[9px] font-bold uppercase text-[#a8a29e]">
+                  HOST PICKS
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 truncate text-[#d6d3d1]">
               <strong className="text-white">[E]</strong> {p1Cfg.special.name}
             </div>
           </div>
@@ -161,8 +240,15 @@ export function SelectScreen({
 
         {/* CENTER: Unobstructed Live 3D Stage & Fighters Face-Off */}
         <div className="select-center-col flex min-w-0 flex-1 flex-col items-center justify-between self-stretch py-2">
-          <div className="select-vs-badge inline-block -skew-x-12 border-2 border-[#0f0a06] bg-[#dc2626] px-4 py-0.5 font-display text-2xl font-extrabold italic tracking-widest text-white shadow-[4px_4px_0_#facc15] sm:text-3xl">
-            <span className="inline-block skew-x-12">VS</span>
+          <div className="flex flex-col items-center gap-1">
+            <div className="select-vs-badge inline-block -skew-x-12 border-2 border-[#0f0a06] bg-[#dc2626] px-4 py-0.5 font-display text-2xl font-extrabold italic tracking-widest text-white shadow-[4px_4px_0_#facc15] sm:text-3xl">
+              <span className="inline-block skew-x-12">VS</span>
+            </div>
+            {isOnline && (
+              <div className="border border-[#4ade80]/60 bg-[#0d1f14]/88 px-2.5 py-0.5 font-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#86efac] sm:text-xs">
+                1P (HOST) VS 2P (FRIEND)
+              </div>
+            )}
           </div>
 
           {/* Live Nameplates sitting cleanly near the bottom of the 3D stage showcase */}
@@ -186,43 +272,58 @@ export function SelectScreen({
           </div>
         </div>
 
-        {/* RIGHT: CPU Portrait Strip */}
-        <aside className="select-strip pointer-events-auto flex w-[132px] shrink-0 flex-col border-2 border-[#ef4444] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[168px]">
-          <div className="select-strip-header mb-1.5 flex items-center justify-between border-b border-white/15 pb-1">
-            <span className="font-mono-num text-[11px] font-bold text-[#fda4af]">
+        {/* RIGHT: CPU / 2P Portrait Strip (Vertically Scrollable) */}
+        <aside
+          data-testid="p2-roster-panel"
+          className="select-strip pointer-events-auto flex h-full max-h-full min-h-0 w-[156px] shrink-0 flex-col border-2 border-[#ef4444] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[192px]"
+        >
+          <div className="select-strip-header mb-1.5 flex shrink-0 items-center justify-between gap-1 border-b border-white/15 pb-1">
+            <span className="shrink-0 font-mono-num text-[11px] font-bold text-[#fda4af]">
               HP {p2Cfg.maxHp}
             </span>
-            <span className="bg-[#dc2626] px-1.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-white">
-              CPU
+            <span className="flex items-center gap-1 truncate bg-[#dc2626] px-1.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-white">
+              {!canPickP2 && <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />}
+              <span className="truncate">{rightTag}</span>
             </span>
           </div>
 
-          <div className="select-strip-list flex flex-col gap-1.5">
+          <div
+            data-testid="p2-roster-scroll"
+            className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1.5 pr-1"
+          >
             {FIGHTER_LIST.map((f) => {
               const selected = f.id === p2Id;
               return (
                 <button
                   key={f.id}
+                  ref={(el) => {
+                    p2CardRefs.current[f.id] = el;
+                  }}
                   type="button"
-                  onClick={() => onSelectP2(f.id)}
-                  aria-label={`Select CPU Opponent ${f.name}`}
+                  disabled={!canPickP2}
+                  onClick={() => {
+                    if (canPickP2) onSelectP2(f.id);
+                  }}
+                  aria-label={`Select ${isOnline ? 'Player 2' : 'CPU Opponent'} ${f.name}`}
                   aria-pressed={selected}
-                  className={`select-fighter-btn flex cursor-pointer flex-row-reverse items-center gap-2 border-2 px-1.5 py-1 text-right transition-transform focus-visible:outline-2 focus-visible:outline-white ${
+                  className={`select-fighter-btn flex min-h-[56px] shrink-0 flex-row-reverse items-center gap-2 border-2 px-2 py-1.5 text-right transition-colors focus-visible:outline-2 focus-visible:outline-white ${
                     selected
-                      ? '-translate-x-1 border-[#ef4444] bg-[#991b1b] shadow-[-3px_3px_0_#ef4444]'
-                      : 'border-white/15 bg-[#1e1814] hover:border-white/55'
+                      ? 'border-[#ef4444] bg-[#991b1b] shadow-[-3px_3px_0_#ef4444]'
+                      : canPickP2
+                        ? 'cursor-pointer border-white/15 bg-[#1e1814] hover:border-white/55'
+                        : 'cursor-not-allowed border-white/10 bg-[#181310]/70 opacity-65'
                   }`}
                 >
                   <FighterPortrait
                     id={f.id}
                     alt={f.name}
-                    className="select-fighter-avatar h-9 w-9 shrink-0 border border-black/60 object-cover sm:h-10 sm:w-10"
+                    className="select-fighter-avatar h-10 w-10 shrink-0 border border-black/60 object-cover sm:h-11 sm:w-11"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-none text-white sm:text-base">
+                    <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
                       {SHORT_NAMES[f.id]}
                     </div>
-                    <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fecdd3]">
+                    <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fecdd3] sm:text-[11px]">
                       {f.special.shortLabel}
                     </div>
                   </div>
@@ -231,16 +332,25 @@ export function SelectScreen({
             })}
           </div>
 
-          <div className="select-strip-footer mt-2 border-t border-white/15 pt-1.5 text-right text-[10px] leading-tight text-[#e7e5e4]">
-            <div className="font-bold uppercase text-[#fb7185]">{p2Cfg.name}</div>
-            <div className="mt-0.5 text-[#d6d3d1]">{p2Cfg.special.name}</div>
+          <div className="select-strip-footer mt-1.5 shrink-0 border-t border-white/15 pt-1.5 text-right text-[10px] leading-tight text-[#e7e5e4]">
+            <div className="flex items-center justify-between gap-1">
+              {!canPickP2 ? (
+                <span className="shrink-0 text-[9px] font-bold uppercase text-[#a8a29e]">
+                  FRIEND PICKS
+                </span>
+              ) : (
+                <span />
+              )}
+              <span className="truncate font-bold uppercase text-[#fb7185]">{p2Cfg.name}</span>
+            </div>
+            <div className="mt-0.5 truncate text-[#d6d3d1]">{p2Cfg.special.name}</div>
           </div>
         </aside>
       </div>
 
-      {/* BOTTOM DOCKED CONTROL BAR: Stage Pills (1-5) | Difficulty Pills | FIGHT! CTA */}
+      {/* BOTTOM DOCKED CONTROL BAR: Stage Pills | CPU Difficulty (Offline only) | FIGHT! CTA */}
       <footer className="select-footer pointer-events-auto mx-auto flex w-full max-w-6xl shrink-0 flex-wrap items-center justify-between gap-2 border-2 border-white/20 bg-[#120d0a]/92 px-3 py-2 shadow-[0_6px_0_#0a0705]">
-        {/* Stage 1-5 Compact Selector */}
+        {/* Stage Compact Selector */}
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <div className="flex shrink-0 items-center gap-1 text-xs font-extrabold uppercase tracking-wider text-[#facc15]">
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
@@ -253,14 +363,19 @@ export function SelectScreen({
                 <button
                   key={st.id}
                   type="button"
-                  onClick={() => onSelectStage(st.id)}
+                  disabled={!canPickStage}
+                  onClick={() => {
+                    if (canPickStage) onSelectStage(st.id);
+                  }}
                   aria-pressed={selected}
                   aria-label={`Stage ${idx + 1}: ${st.name}`}
                   title={`${st.name} — ${st.subtitle}`}
-                  className={`select-stage-btn cursor-pointer border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wide transition-colors sm:text-sm ${
+                  className={`select-stage-btn border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wide transition-colors sm:text-sm ${
                     selected
                       ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
-                      : 'border-white/25 bg-[#1f1915] text-white hover:border-[#facc15]'
+                      : canPickStage
+                        ? 'cursor-pointer border-white/25 bg-[#1f1915] text-white hover:border-[#facc15]'
+                        : 'cursor-not-allowed border-white/15 bg-[#181310] text-white/45'
                   }`}
                 >
                   {idx + 1}
@@ -274,54 +389,61 @@ export function SelectScreen({
           </span>
         </div>
 
-        {/* CPU Difficulty Compact Selector */}
-        <div className="flex shrink-0 items-center gap-1" role="group" aria-label="CPU Difficulty">
-          <span className="font-display text-xs font-extrabold uppercase tracking-wider text-[#a8a29e]">
-            CPU:
-          </span>
-          {DIFFICULTIES.map((d) => {
-            const active = difficulty === d.id;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => onSelectDifficulty(d.id)}
-                aria-pressed={active}
-                className={`select-diff-btn cursor-pointer border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wider transition-colors sm:text-sm ${
-                  active
-                    ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
-                    : 'border-white/25 bg-[#1f1915] text-white hover:border-white/60'
-                }`}
-              >
-                {d.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* CPU Difficulty Selector (Hidden in Friend Room 2P mode) */}
+        {!isOnline && (
+          <div
+            data-testid="cpu-difficulty-selector"
+            className="flex shrink-0 items-center gap-1"
+            role="group"
+            aria-label="CPU Difficulty"
+          >
+            <span className="font-display text-xs font-extrabold uppercase tracking-wider text-[#a8a29e]">
+              CPU:
+            </span>
+            {DIFFICULTIES.map((d) => {
+              const active = difficulty === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => onSelectDifficulty(d.id)}
+                  aria-pressed={active}
+                  className={`select-diff-btn cursor-pointer border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wider transition-colors sm:text-sm ${
+                    active
+                      ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
+                      : 'border-white/25 bg-[#1f1915] text-white hover:border-white/60'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Right Actions: Disabled 2P Coming Soon + Bold FIGHT! Button */}
+        {/* Right Action: FIGHT! Button (Host & Offline) or Waiting Indicator (Guest) */}
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            disabled
-            title="Online / Local 2P coming in Phase 2"
-            className="hidden cursor-not-allowed items-center gap-1.5 border border-white/15 bg-[#1c1917] px-2.5 py-1.5 font-display text-xs font-bold uppercase tracking-wider text-[#78716c] lg:flex"
-          >
-            <Users className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>2P SOON</span>
-          </button>
-
-          <button
-            type="button"
-            data-start="true"
-            onClick={onStartFight}
-            className="select-fight-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#dc2626] px-6 py-1.5 font-display text-2xl font-extrabold uppercase italic tracking-wider text-white shadow-[4px_4px_0_#facc15] transition-transform hover:-translate-y-0.5 hover:bg-[#ef4444] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-white sm:px-8"
-          >
-            <Swords className="h-4 w-4 text-[#facc15] sm:h-5 sm:w-5" aria-hidden="true" />
-            <span>FIGHT!</span>
-          </button>
+          {canStartFight ? (
+            <button
+              type="button"
+              data-start="true"
+              onClick={onStartFight}
+              className="select-fight-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#dc2626] px-6 py-1.5 font-display text-2xl font-extrabold uppercase italic tracking-wider text-white shadow-[4px_4px_0_#facc15] transition-transform hover:-translate-y-0.5 hover:bg-[#ef4444] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-white sm:px-8"
+            >
+              <Swords className="h-4 w-4 text-[#facc15] sm:h-5 sm:w-5" aria-hidden="true" />
+              <span>FIGHT!</span>
+            </button>
+          ) : (
+            <div
+              data-testid="waiting-for-host-badge"
+              className="flex items-center gap-2 whitespace-nowrap border-2 border-[#facc15]/60 bg-[#1a130e] px-4 py-1.5 font-display text-sm font-extrabold uppercase tracking-wider text-[#fde047] sm:text-base"
+            >
+              <span>WAITING FOR HOST TO START...</span>
+            </div>
+          )}
         </div>
       </footer>
     </div>
   );
 }
+

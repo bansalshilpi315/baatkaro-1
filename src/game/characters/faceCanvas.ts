@@ -2057,6 +2057,149 @@ function paintSamyakFace(ctx: CanvasRenderingContext2D, expression: FaceExpressi
   }
 }
 
+function paintPrincipalFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+  const cy = h * 0.52;
+  const uvX = 0.52;
+
+  // Warm medium-brown skin base (#B57853)
+  ctx.fillStyle = '#B57853';
+  ctx.fillRect(0, 0, w, h);
+
+  const skinGrad = ctx.createRadialGradient(cx, cy - h * 0.05, w * 0.03, cx, cy, w * 0.48);
+  skinGrad.addColorStop(0, 'rgba(232, 184, 146, 0.28)');
+  skinGrad.addColorStop(0.55, 'rgba(181, 120, 83, 0.0)');
+  skinGrad.addColorStop(1, 'rgba(92, 52, 30, 0.3)');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Dark hair with silver/gray-dappled temples along upper hairline
+  ctx.fillStyle = '#18181B';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.28);
+  ctx.quadraticCurveTo(cx + w * 0.14, h * 0.23, cx - w * 0.05, h * 0.245);
+  ctx.lineTo(cx - w * 0.09, h * 0.205);
+  ctx.lineTo(cx - w * 0.12, h * 0.255);
+  ctx.quadraticCurveTo(cx - w * 0.16, h * 0.26, 0, h * 0.28);
+  ctx.closePath();
+  ctx.fill();
+
+  // Gray-dappled temple streaks
+  ctx.strokeStyle = 'rgba(203, 213, 225, 0.72)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.15, h * 0.25);
+  ctx.lineTo(cx - w * 0.13, h * 0.34);
+  ctx.moveTo(cx + w * 0.15, h * 0.25);
+  ctx.lineTo(cx + w * 0.13, h * 0.34);
+  ctx.stroke();
+
+  const eyeOffsetX = w * 0.072;
+  const eyeY = cy - h * 0.032;
+  const eyeRx = w * 0.038;
+  const eyeRy = h * 0.03;
+
+  // Expressive caricature eyes (wide alert eyes on idle/attack, squeezed on hit/ko)
+  if (expression === 'hit' || expression === 'ko') {
+    ctx.strokeStyle = '#1B0E09';
+    ctx.lineWidth = 6.5;
+    ctx.lineCap = 'round';
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      ctx.beginPath();
+      ctx.moveTo(ex - side * 14, eyeY - 10);
+      ctx.lineTo(ex + side * 6, eyeY);
+      ctx.lineTo(ex - side * 14, eyeY + 10);
+      ctx.stroke();
+    });
+  } else {
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeOffsetX;
+      const openScale = expression === 'attack' ? 1.05 : 1.0;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx, eyeRy * openScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const irisR = 11.8;
+      ctx.fillStyle = '#24140E';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, irisR * uvX, irisR, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#090707';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, irisR * 0.52 * uvX, irisR * 0.52, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(ex - 2.2, eyeY - 2.6, 3.0 * uvX, 3.0, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#140C09';
+      ctx.lineWidth = 4.6;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeRx + 0.8, eyeRy * openScale, 0, Math.PI * 1.04, Math.PI * 1.96);
+      ctx.stroke();
+    });
+  }
+
+  // Thick playful arched dark caricature eyebrows
+  ctx.strokeStyle = '#141111';
+  ctx.lineWidth = 10.5;
+  ctx.lineCap = 'round';
+  [-1, 1].forEach((side) => {
+    const ex = cx + side * eyeOffsetX;
+    ctx.beginPath();
+    if (expression === 'attack') {
+      ctx.moveTo(ex - side * eyeRx * 1.08, eyeY - 20);
+      ctx.quadraticCurveTo(ex, eyeY - 32, ex + side * eyeRx * 1.15, eyeY - 36);
+    } else if (expression === 'hit') {
+      ctx.moveTo(ex - side * eyeRx * 1.0, eyeY - 34);
+      ctx.quadraticCurveTo(ex, eyeY - 42, ex + side * eyeRx * 1.05, eyeY - 28);
+    } else {
+      ctx.moveTo(ex - side * eyeRx * 1.06, eyeY - 24);
+      ctx.quadraticCurveTo(ex, eyeY - 36, ex + side * eyeRx * 1.12, eyeY - 25);
+    }
+    ctx.stroke();
+  });
+
+  // Confident playful smirk / stern warning shout
+  const mouthY = cy + h * 0.142;
+  ctx.lineCap = 'round';
+  if (expression === 'attack') {
+    ctx.fillStyle = '#421614';
+    ctx.strokeStyle = '#5E2B1E';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 2, w * 0.048, h * 0.028, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(cx - w * 0.032, mouthY - 7, w * 0.064, 7.5);
+  } else if (expression === 'hit' || expression === 'ko') {
+    ctx.strokeStyle = '#3B1B13';
+    ctx.lineWidth = 5.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.044, mouthY + 6);
+    ctx.quadraticCurveTo(cx, mouthY - 5, cx + w * 0.044, mouthY + 6);
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = '#3B1A12';
+    ctx.lineWidth = 4.8;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.052, mouthY + 1);
+    ctx.quadraticCurveTo(cx + 4, mouthY + 13, cx + w * 0.054, mouthY - 4);
+    ctx.stroke();
+  }
+}
+
 export function paintFighterFace(
   ctx: CanvasRenderingContext2D,
   id: FighterId,
@@ -2085,12 +2228,16 @@ export function paintFighterFace(
     case 'samyak':
       paintSamyakFace(ctx, expression);
       return;
+    case 'principal':
+      paintPrincipalFace(ctx, expression);
+      return;
   }
 }
 
 export function createDynamicFace(id: FighterId): DynamicFace {
   const canvas = document.createElement('canvas');
-  const size = id === 'anda' || id === 'father' || id === 'samyak' ? 512 : 256;
+  const size =
+    id === 'anda' || id === 'father' || id === 'samyak' || id === 'principal' ? 512 : 256;
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
@@ -3503,6 +3650,126 @@ function paintSamyakPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 }
 
+function paintPrincipalPortrait(ctx: CanvasRenderingContext2D): void {
+  const bg = ctx.createRadialGradient(80, 66, 12, 80, 80, 108);
+  bg.addColorStop(0, '#334155');
+  bg.addColorStop(0.55, '#1E293B');
+  bg.addColorStop(1, '#0F172A');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Golden-orange discipline rim halo
+  const rim = ctx.createRadialGradient(80, 86, 16, 80, 80, 74);
+  rim.addColorStop(0, 'rgba(249, 115, 22, 0.34)');
+  rim.addColorStop(1, 'rgba(249, 115, 22, 0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // White cassock shoulders + Powder-Blue Nehru vest (#7EC4E6)
+  ctx.fillStyle = '#F0F2F5';
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(12, 160);
+  ctx.quadraticCurveTo(18, 114, 56, 104);
+  ctx.lineTo(104, 104);
+  ctx.quadraticCurveTo(142, 114, 148, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#7EC4E6';
+  ctx.strokeStyle = '#1E4E75';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(34, 160);
+  ctx.lineTo(44, 108);
+  ctx.lineTo(116, 108);
+  ctx.lineTo(126, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Left chest pocket + dark metallic pen
+  ctx.fillStyle = '#3B8EC0';
+  ctx.fillRect(90, 126, 20, 18);
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(98, 114, 4, 14);
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillRect(98, 112, 4, 3);
+
+  // Standing crisp white collar
+  ctx.fillStyle = '#F8FAFC';
+  ctx.fillRect(64, 96, 32, 14);
+
+  // Neck & caricature head
+  ctx.fillStyle = '#9F6745';
+  ctx.fillRect(68, 88, 24, 14);
+
+  ctx.fillStyle = '#B57853';
+  ctx.strokeStyle = '#4A2B18';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(80, 62, 29, 36, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Hair with silver-gray temples
+  ctx.fillStyle = '#18181B';
+  ctx.beginPath();
+  ctx.moveTo(50, 56);
+  ctx.quadraticCurveTo(50, 22, 80, 20);
+  ctx.quadraticCurveTo(110, 22, 110, 56);
+  ctx.quadraticCurveTo(104, 38, 80, 38);
+  ctx.quadraticCurveTo(56, 38, 50, 56);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#CBD5E1';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(54, 44);
+  ctx.lineTo(54, 58);
+  ctx.moveTo(106, 44);
+  ctx.lineTo(106, 58);
+  ctx.stroke();
+
+  // Expressive caricature brows & eyes
+  ctx.strokeStyle = '#141111';
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(59, 52);
+  ctx.quadraticCurveTo(67, 46, 75, 51);
+  ctx.moveTo(85, 51);
+  ctx.quadraticCurveTo(93, 46, 101, 52);
+  ctx.stroke();
+
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 12;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.ellipse(ex, 60, 6, 4.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#24140E';
+    ctx.beginPath();
+    ctx.arc(ex, 60, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(ex - 0.8, 59, 1.0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Confident cheeky smirk
+  ctx.strokeStyle = '#441E16';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(68, 80);
+  ctx.quadraticCurveTo(81, 86, 92, 76);
+  ctx.stroke();
+}
+
 export function getFighterPortraitDataUrl(id: FighterId): string {
   const cached = portraitCache.get(id);
   if (cached) return cached;
@@ -3534,6 +3801,9 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
       break;
     case 'samyak':
       paintSamyakPortrait(ctx);
+      break;
+    case 'principal':
+      paintPrincipalPortrait(ctx);
       break;
   }
 

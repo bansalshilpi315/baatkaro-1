@@ -144,6 +144,7 @@ export type SuperCameraKind =
   | 'mausi'
   | 'father'
   | 'samyak'
+  | 'principal'
   | 'generic';
 
 /**
@@ -436,7 +437,7 @@ export function computeSuperCameraTarget(
   // 1.5-2.8s: Framed dramatic mid-orbit showcasing the 14 swirling glowing red "RUSTICATE" papers
   // 2.8-4.65s: Dynamic wide 3D perspective framing hovering Father + opponent below during barrage & Master Notice slam
   // 4.65-5.2s: Smooth restore to standard 2.5D fighting camera as Father descends to floor
-  if (kind === 'father') {
+  if (kind === 'father' || kind === 'principal') {
     const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
 
     if (elapsed < 1.5) {

@@ -359,10 +359,44 @@
   height: 4.3rem;
 }
 
+/* Scrollable Character Select Fighter Lists (Touch + Wheel + Thin Dark-Gold Scrollbar) */
+.select-roster-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #d97706 rgba(255, 255, 255, 0.06);
+}
+
+.select-roster-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.select-roster-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+}
+
+.select-roster-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #facc15 0%, #b45309 100%);
+  border-radius: 9999px;
+}
+
+.select-roster-scroll::-webkit-scrollbar-thumb:hover {
+  background: #fde047;
+}
+
+.select-fighter-btn {
+  min-height: 56px;
+  flex-shrink: 0;
+}
+
 /* =========================================================================
    COMPACT MOBILE LANDSCAPE SCALING (@media max-height: 520px)
    Ensures 100% visible fit on short landscape phones (e.g. 844x390, 667x375)
-   without scrolling, clipping, or HUD/ticker overlap.
+   without clipping, while keeping Character Select lists cleanly scrollable.
    ========================================================================= */
 @media (max-height: 520px) {
   /* Title Screen */
@@ -424,8 +458,8 @@
   }
 
   .select-help-btn {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.75rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.72rem;
   }
 
   .select-util-btn {
@@ -440,36 +474,41 @@
   }
 
   .select-strip {
-    width: 126px;
-    padding: 0.16rem 0.2rem;
+    width: 152px;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    padding: 0.28rem 0.32rem;
   }
 
   .select-strip-header {
-    margin-bottom: 0.1rem;
-    padding-bottom: 0.08rem;
+    margin-bottom: 0.22rem;
+    padding-bottom: 0.18rem;
   }
 
   .select-strip-list {
-    gap: 0.1rem;
+    gap: 0.32rem;
   }
 
   .select-fighter-btn {
-    padding: 0.06rem 0.2rem;
-    gap: 0.26rem;
+    min-height: 56px;
+    flex-shrink: 0;
+    padding: 0.32rem 0.38rem;
+    gap: 0.42rem;
   }
 
   .select-fighter-avatar {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 2.35rem;
+    height: 2.35rem;
   }
 
   .select-fighter-name {
-    font-size: 0.68rem;
+    font-size: 0.85rem;
   }
 
   .select-fighter-special {
-    font-size: 0.48rem;
-    margin-top: 0;
+    font-size: 0.62rem;
+    margin-top: 0.12rem;
   }
 
   .select-strip-footer {
@@ -735,6 +774,21 @@
   .modal-compact-body {
     padding: 0.75rem 1rem;
     gap: 0.5rem;
+  }
+
+  .friend-room-card {
+    padding: 0.65rem 0.9rem;
+  }
+
+  .friend-room-card [data-testid='host-room-code'] {
+    font-size: 2rem;
+    line-height: 1.05;
+  }
+
+  .friend-room-card [data-testid='join-room-input'] {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+    font-size: 1.75rem;
   }
 }
 
