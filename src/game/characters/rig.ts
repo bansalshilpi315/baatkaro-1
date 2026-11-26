@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { FighterId, FighterState } from '../types';
 import type { DynamicFace } from './faceCanvas';
 import { computeCombatPose } from './kinematics';
+import { computePhotoHeadLocalYaw, isPhotoFaceFighter } from './photoFaceLoader';
 
 export interface FighterRig {
   id: FighterId;
@@ -318,7 +319,11 @@ export function animateFighterRig(
         ? 0.14 + Math.abs(Math.sin(elapsed * 26)) * 0.22
         : 0;
   for (const mat of rig.flashMaterials) {
-    mat.emissiveIntensity = flashVal;
+    const baseEmissive =
+      typeof mat.userData.baseEmissiveIntensity === 'number'
+        ? mat.userData.baseEmissiveIntensity
+        : 0;
+    mat.emissiveIntensity = flashVal > 0 ? Math.max(flashVal, baseEmissive) : baseEmissive;
   }
 
   // Dharna Shield & Super / Paisa Flex golden aura visibility
@@ -1803,6 +1808,22 @@ export function animateFighterRig(
   rig.torso.rotation.x = lerpAngle(rig.torso.rotation.x, torsoRotX, jointAlpha);
   rig.torso.rotation.y = lerpAngle(rig.torso.rotation.y, torsoRotY, jointAlpha);
   rig.torso.rotation.z = lerpAngle(rig.torso.rotation.z, torsoRotZ, jointAlpha);
+
+  // Keep flat front face plates angled ~25-35 deg toward front camera (+Z) for crisp 2.5D readability
+  if (
+    isPhotoFaceFighter(state.id) &&
+    state.squashedTimer <= 0 &&
+    state.action !== 'knockdown' &&
+    state.action !== 'ko'
+  ) {
+    headRotY = computePhotoHeadLocalYaw(
+      state.facing,
+      targetYaw,
+      pelvisRotY,
+      torsoRotY,
+      headRotY,
+    );
+  }
 
   rig.head.rotation.x = lerpAngle(rig.head.rotation.x, headRotX, jointAlpha);
   rig.head.rotation.y = lerpAngle(rig.head.rotation.y, headRotY, jointAlpha);

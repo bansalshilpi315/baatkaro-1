@@ -45,8 +45,8 @@ test('Principal Man is added as 8th playable fighter without replacing any exist
     'Principal Man punches must deal ~15% boosted boss damage',
   );
 
-  assert.equal(PRINCIPAL_SUPER_AUDIO_URL, '/audio/supers/principal.mp3');
-  assert.equal(getSuperAudioUrl('principal'), '/audio/supers/principal.mp3');
+  assert.equal(PRINCIPAL_SUPER_AUDIO_URL, '/audio/supers/father.mp3');
+  assert.equal(getSuperAudioUrl('principal'), '/audio/supers/father.mp3');
   assert.equal(PRINCIPAL_PAPER_COUNT, 14);
 });
 
