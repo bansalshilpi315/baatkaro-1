@@ -94,6 +94,6 @@ test('Host-authoritative simulation drives Player 2 solely from remote inputs an
   assert.equal(guestState.fighters[1].action, 'special');
   assert.equal(guestState.fighters[1].specialCooldown, snap.fighters[1].specialCooldown);
   assert.equal(guestTargets[1].x, snap.fighters[1].x);
-  assert.equal(guestState.fighters[0].maxHp, 130);
-  assert.equal(guestState.fighters[1].maxHp, 125);
+  assert.equal(guestState.fighters[0].maxHp, 200);
+  assert.equal(guestState.fighters[1].maxHp, 185);
 });

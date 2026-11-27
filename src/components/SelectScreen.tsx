@@ -1,16 +1,37 @@
-import { useEffect, useRef } from 'react';
-import { Coins, HelpCircle, Lock, MapPin, Settings, Swords, Users, Volume2, VolumeX, Wifi } from 'lucide-react';
-import { FIGHTER_CONFIGS, FIGHTER_LIST, STAGE_CONFIGS, STAGE_LIST } from '../game/characters';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Coins,
+  HelpCircle,
+  Lock,
+  MapPin,
+  Settings,
+  Sparkles,
+  Swords,
+  Tv,
+  Users,
+  Volume2,
+  VolumeX,
+  Wifi,
+} from 'lucide-react';
+import {
+  FIGHTER_CONFIGS,
+  ROSTER_SLOTS,
+  STAGE_CONFIGS,
+  STAGE_LIST,
+} from '../game/characters';
 import { STAGE_AI_TIER } from '../game/combat';
 import type { OnlineRole } from '../game/friendRoomProtocol';
 import {
+  FIGHTER_UNLOCK_ADS,
   FIGHTER_UNLOCK_COSTS,
+  getFighterAdProgress,
   STAGE_UNLOCK_COSTS,
   type PlayerProfile,
 } from '../game/playerAccount';
 import type { Difficulty, FighterId, StageId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
+import { UnlockFighterModal } from './UnlockFighterModal';
 
 interface SelectScreenProps {
   p1Id: FighterId;
@@ -27,7 +48,8 @@ interface SelectScreenProps {
   onSelectP2: (id: FighterId) => void;
   onSelectStage: (id: StageId) => void;
   onSelectDifficulty: (d: Difficulty) => void;
-  onUnlockFighter: (id: FighterId) => void;
+  onUnlockFighter: (id: FighterId) => boolean;
+  onWatchAdUnlock: (id: FighterId) => { watched: number; required: number; unlockedNow: boolean };
   onUnlockStage: (stageNumber: number) => void;
   onToggleGlobalMute: () => void;
   onToggleFullscreen: () => void;
@@ -46,14 +68,31 @@ const DIFFICULTIES: Array<{ id: Difficulty; label: string }> = [
 const SHORT_NAMES: Record<FighterId, string> = {
   sheru: 'SHERU',
   billa: 'BILLA',
-  neta: 'NETA',
   anda: 'ANDA',
-  mausi: 'MAUSI',
-  father: 'PRINCIPAL MAN',
-  samyak: 'SAMYAK',
-  adi: 'ADI',
   krish: 'KRISH',
+  adi: 'ADI',
+  mausi: 'MAUSI',
+  neta: 'NETA',
+  samyak: 'SAMYAK',
+  father: 'PRINCIPAL MAN',
 };
+
+function MysterySilhouetteAvatar() {
+  return (
+    <div
+      aria-hidden="true"
+      className="select-fighter-avatar relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-[#f59e0b]/70 bg-gradient-to-b from-[#2b1e0c] via-[#17110b] to-[#0b0806] sm:h-11 sm:w-11"
+    >
+      <svg viewBox="0 0 44 44" className="h-9 w-9 text-[#f59e0b]/55">
+        <circle cx="22" cy="15" r="7.5" fill="currentColor" />
+        <path d="M9 39c1.5-8.5 6.5-12.5 13-12.5S33.5 30.5 35 39H9Z" fill="currentColor" />
+      </svg>
+      <span className="absolute font-display text-lg font-extrabold text-[#fde047] drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
+        ?
+      </span>
+    </div>
+  );
+}
 
 export function SelectScreen({
   p1Id,
@@ -71,6 +110,7 @@ export function SelectScreen({
   onSelectStage,
   onSelectDifficulty,
   onUnlockFighter,
+  onWatchAdUnlock,
   onUnlockStage,
   onToggleGlobalMute,
   onToggleFullscreen,
@@ -97,11 +137,35 @@ export function SelectScreen({
   const localSelectedId = isGuest ? p2Id : p1Id;
   const isLocalFighterLocked = !isOnline && !playerProfile.unlockedFighters.includes(localSelectedId);
   const localFighterCost = FIGHTER_UNLOCK_COSTS[localSelectedId] ?? 150;
+  const localFighterAds = getFighterAdProgress(playerProfile, localSelectedId);
   const isStageLocked = !isOnline && activeStageNum > playerProfile.highestStage;
   const activeStageCost = STAGE_UNLOCK_COSTS[activeStageNum] ?? 75;
 
+  const [unlockModalFighterId, setUnlockModalFighterId] = useState<FighterId | null>(null);
+  const [arcadeToast, setArcadeToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
   const p1CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
   const p2CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
+
+  const showToast = (msg: string) => {
+    setArcadeToast(msg);
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setArcadeToast(null);
+      toastTimerRef.current = null;
+    }, 2600);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     p1CardRefs.current[p1Id]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -144,7 +208,7 @@ export function SelectScreen({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          {/* Prominent FRIEND ROOM Button (or Connected Room Status Button) */}
+          {/* Prominent FRIEND ROOM Button */}
           <button
             type="button"
             data-testid="friend-room-btn"
@@ -213,12 +277,27 @@ export function SelectScreen({
         </div>
       </header>
 
+      {/* Arcade Toast Banner (e.g. Utkarsh Teaser Slot Notice) */}
+      {arcadeToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="select-arcade-toast"
+          className="pointer-events-none fixed top-16 left-1/2 z-40 -translate-x-1/2 border-2 border-[#facc15] bg-[#140d09]/95 px-4 py-2 font-display text-sm font-extrabold uppercase tracking-wider text-[#fde047] shadow-[4px_4px_0_#dc2626] sm:text-base"
+        >
+          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            <Sparkles className="h-4 w-4 text-[#facc15]" aria-hidden="true" />
+            <span>{arcadeToast}</span>
+          </span>
+        </div>
+      )}
+
       {/* MIDDLE OPEN-CENTER ARENA SHOWCASE — Scrollable Left 1P Strip | Live 3D Face-Off | Scrollable Right CPU/2P Strip */}
       <div className="select-middle mx-auto flex min-h-0 w-full max-w-6xl flex-1 items-stretch justify-between gap-2 py-2">
-        {/* LEFT: 1P Portrait Strip (Vertically Scrollable) */}
+        {/* LEFT: 1P Portrait Strip (Exact 10-Slot Sequence, Vertically Scrollable) */}
         <aside
           data-testid="p1-roster-panel"
-          className="select-strip pointer-events-auto flex h-full max-h-full min-h-0 w-[156px] shrink-0 flex-col border-2 border-[#facc15] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[192px]"
+          className="select-strip pointer-events-auto flex h-full max-h-full min-h-0 w-[172px] shrink-0 flex-col border-2 border-[#facc15] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[228px]"
         >
           <div className="select-strip-header mb-1.5 flex shrink-0 items-center justify-between gap-1 border-b border-white/15 pb-1">
             <span className="flex items-center gap-1 truncate bg-[#facc15] px-1.5 py-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#0f0a06]">
@@ -232,12 +311,44 @@ export function SelectScreen({
 
           <div
             data-testid="p1-roster-scroll"
-            className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1.5 pr-1"
+            className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1 pr-1"
           >
-            {FIGHTER_LIST.map((f) => {
+            {ROSTER_SLOTS.map((slot) => {
+              if (slot.kind === 'coming_future') {
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    data-testid="p1-utkarsh-teaser-card"
+                    onClick={() => showToast(slot.toastMessage)}
+                    aria-label={`${slot.name} (${slot.maxHp} HP) — ${slot.badgeText}`}
+                    className="select-fighter-btn flex min-h-[54px] shrink-0 cursor-pointer items-center gap-2 border-2 border-dashed border-[#f59e0b]/75 bg-gradient-to-r from-[#24190c]/95 to-[#16100b]/95 px-2 py-1 text-left transition hover:border-[#fde047]"
+                  >
+                    <MysterySilhouetteAvatar />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-[#fde047] sm:text-base">
+                          {slot.shortName}
+                        </span>
+                        <span className="shrink-0 font-mono-num text-[9px] font-bold text-[#fcd34d]/85">
+                          {slot.maxHp}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 inline-block whitespace-nowrap bg-[#f59e0b]/25 px-1 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-[#fde047] sm:text-[10px]">
+                        {slot.badgeText}
+                      </div>
+                    </div>
+                  </button>
+                );
+              }
+
+              const f = slot.fighter;
               const selected = f.id === p1Id;
-              const locked = !playerProfile.unlockedFighters.includes(f.id);
+              const locked = !isOnline && !playerProfile.unlockedFighters.includes(f.id);
               const unlockCost = FIGHTER_UNLOCK_COSTS[f.id] ?? 150;
+              const requiredAds = FIGHTER_UNLOCK_ADS[f.id] ?? 0;
+              const adProg = getFighterAdProgress(playerProfile, f.id);
+
               return (
                 <button
                   key={f.id}
@@ -245,13 +356,21 @@ export function SelectScreen({
                     p1CardRefs.current[f.id] = el;
                   }}
                   type="button"
+                  data-testid={`p1-fighter-${f.id}`}
+                  data-locked={locked ? 'true' : 'false'}
                   disabled={!canPickP1}
                   onClick={() => {
-                    if (canPickP1) onSelectP1(f.id);
+                    if (!canPickP1) return;
+                    onSelectP1(f.id);
+                    if (locked) {
+                      setUnlockModalFighterId(f.id);
+                    }
                   }}
-                  aria-label={`Select Player 1 ${f.name}${locked ? ` (Locked, ${unlockCost} coins)` : ''}`}
+                  aria-label={`Select Player 1 ${f.name} (${f.maxHp} HP)${
+                    locked ? ` (Locked, ${unlockCost} coins or ${adProg.watched}/${requiredAds} ads)` : ''
+                  }`}
                   aria-pressed={selected}
-                  className={`select-fighter-btn flex min-h-[56px] shrink-0 items-center gap-2 border-2 px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
+                  className={`select-fighter-btn flex min-h-[54px] shrink-0 items-center gap-2 border-2 px-2 py-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
                     selected
                       ? 'border-[#facc15] bg-[#dc2626] shadow-[3px_3px_0_#facc15]'
                       : canPickP1
@@ -264,43 +383,45 @@ export function SelectScreen({
                       id={f.id}
                       alt={f.name}
                       className={`select-fighter-avatar h-10 w-10 shrink-0 border border-black/60 object-cover sm:h-11 sm:w-11 ${
-                        locked ? 'grayscale opacity-75' : ''
+                        locked ? 'grayscale opacity-70' : ''
                       }`}
                     />
                     {locked && (
-                      <span className="absolute right-0.5 bottom-0.5 flex h-4 w-4 items-center justify-center rounded-xs bg-black/85 text-[#facc15]">
-                        <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[#facc15]">
+                        <Lock className="h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]" aria-hidden="true" />
                       </span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
-                      {SHORT_NAMES[f.id]}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
+                        {SHORT_NAMES[f.id]}
+                      </span>
+                      <span className="shrink-0 font-mono-num text-[9px] font-bold text-[#fde047]/90">
+                        {f.maxHp}
+                      </span>
                     </div>
-                    <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fef08a] sm:text-[11px]">
-                      {locked ? `UNLOCK · ${unlockCost} COINS` : f.special.shortLabel}
-                    </div>
+                    {locked ? (
+                      <div className="select-fighter-special mt-0.5 flex items-center gap-1.5 truncate font-mono-num text-[9px] font-extrabold text-[#fef08a] sm:text-[10px]">
+                        <span className="inline-flex items-center gap-0.5 text-[#facc15]">
+                          <Coins className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                          {unlockCost}
+                        </span>
+                        <span className="text-white/40">|</span>
+                        <span className="inline-flex items-center gap-0.5 text-[#7dd3fc]">
+                          <Tv className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                          {adProg.watched}/{requiredAds}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fef08a] sm:text-[11px]">
+                        {f.special.shortLabel}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
             })}
-
-            {/* Teaser Slot Under Last Fighter: No Profile, No Name — Coming Soon */}
-            <div
-              data-testid="p1-coming-soon-card"
-              aria-disabled="true"
-              className="select-fighter-btn flex min-h-[56px] shrink-0 cursor-not-allowed items-center gap-2 border-2 border-dashed border-white/20 bg-[#16110e]/75 px-2 py-1.5 text-left opacity-80"
-            >
-              <div
-                aria-hidden="true"
-                className="select-fighter-avatar h-10 w-10 shrink-0 border border-white/15 bg-[#0b0907] sm:h-11 sm:w-11"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[#a8a29e] sm:text-sm">
-                  COMING SOON
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="select-strip-footer mt-1.5 shrink-0 border-t border-white/15 pt-1.5 text-[10px] leading-tight text-[#e7e5e4]">
@@ -352,10 +473,10 @@ export function SelectScreen({
           </div>
         </div>
 
-        {/* RIGHT: CPU / 2P Portrait Strip (Vertically Scrollable) */}
+        {/* RIGHT: CPU / 2P Portrait Strip (Exact 10-Slot Sequence, Vertically Scrollable) */}
         <aside
           data-testid="p2-roster-panel"
-          className="select-strip pointer-events-auto flex h-full max-h-full min-h-0 w-[156px] shrink-0 flex-col border-2 border-[#ef4444] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[192px]"
+          className="select-strip pointer-events-auto flex h-full max-h-full min-h-0 w-[172px] shrink-0 flex-col border-2 border-[#ef4444] bg-[#120d0a]/90 p-2 shadow-[5px_5px_0_#0f0a06] sm:w-[228px]"
         >
           <div className="select-strip-header mb-1.5 flex shrink-0 items-center justify-between gap-1 border-b border-white/15 pb-1">
             <span className="shrink-0 font-mono-num text-[11px] font-bold text-[#fda4af]">
@@ -369,9 +490,38 @@ export function SelectScreen({
 
           <div
             data-testid="p2-roster-scroll"
-            className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1.5 pr-1"
+            className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1 pr-1"
           >
-            {FIGHTER_LIST.map((f) => {
+            {ROSTER_SLOTS.map((slot) => {
+              if (slot.kind === 'coming_future') {
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    data-testid="p2-utkarsh-teaser-card"
+                    onClick={() => showToast(slot.toastMessage)}
+                    aria-label={`${slot.name} (${slot.maxHp} HP) — ${slot.badgeText}`}
+                    className="select-fighter-btn flex min-h-[54px] shrink-0 cursor-pointer flex-row-reverse items-center gap-2 border-2 border-dashed border-[#f59e0b]/75 bg-gradient-to-l from-[#24190c]/95 to-[#16100b]/95 px-2 py-1 text-right transition hover:border-[#fde047]"
+                  >
+                    <MysterySilhouetteAvatar />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="shrink-0 font-mono-num text-[9px] font-bold text-[#fcd34d]/85">
+                          {slot.maxHp}
+                        </span>
+                        <span className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-[#fde047] sm:text-base">
+                          {slot.shortName}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 inline-block whitespace-nowrap bg-[#f59e0b]/25 px-1 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-[#fde047] sm:text-[10px]">
+                        {slot.badgeText}
+                      </div>
+                    </div>
+                  </button>
+                );
+              }
+
+              const f = slot.fighter;
               const selected = f.id === p2Id;
               return (
                 <button
@@ -380,13 +530,14 @@ export function SelectScreen({
                     p2CardRefs.current[f.id] = el;
                   }}
                   type="button"
+                  data-testid={`p2-fighter-${f.id}`}
                   disabled={!canPickP2}
                   onClick={() => {
                     if (canPickP2) onSelectP2(f.id);
                   }}
-                  aria-label={`Select ${isOnline ? 'Player 2' : 'CPU Opponent'} ${f.name}`}
+                  aria-label={`Select ${isOnline ? 'Player 2' : 'CPU Opponent'} ${f.name} (${f.maxHp} HP)`}
                   aria-pressed={selected}
-                  className={`select-fighter-btn flex min-h-[56px] shrink-0 flex-row-reverse items-center gap-2 border-2 px-2 py-1.5 text-right transition-colors focus-visible:outline-2 focus-visible:outline-white ${
+                  className={`select-fighter-btn flex min-h-[54px] shrink-0 flex-row-reverse items-center gap-2 border-2 px-2 py-1 text-right transition-colors focus-visible:outline-2 focus-visible:outline-white ${
                     selected
                       ? 'border-[#ef4444] bg-[#991b1b] shadow-[-3px_3px_0_#ef4444]'
                       : canPickP2
@@ -400,8 +551,13 @@ export function SelectScreen({
                     className="select-fighter-avatar h-10 w-10 shrink-0 border border-black/60 object-cover sm:h-11 sm:w-11"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
-                      {SHORT_NAMES[f.id]}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="shrink-0 font-mono-num text-[9px] font-bold text-[#fda4af]/90">
+                        {f.maxHp}
+                      </span>
+                      <span className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
+                        {SHORT_NAMES[f.id]}
+                      </span>
                     </div>
                     <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fecdd3] sm:text-[11px]">
                       {f.special.shortLabel}
@@ -410,23 +566,6 @@ export function SelectScreen({
                 </button>
               );
             })}
-
-            {/* Teaser Slot Under Last Fighter: No Profile, No Name — Coming Soon */}
-            <div
-              data-testid="p2-coming-soon-card"
-              aria-disabled="true"
-              className="select-fighter-btn flex min-h-[56px] shrink-0 cursor-not-allowed flex-row-reverse items-center gap-2 border-2 border-dashed border-white/20 bg-[#16110e]/75 px-2 py-1.5 text-right opacity-80"
-            >
-              <div
-                aria-hidden="true"
-                className="select-fighter-avatar h-10 w-10 shrink-0 border border-white/15 bg-[#0b0907] sm:h-11 sm:w-11"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[#a8a29e] sm:text-sm">
-                  COMING SOON
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="select-strip-footer mt-1.5 shrink-0 border-t border-white/15 pt-1.5 text-right text-[10px] leading-tight text-[#e7e5e4]">
@@ -445,7 +584,7 @@ export function SelectScreen({
         </aside>
       </div>
 
-      {/* BOTTOM DOCKED CONTROL BAR: Stage Pills | CPU Difficulty (Offline only) | FIGHT! CTA */}
+      {/* BOTTOM DOCKED CONTROL BAR: Stage Pills | CPU Difficulty (Offline only) | FIGHT! or UNLOCK CTA */}
       <footer className="select-footer pointer-events-auto mx-auto flex w-full max-w-6xl shrink-0 flex-wrap items-center justify-between gap-2 border-2 border-white/20 bg-[#120d0a]/92 px-3 py-2 shadow-[0_6px_0_#0a0705]">
         {/* Stage Compact Selector */}
         <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
@@ -526,20 +665,19 @@ export function SelectScreen({
           </div>
         )}
 
-        {/* Right Action: Unlock CTA (if locked) or FIGHT! Button (Host & Offline) or Waiting Indicator (Guest) */}
+        {/* Right Action: Dual Unlock Modal CTA (if locked) or FIGHT! Button */}
         <div className="flex shrink-0 items-center gap-2">
           {isLocalFighterLocked ? (
             <button
               type="button"
               data-testid="unlock-fighter-btn"
-              disabled={playerProfile.coins < localFighterCost}
-              onClick={() => onUnlockFighter(localSelectedId)}
-              aria-label={`Unlock ${p1Cfg.name} for ${localFighterCost} coins`}
-              title={`Unlock ${p1Cfg.name} for ${localFighterCost} coins`}
-              className="select-fight-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-4 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:px-5 sm:text-xl"
+              onClick={() => setUnlockModalFighterId(localSelectedId)}
+              aria-label={`Unlock ${p1Cfg.name} (${localFighterCost} coins or ${localFighterAds.watched}/${localFighterAds.required} ads)`}
+              title={`Unlock ${p1Cfg.name} with Coins or Ads`}
+              className="select-fight-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-4 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] sm:px-5 sm:text-xl"
             >
-              <Coins className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>UNLOCK ({localFighterCost})</span>
+              <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>UNLOCK {SHORT_NAMES[localSelectedId]}</span>
             </button>
           ) : isStageLocked && canStartFight ? (
             <button
@@ -574,7 +712,19 @@ export function SelectScreen({
           )}
         </div>
       </footer>
+
+      {/* Sleek Dual Unlock Modal (Coins OR Rewarded Ads) */}
+      {unlockModalFighterId && (
+        <div className="pointer-events-auto">
+          <UnlockFighterModal
+            fighterId={unlockModalFighterId}
+            playerProfile={playerProfile}
+            onUnlockWithCoins={onUnlockFighter}
+            onWatchRewardedAd={onWatchAdUnlock}
+            onClose={() => setUnlockModalFighterId(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
-

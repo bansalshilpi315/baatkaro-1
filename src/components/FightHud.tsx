@@ -25,6 +25,71 @@ interface FightHudProps {
   onTouchAction: (action: 'punch' | 'kick' | 'grab' | 'special' | 'superMove') => void;
 }
 
+function CompactSpeechBubble({
+  bubble,
+}: {
+  bubble: HudSnapshot['speechBubbles'][number];
+}) {
+  const [visibleChars, setVisibleChars] = useState(0);
+
+  useEffect(() => {
+    setVisibleChars(1);
+    const total = bubble.text.length;
+    if (total <= 1) return;
+    let count = 1;
+    const stepMs = Math.max(12, Math.min(20, Math.floor(540 / total)));
+    const timer = window.setInterval(() => {
+      count += 2;
+      if (count >= total) {
+        setVisibleChars(total);
+        window.clearInterval(timer);
+      } else {
+        setVisibleChars(count);
+      }
+    }, stepMs);
+    return () => window.clearInterval(timer);
+  }, [bubble.id, bubble.text]);
+
+  const tailPosClass =
+    bubble.tailSide === 'left'
+      ? '-left-[5px] top-1/2 -translate-y-1/2 border-b-2 border-l-2'
+      : bubble.tailSide === 'right'
+        ? '-right-[5px] top-1/2 -translate-y-1/2 border-t-2 border-r-2'
+        : '-bottom-[5px] left-1/2 -translate-x-1/2 border-r-2 border-b-2';
+
+  const revealed = bubble.text.slice(0, Math.max(1, visibleChars));
+
+  return (
+    <div
+      data-testid="comic-speech-bubble"
+      data-slot={bubble.slot}
+      className="pointer-events-none fixed z-30"
+      style={{
+        left: `${bubble.screenX}px`,
+        top: `${bubble.screenY}px`,
+        opacity: bubble.opacity,
+        transform: 'translate(-50%, -100%)',
+      }}
+    >
+      <div className="comic-bubble-pop relative flex max-w-[15rem] items-center gap-1.5 rounded-full border-2 border-[#110b08] bg-white/95 px-3 py-1 text-[#110b08] shadow-[3px_3px_0_#110b08] sm:max-w-[20.5rem] sm:px-3.5 sm:py-1.5">
+        <span className="shrink-0 rounded-full bg-[#dc2626] px-1.5 py-0.5 font-display text-[9px] font-extrabold uppercase leading-none tracking-wider text-white sm:text-[10px]">
+          {bubble.speakerName.split(' ')[0]}
+        </span>
+        <span
+          data-testid="comic-speech-line"
+          className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-display text-[11px] font-extrabold leading-none tracking-wide text-[#110b08] sm:text-xs"
+        >
+          &ldquo;{revealed}&rdquo;
+        </span>
+        <div
+          aria-hidden="true"
+          className={`absolute h-2 w-2 rotate-45 border-[#110b08] bg-white/95 ${tailPosClass}`}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function FightHud({
   p1Id,
   p2Id,
@@ -444,52 +509,11 @@ export function FightHud({
       </div>
 
       {/* =================================================================
-          WHITE COMIC SPEECH BUBBLES (NON-BLOCKING, 2.0s SMOOTH FADE-OUT)
+          COMPACT 1-LINE TYPEWRITER SPEECH PILLS (NON-BLOCKING, 2.0s AUTO-DISMISS)
           ================================================================= */}
-      {hud.speechBubbles.map((bubble) => {
-        const tailPosClass =
-          bubble.tailSide === 'left'
-            ? '-left-[6px] bottom-2.5 border-b-2 border-l-2'
-            : bubble.tailSide === 'right'
-              ? '-right-[6px] bottom-2.5 border-t-2 border-r-2'
-              : '-bottom-[6px] left-1/2 -translate-x-1/2 border-r-2 border-b-2';
-        return (
-          <div
-            key={bubble.id}
-            data-testid="comic-speech-bubble"
-            data-slot={bubble.slot}
-            className="pointer-events-none fixed z-30"
-            style={{
-              left: `${bubble.screenX}px`,
-              top: `${bubble.screenY}px`,
-              opacity: bubble.opacity,
-              transform: 'translate(-50%, -100%)',
-            }}
-          >
-            <div className="comic-bubble-pop relative max-w-[12.5rem] rounded-lg border-2 border-[#110b08] bg-white/95 px-2.5 py-1.5 text-[#110b08] shadow-[3px_3px_0_#110b08] sm:max-w-[15rem] sm:px-3 sm:py-1.5">
-              <div className="font-display text-[9px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#b45309] sm:text-[10px]">
-                {bubble.speakerName}
-              </div>
-              <div className="mt-0.5 font-display text-[11px] font-extrabold leading-tight tracking-wide text-[#110b08] sm:text-xs">
-                &ldquo;{bubble.text}&rdquo;
-              </div>
-              {bubble.subtitle && (
-                <div
-                  data-testid="dialogue-english-subtitle"
-                  className="mt-0.5 border-t border-[#110b08]/15 pt-0.5 font-sans text-[9px] font-semibold leading-tight text-[#44403c] sm:text-[10px]"
-                >
-                  {bubble.subtitle}
-                </div>
-              )}
-              {/* Crisp compact comic speech tail pointing toward fighter head */}
-              <div
-                aria-hidden="true"
-                className={`absolute h-2.5 w-2.5 rotate-45 bg-white/95 border-[#110b08] ${tailPosClass}`}
-              />
-            </div>
-          </div>
-        );
-      })}
+      {hud.speechBubbles.map((bubble) => (
+        <CompactSpeechBubble key={bubble.id} bubble={bubble} />
+      ))}
 
       {/* Subtle Tap to Skip overlay & badge during Round 1 intro dialogues ONLY */}
       {hud.canSkipIntro && (

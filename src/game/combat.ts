@@ -2232,68 +2232,68 @@ export const STAGE_AI_TIER: Record<StageId, 1 | 2 | 3 | 4 | 5> = {
 const BASE_STAGE_PROFILES: Record<1 | 2 | 3 | 4 | 5, StageAiProfile> = {
   1: {
     stageTier: 1,
-    thinkMin: 0.34,
-    thinkMax: 0.54,
-    blockChance: 0.22,
-    dodgeChance: 0.06,
-    attackChance: 0.44,
-    comboFrequency: 0.24,
-    specialChance: 0.22,
-    grabChance: 0.1,
-    superChance: 0.4,
-    superRange: 2.6,
-  },
-  2: {
-    stageTier: 2,
-    thinkMin: 0.27,
-    thinkMax: 0.44,
-    blockChance: 0.34,
-    dodgeChance: 0.11,
-    attackChance: 0.54,
-    comboFrequency: 0.4,
-    specialChance: 0.3,
-    grabChance: 0.15,
-    superChance: 0.56,
-    superRange: 2.8,
-  },
-  3: {
-    stageTier: 3,
-    thinkMin: 0.21,
-    thinkMax: 0.34,
-    blockChance: 0.48,
-    dodgeChance: 0.16,
-    attackChance: 0.66,
-    comboFrequency: 0.56,
-    specialChance: 0.39,
-    grabChance: 0.21,
+    thinkMin: 0.18,
+    thinkMax: 0.28,
+    blockChance: 0.36,
+    dodgeChance: 0.14,
+    attackChance: 0.68,
+    comboFrequency: 0.52,
+    specialChance: 0.38,
+    grabChance: 0.18,
     superChance: 0.72,
     superRange: 3.1,
   },
+  2: {
+    stageTier: 2,
+    thinkMin: 0.155,
+    thinkMax: 0.245,
+    blockChance: 0.44,
+    dodgeChance: 0.17,
+    attackChance: 0.74,
+    comboFrequency: 0.62,
+    specialChance: 0.44,
+    grabChance: 0.22,
+    superChance: 0.8,
+    superRange: 3.25,
+  },
+  3: {
+    stageTier: 3,
+    thinkMin: 0.13,
+    thinkMax: 0.21,
+    blockChance: 0.52,
+    dodgeChance: 0.2,
+    attackChance: 0.8,
+    comboFrequency: 0.72,
+    specialChance: 0.5,
+    grabChance: 0.26,
+    superChance: 0.86,
+    superRange: 3.4,
+  },
   4: {
     stageTier: 4,
-    thinkMin: 0.15,
-    thinkMax: 0.26,
+    thinkMin: 0.105,
+    thinkMax: 0.175,
     blockChance: 0.6,
-    dodgeChance: 0.22,
-    attackChance: 0.76,
-    comboFrequency: 0.7,
-    specialChance: 0.48,
-    grabChance: 0.27,
-    superChance: 0.85,
-    superRange: 3.4,
+    dodgeChance: 0.24,
+    attackChance: 0.85,
+    comboFrequency: 0.8,
+    specialChance: 0.56,
+    grabChance: 0.3,
+    superChance: 0.92,
+    superRange: 3.6,
   },
   5: {
     stageTier: 5,
-    thinkMin: 0.1,
-    thinkMax: 0.19,
-    blockChance: 0.72,
+    thinkMin: 0.08,
+    thinkMax: 0.14,
+    blockChance: 0.68,
     dodgeChance: 0.28,
-    attackChance: 0.86,
-    comboFrequency: 0.84,
-    specialChance: 0.56,
-    grabChance: 0.33,
-    superChance: 0.95,
-    superRange: 3.7,
+    attackChance: 0.9,
+    comboFrequency: 0.88,
+    specialChance: 0.62,
+    grabChance: 0.34,
+    superChance: 0.96,
+    superRange: 3.85,
   },
 };
 
@@ -2318,30 +2318,30 @@ export function getStageAiProfile(
   if (difficulty === 'easy') {
     return {
       stageTier: tier,
-      thinkMin: Number((base.thinkMin * 1.28).toFixed(3)),
-      thinkMax: Number((base.thinkMax * 1.32).toFixed(3)),
-      blockChance: clamp01(base.blockChance * 0.72),
-      dodgeChance: clamp01(base.dodgeChance * 0.7),
-      attackChance: clamp01(base.attackChance * 0.82),
-      comboFrequency: clamp01(base.comboFrequency * 0.72),
-      specialChance: clamp01(base.specialChance * 0.75),
-      grabChance: clamp01(base.grabChance * 0.75),
-      superChance: clamp01(base.superChance * 0.78),
-      superRange: base.superRange,
+      thinkMin: Number((base.thinkMin * 1.48).toFixed(3)),
+      thinkMax: Number((base.thinkMax * 1.52).toFixed(3)),
+      blockChance: clamp01(base.blockChance * 0.58),
+      dodgeChance: clamp01(base.dodgeChance * 0.55),
+      attackChance: clamp01(base.attackChance * 0.72),
+      comboFrequency: clamp01(base.comboFrequency * 0.55),
+      specialChance: clamp01(base.specialChance * 0.62),
+      grabChance: clamp01(base.grabChance * 0.6),
+      superChance: clamp01(base.superChance * 0.65),
+      superRange: Number((base.superRange - 0.25).toFixed(2)),
     };
   }
   // 'hard' scales sharper while preserving monotonic progression from Stage 1 -> Stage 5
   return {
     stageTier: tier,
-    thinkMin: Number(Math.max(0.065, base.thinkMin * 0.74).toFixed(3)),
-    thinkMax: Number(Math.max(0.125, base.thinkMax * 0.76).toFixed(3)),
+    thinkMin: Number(Math.max(0.055, base.thinkMin * 0.72).toFixed(3)),
+    thinkMax: Number(Math.max(0.105, base.thinkMax * 0.74).toFixed(3)),
     blockChance: clamp01(base.blockChance + 0.14),
     dodgeChance: clamp01(base.dodgeChance + 0.08),
-    attackChance: clamp01(base.attackChance + 0.09),
-    comboFrequency: clamp01(base.comboFrequency + 0.12),
+    attackChance: clamp01(base.attackChance + 0.08),
+    comboFrequency: clamp01(base.comboFrequency + 0.1),
     specialChance: clamp01(base.specialChance + 0.1),
     grabChance: clamp01(base.grabChance + 0.06),
-    superChance: clamp01(base.superChance + 0.06),
+    superChance: clamp01(base.superChance + 0.05),
     superRange: Number((base.superRange + 0.25).toFixed(2)),
   };
 }
@@ -2368,69 +2368,113 @@ export function computeCpuInput(
   state.aiIntentTimer -= dt;
 
   const incomingProjectile = state.projectiles.some(
-    (p) => p.ownerSlot === 0 && Math.abs(p.x - cpu.x) < 2.9,
+    (p) => p.ownerSlot === 0 && Math.abs(p.x - cpu.x) < 3.1,
   );
+  const playerHeavyOrSpecial =
+    player.action === 'kick' ||
+    player.action === 'sweep' ||
+    player.action === 'special' ||
+    player.action === 'grab';
   const incomingThreat =
     (isBusyAttacking(player.action) && dist < 2.95) || incomingProjectile;
+  const playerWhiffing =
+    isBusyAttacking(player.action) &&
+    !incomingProjectile &&
+    dist >= 2.05 &&
+    dist <= 3.6 &&
+    player.actionTimer > player.actionDuration * 0.45;
+  const cpuCornered = Math.abs(cpu.x) > 5.2 && dist < 2.9;
 
-  // Combo chain follow-up on higher stages when CPU just landed a hit in close range
+  // 2-3 hit Jab -> Kick -> 5th Signature Move / Super combo chaining
   const canChainCombo =
-    dist < 2.25 &&
-    cpu.comboChainTimer > 0 &&
-    cpu.action === 'idle' &&
-    player.hitstunTimer > 0.05;
+    dist < 2.35 &&
+    (cpu.comboChainTimer > 0 || player.hitstunTimer > 0.04) &&
+    (cpu.action === 'idle' || cpu.action === 'walk') &&
+    player.hitstunTimer > 0.03;
 
   if (canChainCombo && rng() < params.comboFrequency) {
-    if (cpu.shakti >= 100 && rng() < params.superChance * 0.6) {
+    if (cpu.shakti >= 100 && rng() < params.superChance * 0.85) {
       input.superMove = true;
-    } else if (cpu.specialCooldown <= 0 && rng() < params.specialChance * 0.7) {
+    } else if (cpu.comboStep >= 2 && cpu.specialCooldown <= 0 && rng() < Math.min(0.92, params.specialChance + 0.35)) {
       input.special = true;
-    } else if (cpu.comboStep >= 1 || dist > 1.45) {
+    } else if (cpu.comboStep === 1) {
+      if (rng() < 0.34) {
+        // Low sweep mixup mid-combo
+        input.down = true;
+        input.kick = true;
+      } else {
+        input.kick = true;
+      }
+    } else if (dist > 1.55) {
       input.kick = true;
     } else {
       input.punch = true;
     }
-    state.aiThinkTimer = Math.max(0.08, params.thinkMin * 0.85);
+    state.aiThinkTimer = Math.max(0.075, params.thinkMin * 0.72);
   } else if (state.aiThinkTimer <= 0) {
     state.aiThinkTimer = params.thinkMin + rng() * (params.thinkMax - params.thinkMin);
 
-    // Strategic 33%-capped Super Power activation:
-    // Higher stages save & trigger Super decisively when opponent is open, whiffing, or in KO range (<= 33% HP)
+    // Decisive Super Power execution when Shakti is 100% and opponent is in effective range or recovering
     const playerInSuperKoRange =
-      player.hp <= Math.ceil(player.maxHp * SUPER_MAX_HP_DAMAGE_RATIO) + 4;
-    const playerVulnerable =
+      player.hp <= Math.ceil(player.maxHp * SUPER_MAX_HP_DAMAGE_RATIO) + 8;
+    const playerRecoveringOrOpen =
       player.hitstunTimer > 0 ||
-      player.action === 'knockdown' ||
+      player.blockstunTimer > 0 ||
+      player.action === 'getup' ||
+      playerWhiffing ||
       !isBusyAttacking(player.action);
-    const effectiveSuperChance = playerInSuperKoRange
-      ? Math.min(0.98, params.superChance + 0.12)
-      : params.stageTier >= 3 && !playerVulnerable
-        ? params.superChance * 0.45
-        : params.superChance;
+    const effectiveSuperChance = playerInSuperKoRange || playerWhiffing
+      ? Math.min(0.98, params.superChance + 0.16)
+      : playerRecoveringOrOpen
+        ? Math.min(0.96, params.superChance + 0.08)
+        : params.superChance * 0.65;
 
-    if (incomingThreat && rng() < params.blockChance + params.dodgeChance) {
-      // Defensive policy: jump-dodge projectiles/swings, Dharna Shield, or tight guard block
-      if (incomingProjectile && cpu.y === 0 && rng() < params.dodgeChance) {
+    // Reactive blocking & evasion (~45-55% on Stage 1 Normal, scaling higher on later stages)
+    const reactiveDefenseChance = playerHeavyOrSpecial
+      ? Math.min(0.94, params.blockChance + params.dodgeChance + 0.04)
+      : Math.min(0.92, params.blockChance + params.dodgeChance);
+
+    if (cpu.shakti >= 100 && dist <= params.superRange && playerRecoveringOrOpen && rng() < effectiveSuperChance) {
+      input.superMove = true;
+    } else if (incomingThreat && rng() < reactiveDefenseChance) {
+      // Corner trap escape: jump over or dash away when cornered
+      if (cpuCornered && cpu.y === 0 && rng() < 0.55) {
+        state.aiCurrentIntent = 'jump_in';
+        state.aiIntentTimer = 0.32;
+        input.up = true;
+      } else if (incomingProjectile && cpu.y === 0 && rng() < Math.max(0.32, params.dodgeChance + 0.2)) {
         state.aiCurrentIntent = 'jump_in';
         state.aiIntentTimer = 0.34;
         input.up = true;
-      } else if (cpu.id === 'neta' && cpu.specialCooldown <= 0 && rng() < 0.65) {
+      } else if (cpu.id === 'neta' && cpu.specialCooldown <= 0 && rng() < 0.72) {
         input.special = true;
-      } else if (rng() < params.dodgeChance * 0.55) {
+      } else if (!cpuCornered && rng() < params.dodgeChance / Math.max(0.1, params.blockChance + params.dodgeChance)) {
+        // Quick back-dash evade to bait whiff and punish
         state.aiCurrentIntent = 'retreat';
-        state.aiIntentTimer = 0.26;
+        state.aiIntentTimer = 0.22;
       } else {
         state.aiCurrentIntent = 'block';
-        state.aiIntentTimer = 0.28;
+        state.aiIntentTimer = 0.24;
       }
-    } else if (
-      cpu.shakti >= 100 &&
-      dist < params.superRange &&
-      rng() < effectiveSuperChance
-    ) {
-      input.superMove = true;
-    } else if (dist > 2.65) {
-      // Long-range policy: throw signature projectile or close gap aggressively on higher stages
+    } else if (playerWhiffing) {
+      // Whiff punish: dash in immediately or fire ranged signature punish
+      if (cpu.shakti >= 100 && dist <= params.superRange + 0.4) {
+        input.superMove = true;
+      } else if (cpu.specialCooldown <= 0 && dist <= 4.4 && rng() < Math.min(0.9, params.specialChance + 0.3)) {
+        input.special = true;
+      } else if (dist <= 2.35) {
+        input.kick = true;
+      } else {
+        state.aiCurrentIntent = 'approach';
+        state.aiIntentTimer = 0.34;
+      }
+    } else if (cpuCornered && cpu.y === 0 && rng() < 0.42) {
+      // Proactively jump out of corner pressure
+      state.aiCurrentIntent = 'jump_in';
+      state.aiIntentTimer = 0.34;
+      input.up = true;
+    } else if (dist > 2.55) {
+      // Active spacing & pursuit: close gap swiftly or pressure with ranged 5th Signature Move
       const rangedSpecial =
         cpu.id === 'mausi' ||
         cpu.id === 'billa' ||
@@ -2441,37 +2485,46 @@ export function computeCpuInput(
         cpu.id === 'adi';
       if (rangedSpecial && cpu.specialCooldown <= 0 && dist < 5.4 && rng() < params.specialChance) {
         input.special = true;
-      } else if (rng() < 0.14 + params.stageTier * 0.03) {
+      } else if (rng() < 0.16 + params.stageTier * 0.03) {
         state.aiCurrentIntent = 'jump_in';
-        state.aiIntentTimer = 0.35;
+        state.aiIntentTimer = 0.34;
         input.up = true;
       } else {
         state.aiCurrentIntent = 'approach';
-        state.aiIntentTimer = 0.45;
+        state.aiIntentTimer = 0.42;
       }
-    } else if (dist <= 2.65) {
-      // Close/mid combat policy with stage-scaled combo frequency
+    } else {
+      // Close/mid combat policy: aggressive mixups (Jab, Kick, Low Sweep, Grab, 5th Signature Move)
       const roll = rng();
-      if (cpu.specialCooldown <= 0 && roll < params.specialChance * 0.55) {
+      if (cpu.specialCooldown <= 0 && roll < params.specialChance * 0.58) {
         input.special = true;
-      } else if (dist < 1.5 && roll < params.specialChance * 0.55 + params.grabChance) {
+      } else if (dist < 1.55 && roll < params.specialChance * 0.58 + params.grabChance) {
         input.grab = true;
       } else if (roll < params.attackChance) {
-        if (dist < 1.7 && rng() < 0.55) {
+        const mixupRoll = rng();
+        if (dist < 1.75 && mixupRoll < 0.45) {
           input.punch = true;
+        } else if (mixupRoll < 0.72) {
+          input.kick = true;
         } else {
+          // Low sweep crouch-kick mixup
+          input.down = true;
           input.kick = true;
         }
-        // Higher stages shorten follow-up think window to chain punch->kick->special combos
+        // Shorten follow-up think window to chain multi-hit combos cleanly
         if (rng() < params.comboFrequency) {
-          state.aiThinkTimer = Math.max(0.08, params.thinkMin * 0.72);
+          state.aiThinkTimer = Math.max(0.075, params.thinkMin * 0.65);
         }
-      } else if (rng() < 0.35) {
+      } else if (dist > 1.75) {
+        // Maintain tight pressure spacing instead of standing idle
+        state.aiCurrentIntent = 'approach';
+        state.aiIntentTimer = 0.24;
+      } else if (!cpuCornered && rng() < 0.48) {
         state.aiCurrentIntent = 'retreat';
-        state.aiIntentTimer = 0.32;
+        state.aiIntentTimer = 0.2;
       } else {
-        state.aiCurrentIntent = 'idle';
-        state.aiIntentTimer = 0.22;
+        state.aiCurrentIntent = 'block';
+        state.aiIntentTimer = 0.18;
       }
     }
   }
@@ -2485,6 +2538,10 @@ export function computeCpuInput(
       if (playerRightOfCpu) input.left = true;
       else input.right = true;
     }
+  } else if (dist > 2.65 && difficulty !== 'easy') {
+    // Never stand passively across the arena on Normal/Hard — keep closing strike range
+    if (playerRightOfCpu) input.right = true;
+    else input.left = true;
   }
 
   return input;

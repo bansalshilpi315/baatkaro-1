@@ -6,29 +6,41 @@ export const ACTIVE_SESSION_STORAGE_KEY = 'desi_dangal_active_session_v1';
 export const GUEST_PROGRESS_STORAGE_KEY = 'desi_dangal_guest_progress_v1';
 export const CREATOR_PROGRESS_STORAGE_KEY = 'desi_dangal_creator_progress_v1';
 
-export const STARTER_FIGHTERS: FighterId[] = ['sheru', 'billa', 'neta', 'anda', 'adi', 'krish'];
+export const STARTER_FIGHTERS: FighterId[] = ['sheru', 'billa', 'anda', 'krish'];
 export const ALL_FIGHTER_IDS: FighterId[] = [
   'sheru',
   'billa',
-  'neta',
   'anda',
-  'mausi',
-  'father',
-  'samyak',
-  'adi',
   'krish',
+  'adi',
+  'mausi',
+  'neta',
+  'samyak',
+  'father',
 ];
 
 export const FIGHTER_UNLOCK_COSTS: Record<FighterId, number> = {
   sheru: 0,
   billa: 0,
-  neta: 0,
   anda: 0,
-  mausi: 100,
-  father: 150,
-  samyak: 250,
-  adi: 0,
   krish: 0,
+  adi: 150,
+  mausi: 350,
+  neta: 600,
+  samyak: 900,
+  father: 1500,
+};
+
+export const FIGHTER_UNLOCK_ADS: Record<FighterId, number> = {
+  sheru: 0,
+  billa: 0,
+  anda: 0,
+  krish: 0,
+  adi: 2,
+  mausi: 4,
+  neta: 7,
+  samyak: 12,
+  father: 15,
 };
 
 export const STAGE_UNLOCK_COSTS: Record<number, number> = {
@@ -56,11 +68,14 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_@-]{3,16}$/;
 
 export type PlayerSessionMode = 'guest' | 'account';
 
+export type RewardedAdProgressMap = Partial<Record<FighterId, number>>;
+
 export interface PlayerAccountRecord {
   displayName: string;
   passwordHash: string;
   coins: number;
   unlockedFighters: FighterId[];
+  rewardedAdProgress?: RewardedAdProgressMap;
   highestStage: number;
   wins: number;
   updatedAt: number;
@@ -69,6 +84,7 @@ export interface PlayerAccountRecord {
 export interface GuestProgressRecord {
   coins: number;
   unlockedFighters: FighterId[];
+  rewardedAdProgress?: RewardedAdProgressMap;
   highestStage: number;
   wins: number;
   updatedAt: number;
@@ -80,6 +96,7 @@ export interface PlayerProfile {
   mode: PlayerSessionMode;
   coins: number;
   unlockedFighters: FighterId[];
+  rewardedAdProgress: RewardedAdProgressMap;
   highestStage: number;
   allModesUnlocked: boolean;
   wins: number;
@@ -183,10 +200,24 @@ function sanitizeNonNegInt(val: unknown, fallback = 0): number {
   return Math.floor(val);
 }
 
+function sanitizeAdProgress(raw: unknown): RewardedAdProgressMap {
+  const result: RewardedAdProgressMap = {};
+  if (!raw || typeof raw !== 'object') return result;
+  const obj = raw as Record<string, unknown>;
+  for (const id of ALL_FIGHTER_IDS) {
+    const val = obj[id];
+    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+      result[id] = Math.min(FIGHTER_UNLOCK_ADS[id] || 99, Math.floor(val));
+    }
+  }
+  return result;
+}
+
 export function createDefaultGuestProgress(): GuestProgressRecord {
   return {
     coins: DEFAULT_GUEST_COINS,
     unlockedFighters: [...STARTER_FIGHTERS],
+    rewardedAdProgress: {},
     highestStage: 1,
     wins: 0,
     updatedAt: Date.now(),
@@ -200,6 +231,7 @@ function createCreatorProfile(existing?: Partial<GuestProgressRecord> | null): P
     mode: 'account',
     coins: Math.max(CREATOR_COINS, sanitizeNonNegInt(existing?.coins, CREATOR_COINS)),
     unlockedFighters: [...ALL_FIGHTER_IDS],
+    rewardedAdProgress: {},
     highestStage: 6,
     allModesUnlocked: true,
     wins: sanitizeNonNegInt(existing?.wins, 0),
@@ -219,6 +251,7 @@ function recordToProfile(
     mode: 'account',
     coins: sanitizeNonNegInt(record.coins, DEFAULT_GUEST_COINS),
     unlockedFighters: sanitizeFighters(record.unlockedFighters),
+    rewardedAdProgress: sanitizeAdProgress(record.rewardedAdProgress),
     highestStage,
     allModesUnlocked: highestStage >= 2,
     wins: sanitizeNonNegInt(record.wins, 0),
@@ -235,6 +268,7 @@ function guestToProfile(guest: GuestProgressRecord): PlayerProfile {
     mode: 'guest',
     coins: sanitizeNonNegInt(guest.coins, DEFAULT_GUEST_COINS),
     unlockedFighters: sanitizeFighters(guest.unlockedFighters),
+    rewardedAdProgress: sanitizeAdProgress(guest.rewardedAdProgress),
     highestStage,
     allModesUnlocked: highestStage >= 2,
     wins: sanitizeNonNegInt(guest.wins, 0),
@@ -274,6 +308,7 @@ function readGuestProgress(storage?: ReadableStorage | null): GuestProgressRecor
     return {
       coins: sanitizeNonNegInt(parsed.coins, DEFAULT_GUEST_COINS),
       unlockedFighters: sanitizeFighters(parsed.unlockedFighters),
+      rewardedAdProgress: sanitizeAdProgress(parsed.rewardedAdProgress),
       highestStage: sanitizeStage(parsed.highestStage, 1),
       wins: sanitizeNonNegInt(parsed.wins, 0),
       updatedAt: sanitizeNonNegInt(parsed.updatedAt, Date.now()),
@@ -493,11 +528,14 @@ export async function createPlayerAccount(
   const displayName = rawUsername.trim();
   const passwordHash = await sha256Hex(password);
 
-  // Migrate current Guest progress (coins, unlocked fighters, stage progress, wins) into new account
+  // Migrate current Guest progress (coins, unlocked fighters, ad progress, stage progress, wins) into new account
   const guest = readGuestProgress(storage);
+  const guestAds = sanitizeAdProgress(guest.rewardedAdProgress);
+  const hasAdProgress = Object.keys(guestAds).length > 0;
   const migratedGuest =
     guest.coins > DEFAULT_GUEST_COINS ||
     guest.unlockedFighters.length > STARTER_FIGHTERS.length ||
+    hasAdProgress ||
     guest.highestStage > 1 ||
     guest.wins > 0;
 
@@ -506,6 +544,7 @@ export async function createPlayerAccount(
     passwordHash,
     coins: Math.max(DEFAULT_GUEST_COINS, guest.coins),
     unlockedFighters: sanitizeFighters([...STARTER_FIGHTERS, ...guest.unlockedFighters]),
+    rewardedAdProgress: guestAds,
     highestStage: Math.max(1, guest.highestStage),
     wins: guest.wins,
     updatedAt: Date.now(),
@@ -626,6 +665,7 @@ export function persistPlayerProfile(
       {
         coins: updated.coins,
         unlockedFighters: updated.unlockedFighters,
+        rewardedAdProgress: sanitizeAdProgress(updated.rewardedAdProgress),
         highestStage: updated.highestStage,
         wins: updated.wins,
         updatedAt: updated.updatedAt,
@@ -649,6 +689,7 @@ export function persistPlayerProfile(
       displayName: updated.displayName,
       coins: updated.coins,
       unlockedFighters: updated.unlockedFighters,
+      rewardedAdProgress: sanitizeAdProgress(updated.rewardedAdProgress),
       highestStage: updated.highestStage,
       wins: updated.wins,
       updatedAt: updated.updatedAt,
@@ -696,6 +737,60 @@ export function applyMatchOutcomeToProfile(
     profile: persistPlayerProfile(nextProfile, storage, cloudAdapter),
     coinsEarned,
     unlockedNextStage: clearedCurrentMax,
+  };
+}
+
+export function getFighterAdProgress(
+  profile: PlayerProfile,
+  fighterId: FighterId,
+): { watched: number; required: number; remaining: number } {
+  const required = FIGHTER_UNLOCK_ADS[fighterId] ?? 0;
+  if (required <= 0 || profile.unlockedFighters.includes(fighterId)) {
+    return { watched: required, required, remaining: 0 };
+  }
+  const watched = Math.min(required, Math.max(0, profile.rewardedAdProgress?.[fighterId] ?? 0));
+  return { watched, required, remaining: Math.max(0, required - watched) };
+}
+
+export function recordRewardedAdWatch(
+  profile: PlayerProfile,
+  fighterId: FighterId,
+  storage?: AccountStorage | null,
+  cloudAdapter?: PlayerCloudAdapter | null,
+): {
+  ok: boolean;
+  profile: PlayerProfile;
+  watched: number;
+  required: number;
+  unlockedNow: boolean;
+} {
+  const required = FIGHTER_UNLOCK_ADS[fighterId] ?? 0;
+  if (profile.unlockedFighters.includes(fighterId) || required <= 0) {
+    return { ok: true, profile, watched: required, required, unlockedNow: false };
+  }
+  const prevWatched = Math.max(0, profile.rewardedAdProgress?.[fighterId] ?? 0);
+  const nextWatched = Math.min(required, prevWatched + 1);
+  const unlockedNow = nextWatched >= required;
+
+  const nextAdMap: RewardedAdProgressMap = {
+    ...profile.rewardedAdProgress,
+    [fighterId]: nextWatched,
+  };
+
+  const nextProfile: PlayerProfile = {
+    ...profile,
+    rewardedAdProgress: nextAdMap,
+    unlockedFighters: unlockedNow
+      ? sanitizeFighters([...profile.unlockedFighters, fighterId])
+      : profile.unlockedFighters,
+  };
+
+  return {
+    ok: true,
+    profile: persistPlayerProfile(nextProfile, storage, cloudAdapter),
+    watched: nextWatched,
+    required,
+    unlockedNow,
   };
 }
 

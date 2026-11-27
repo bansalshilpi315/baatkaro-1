@@ -1034,6 +1034,27 @@ export class DesiAudioEngine {
       osc.stop(t + dur + 0.02);
     });
   }
+
+  public playUnlockFanfare(): void {
+    const ctx = this.ensureSfxContext(true);
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx === notes.length - 1 ? 'triangle' : 'sine';
+      const t = now + idx * 0.065;
+      const dur = idx === notes.length - 1 ? 0.42 : 0.14;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    });
+  }
 }
 
 export const audioEngine = new DesiAudioEngine();

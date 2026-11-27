@@ -118,26 +118,34 @@ test('createPlayerAccount hashes password with SHA-256, checks uniqueness, and m
   assert.equal(goodLogin.profile?.highestStage, 2);
 });
 
-test('coin unlocking unlocks Laddoo Mausi (100 coins), Principal Man, Samyak, and higher stages safely', async () => {
+test('coin unlocking unlocks Adi (150), Laddoo Mausi (350), Principal Man (1500), and higher stages safely', async () => {
   const storage = createMemoryStorage();
+  assert.deepEqual(STARTER_FIGHTERS, ['sheru', 'billa', 'anda', 'krish']);
+  assert.equal(STARTER_FIGHTERS.includes('adi'), false);
   assert.equal(STARTER_FIGHTERS.includes('mausi'), false);
   const created = await createPlayerAccount('coin_hero', 'pass1234', storage, null);
   assert.equal(created.ok, true);
   let profile = created.profile!;
+  assert.equal(profile.unlockedFighters.includes('adi'), false);
   assert.equal(profile.unlockedFighters.includes('mausi'), false);
 
-  // Unlock Laddoo Mausi with initial 100 coins
+  // Earn 1 win (+125 coins -> 225 coins total) to unlock Adi (150 coins)
+  profile = applyMatchOutcomeToProfile(profile, 'win', 1, storage, null).profile;
+  const unlockAdi = unlockFighterWithCoins(profile, 'adi', storage, null);
+  assert.equal(unlockAdi.ok, true);
+  profile = unlockAdi.profile;
+  assert.ok(profile.unlockedFighters.includes('adi'));
+
+  // Earn coins via wins to unlock Laddoo Mausi (350), Principal Man (1500), and Stage 2
+  for (let i = 0; i < 26; i++) {
+    profile = applyMatchOutcomeToProfile(profile, 'win', 1, storage, null).profile;
+  }
+  assert.ok(profile.coins >= 1950);
+
   const unlockMausi = unlockFighterWithCoins(profile, 'mausi', storage, null);
   assert.equal(unlockMausi.ok, true);
   profile = unlockMausi.profile;
-  assert.equal(profile.coins, 0);
   assert.ok(profile.unlockedFighters.includes('mausi'));
-
-  // Earn coins via wins to unlock Principal Man and Stage 2
-  for (let i = 0; i < 5; i++) {
-    profile = applyMatchOutcomeToProfile(profile, 'win', 1, storage, null).profile;
-  }
-  assert.ok(profile.coins >= 400);
 
   const unlockFather = unlockFighterWithCoins(profile, 'father', storage, null);
   assert.equal(unlockFather.ok, true);

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  formatPreloadStatusLabel,
   PRELOADER_FALLBACK_TIMEOUT_MS,
   SPLASH_STAGE1_MIN_MS,
+  TOTAL_STARTUP_PRELOAD_ASSETS,
   preloadStartupAssets,
 } from '../game/assetPreloader';
 
@@ -13,7 +15,9 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [stage, setStage] = useState<'splash' | 'loading'>('splash');
   const [assetProgress, setAssetProgress] = useState(0);
   const [displayProgress, setDisplayProgress] = useState(0);
-  const [statusText, setStatusText] = useState('Loading 3D Fighters & Arena...');
+  const [statusText, setStatusText] = useState(() =>
+    formatPreloadStatusLabel(0, TOTAL_STARTUP_PRELOAD_ASSETS),
+  );
   const [fadingOut, setFadingOut] = useState(false);
 
   const onCompleteRef = useRef(onComplete);

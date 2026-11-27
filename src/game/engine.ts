@@ -37,8 +37,8 @@ import {
   clearAllMidFightDialogues,
   computeDialogueBubbleOpacity,
   createDialogueTracker,
+  formatCompactDialogueLine,
   getDialogueHudTopSafePx,
-  getEnglishSubtitle,
   getIntroDialoguePhase,
   pauseDialogueTimers,
   pruneExpiredDialogues,
@@ -172,24 +172,24 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Dukaan band karwaunga? Pehle belan jhel!',
   ],
   father: [
-    'Uniform kahan hai?! Diary nikaal abhi!',
-    'Silence in the assembly! Call your parents tomorrow!',
-    'Line seedhi karo — discipline pehle, baaki baad mein!',
+    'Uniform kahan hai?! Diary nikaal!',
+    'Silence in assembly! Call parents!',
+    'Line seedhi karo — discipline first!',
   ],
   samyak: [
-    'Subah 5 baje deadlift, shaam ko Laxmikanth — ready hai kya?',
-    'Body bhi hai aur dimaag bhi — ab dekh IAS ki power!',
-    '18 ghante padhai aur 2 ghante gym — aaj teri Prelims fail!',
+    '5 AM deadlift, sham ko Polity — ready?',
+    'Body bhi, dimaag bhi — feel IAS power!',
+    '18 hrs study, 2 hrs gym — Prelims fail!',
   ],
   adi: [
-    'Last bench se direct knockout dene aaya hoon!',
-    'Attendance kam hai, par combo 100 percent hai!',
-    'Checked shirt press hai, ab tera test hai!',
+    'Last bench se direct knockout dunga!',
+    'Attendance kam, combo 100% solid!',
+    'Plaid shirt press, ab tera test hai!',
   ],
   krish: [
-    'Backbench se aaya hoon, aaj desk bhi hilega!',
-    'Bag shoulder pe, combo ready — aaja bhid le!',
-    'Heavyweight swagger, zero tension — start karo match!',
+    'Backbench se aaya — desk bhi hilega!',
+    'Bag shoulder pe, combo ready — aaja!',
+    'Heavyweight swag, zero tension — fight!',
   ],
 };
 
@@ -197,24 +197,24 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   sheru: ['Arre mera Armani suit!', 'Audit karwaunga iska!'],
   billa: ['Meow!! Yeh cheating hai!', 'Mera swatter kidhar gaya?!'],
   neta: ['Yeh janta pe atyachaar hai!', 'Chashma bach gaya!'],
-  anda: ['Arre shell bachao!', 'Kisi ne farsh pe tel giraya!'],
+  anda: ['Arre shell bachao!', 'Farsh pe tel kisne giraya!'],
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
   father: ['This is gross indiscipline!', 'Wait till I sign your diary!'],
-  samyak: ['Arre mera pre-workout gir gaya!', 'Prelims mein jhatka, Mains mein phod dunga!'],
-  adi: ['Arre meri checked shirt pe dhool mat daal!', 'Back-bencher hoon, abhi comeback dekhna!'],
-  krish: ['Arre mera bag strap kharab mat kar!', 'Sweatshirt jhaad li, ab asli rush dekhna!'],
+  samyak: ['Arre mera pre-workout gir gaya!', 'Prelims jhatka, Mains phod dunga!'],
+  adi: ['Plaid shirt pe dhool mat daal!', 'Back-bencher comeback dekhna!'],
+  krish: ['Mera bag strap kharab mat kar!', 'Sweatshirt jhaad li, rush dekh!'],
 };
 
 const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
   sheru: [
     'Ye le 18% GST ke saath pitai!',
-    'Tera portfolio laal kar diya bhai!',
-    'Bill tera, swag mera — paisa vasool!',
+    'Tera portfolio laal kar diya!',
+    'Bill tera, swag mera — vasool!',
   ],
   billa: [
     'Phatak! Machhar jaise uda diya!',
     'Meow! Swatter ka swaad kaisa laga?',
-    'Aaj chai thandi, par thappad garam!',
+    'Chai thandi, thappad garam!',
   ],
   neta: [
     'Janta ka faisla seedha mukke se!',
@@ -222,34 +222,34 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Chanda nahi, seedha danda milega!',
   ],
   anda: [
-    'Hard-boiled Power! Crack nahi hone dunga!',
-    'Omelette banne se pehle hi flat kar diya!',
+    'Hard-boiled Power! No cracks!',
+    'Omelette se pehle flat kar diya!',
     'Protein punch seedha muh pe!',
   ],
   mausi: [
     'Aaj belan ka VIP treatment milega!',
-    'Meetha kam, sutai zyada — shabaash!',
-    'Aunty se panga? Seedha chappal-belan combo!',
+    'Meetha kam, sutai zyada!',
+    'Aunty se panga? Belan combo!',
   ],
   father: [
-    'Red remark in your diary — signed and sealed!',
-    'Meet me in the Principal office after bell!',
-    'Zero discipline, hundred percent suspension!',
+    'Red remark in your diary — sealed!',
+    'Principal office after the bell!',
+    'Zero discipline, full suspension!',
   ],
   samyak: [
-    'Ye le Laxmikanth 7th Edition seedha muh pe!',
-    'Article 21 tera defense suspend kar diya!',
-    'No pain, no AIR 1 — full beast mode ON!',
+    'Laxmikanth 7th Ed seedha muh pe!',
+    'Article 21: defense suspended!',
+    'No pain, no AIR 1 — beast mode!',
   ],
   adi: [
-    'Ye le Last-Bench Notebook seedha muh pe!',
-    'Proxy lagwa di, ab tera defense gayab!',
-    'Zero syllabus, hundred percent swag combo!',
+    'Last-Bench Notebook seedha muh pe!',
+    'Proxy lagwa di, defense gayab!',
+    'Zero syllabus, 100% swag combo!',
   ],
   krish: [
-    'Ye le Backbench Desk Slam seedha floor pe!',
-    'Last row ka power halka mat samajhna!',
-    'Full brawler energy — ab tera guard gaya!',
+    'Backbench Desk Slam on the floor!',
+    'Last row power halka mat samajh!',
+    'Full brawler energy — guard gaya!',
   ],
 };
 
@@ -258,11 +258,11 @@ const VICTORY_QUIPS: Record<FighterId, string[]> = {
   billa: ['Swatter supremacy! Meow!', 'Clean sweep — ekdum jhakaas!'],
   neta: ['Janta ki jeet! Cutting chai lao!', 'Jhola-chaap power zindabad!'],
   anda: ['Hard-boiled champion, boss!', 'Shell intact, opposition cracked!'],
-  mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai kya?'],
-  father: ['Assembly dismissed! Maintain pin-drop silence.', 'Rustication order stands — bring your parents!'],
-  samyak: ['First attempt mein hi knockout — AIR 1 confirmed!', 'Gym pump bhi solid, Polity bhi solid!'],
-  adi: ['Last bench se seedha top score — game over!', 'Notebook band, opponent flat — Adi on top!'],
-  krish: ['Backbench rush complete — class dismissed!', 'Heavyweight swag from the last row — Krish wins!'],
+  mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai?'],
+  father: ['Assembly dismissed! Pin-drop silence!', 'Rustication stands — call parents!'],
+  samyak: ['First attempt knockout — AIR 1!', 'Gym pump solid, Polity solid!'],
+  adi: ['Last bench se top score — GG!', 'Notebook band — Adi on top!'],
+  krish: ['Backbench rush — class dismissed!', 'Last-row heavyweight — Krish wins!'],
 };
 
 function detectSoftwareWebGL(): boolean {
@@ -1996,11 +1996,10 @@ export class DesiShowdownEngine {
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
     const h = Math.max(this.container.clientHeight, 240);
-    const subtitle = getEnglishSubtitle(text);
+    const compactText = formatCompactDialogueLine(text);
     const isCompact = h <= 520;
-    const bubbleW = isCompact ? 190 : w < 640 ? 208 : 244;
-    const subtitleExtraH = subtitle ? (isCompact ? 14 : 18) : 0;
-    const bubbleH = (isCompact ? 48 : w < 640 ? 58 : 64) + subtitleExtraH;
+    const bubbleW = isCompact ? 228 : w < 640 ? 256 : 310;
+    const bubbleH = isCompact ? 34 : 40;
     const topSafeY = getDialogueHudTopSafePx(h);
 
     const isIntroCloseUp =
@@ -2011,30 +2010,28 @@ export class DesiShowdownEngine {
     let tailSide: 'center' | 'left' | 'right' = 'center';
 
     if (isIntroCloseUp) {
-      // During the Round 1 3/4 over-the-shoulder close-up, the speaking fighter fills the
-      // foreground edge (P1 on left, CPU on right). Position the bubble cleanly BESIDE their
-      // upper head in open space with directional tail pointing at them — zero face overlap!
+      // Position compact 1-line punchline pill cleanly near the fighter's upper HUD corner
       const headPt = this.projectToScreen(f.x, f.y + headTopY * 0.82);
       if (slot === 0) {
-        const anchorX = headPt ? headPt.sx : w * 0.16;
-        rawX = Math.max(anchorX + bubbleW * 0.78, w * 0.37);
+        const anchorX = headPt ? headPt.sx : w * 0.18;
+        rawX = Math.max(anchorX + bubbleW * 0.62, w * 0.34);
         tailSide = 'left';
       } else {
-        const anchorX = headPt ? headPt.sx : w * 0.84;
-        rawX = Math.min(anchorX - bubbleW * 0.78, w * 0.63);
+        const anchorX = headPt ? headPt.sx : w * 0.82;
+        rawX = Math.min(anchorX - bubbleW * 0.62, w * 0.66);
         tailSide = 'right';
       }
       rawY = topSafeY + bubbleH + 6;
     } else {
       const anchorY = f.y + headTopY + 0.85;
       const pt = this.projectToScreen(f.x, anchorY);
-      // Nudge horizontally outward away from the center/opponent so faces stay 100% open
       const isOnLeft = f.x < other.x || (f.x === other.x && slot === 0);
       const outwardNudge = isOnLeft ? -DIALOGUE_OUTWARD_NUDGE_PX : DIALOGUE_OUTWARD_NUDGE_PX;
       const fallbackX = slot === 0 ? w * 0.28 : w * 0.72;
       const fallbackY = topSafeY + bubbleH + 4;
       rawX = (pt ? pt.sx : fallbackX) + outwardNudge;
-      rawY = pt ? pt.sy : fallbackY;
+      // Pin compact bubble neatly in the upper HUD zone so the 3D arena center stays clear
+      rawY = Math.min(pt ? pt.sy : fallbackY, topSafeY + bubbleH + 22);
     }
 
     const clamped = clampDialogueScreenPosition(
@@ -2074,8 +2071,7 @@ export class DesiShowdownEngine {
       id,
       slot,
       speakerName: FIGHTER_CONFIGS[f.id].name,
-      text,
-      subtitle,
+      text: compactText,
       screenX: finalX,
       screenY: finalY,
       opacity: Number(Math.max(0, Math.min(1, opacity)).toFixed(3)),

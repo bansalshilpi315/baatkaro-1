@@ -25,16 +25,16 @@ import {
 } from './combat';
 import type { FighterId } from './types';
 
-test('Adi is registered at index 7 of the 9-fighter roster with balanced agile stats, NOTEBOOK SMASH, and ADI LAST-BENCH STRIKE', () => {
-  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 playable fighters with Krish at the end');
+test('Adi is registered in the 9-playable roster with 160 HP, NOTEBOOK SMASH, and ADI LAST-BENCH STRIKE', () => {
+  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 playable fighters');
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi', 'krish'],
+    ['sheru', 'billa', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
   );
 
   const adi = FIGHTER_CONFIGS.adi;
   assert.equal(adi.name, 'Adi');
-  assert.equal(adi.maxHp, 120);
+  assert.equal(adi.maxHp, 160);
   assert.equal(adi.attackPowerMultiplier, 1.12);
   assert.equal(adi.special.id, 'notebook_smash');
   assert.equal(adi.special.shortLabel, 'NOTEBOOK SMASH');

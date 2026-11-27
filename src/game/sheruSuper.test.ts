@@ -126,12 +126,13 @@ test('Sheru Super deals exactly 33% opponent maxHp (~45% combo + ~55% finisher) 
   }
 });
 
-test('Sheru Super cleanly KOs opponent at <= 33% HP on final snap and leaves 34% HP opponent alive at 1 HP', () => {
-  // Case A: Opponent at exact 33% HP (33/100) -> KO on final snap
+test('Sheru Super cleanly KOs opponent at <= 33% HP on final snap and leaves 33%+1 HP opponent alive at 1 HP', () => {
+  // Case A: Opponent at exact 33% HP -> KO on final snap
   const koState = createMatchState('sheru', 'billa', true);
   const [sheruA, billaA] = koState.fighters;
+  const superCap = computeTotalSuperDamage(billaA.maxHp);
   sheruA.shakti = 100;
-  billaA.hp = 33;
+  billaA.hp = superCap;
 
   const superInput = createEmptyInput();
   superInput.superMove = true;
@@ -155,17 +156,17 @@ test('Sheru Super cleanly KOs opponent at <= 33% HP on final snap and leaves 34%
   assert.equal(koState.roundWinnerSlot, 0);
   assert.equal(koState.p1RoundsWon, 1);
 
-  // Case B: Opponent at 34/100 HP (1 HP above 33%) -> survives with exact 1 HP
+  // Case B: Opponent at 33% cap + 1 HP -> survives with exact 1 HP
   const surviveState = createMatchState('sheru', 'billa', true);
   const [sheruB, billaB] = surviveState.fighters;
   sheruB.shakti = 100;
-  billaB.hp = 34;
+  billaB.hp = superCap + 1;
 
   stepMatch(surviveState, [superInput, idle], 0.02);
   for (let i = 0; i < 200; i++) {
     stepMatch(surviveState, [idle, idle], 0.04);
   }
-  assert.equal(billaB.hp, 1, 'Opponent at 34/100 HP must survive exact 33% cap with 1 HP left');
+  assert.equal(billaB.hp, 1, 'Opponent at 33% cap + 1 HP must survive exact 33% cap with 1 HP left');
   assert.equal(surviveState.phase, 'fighting');
 });
 

@@ -144,12 +144,13 @@ test('Anda Bhai Super deals exact 33% maxHp (~25% lightning + ~75% red-brick wal
   }
 });
 
-test('Anda Bhai Super cleanly KOs opponent at <= 33% HP and leaves 34% HP opponent at exact 1 HP', () => {
-  // Case A: Exact 33% HP (33/100) -> KO after wall crush
+test('Anda Bhai Super cleanly KOs opponent at <= 33% HP and leaves 33%+1 HP opponent at exact 1 HP', () => {
+  // Case A: Exact 33% HP -> KO after wall crush
   const koState = createMatchState('anda', 'billa', true);
   const [andaA, billaA] = koState.fighters;
+  const superCap = computeTotalSuperDamage(billaA.maxHp);
   andaA.shakti = 100;
-  billaA.hp = 33;
+  billaA.hp = superCap;
 
   const superInput = createEmptyInput();
   superInput.superMove = true;
@@ -173,17 +174,17 @@ test('Anda Bhai Super cleanly KOs opponent at <= 33% HP and leaves 34% HP oppone
   assert.equal(koState.roundWinnerSlot, 0);
   assert.equal(koState.p1RoundsWon, 1);
 
-  // Case B: 34/100 HP -> survives exact 33% cap with 1 HP
+  // Case B: 1 HP above exact 33% cap -> survives with 1 HP
   const surviveState = createMatchState('anda', 'billa', true);
   const [andaB, billaB] = surviveState.fighters;
   andaB.shakti = 100;
-  billaB.hp = 34;
+  billaB.hp = superCap + 1;
 
   stepMatch(surviveState, [superInput, idle], 0.02);
   for (let i = 0; i < 130; i++) {
     stepMatch(surviveState, [idle, idle], 0.04);
   }
-  assert.equal(billaB.hp, 1, 'Opponent at 34/100 HP must survive with 1 HP left');
+  assert.equal(billaB.hp, 1, 'Opponent at 33% cap + 1 HP must survive with 1 HP left');
   assert.equal(surviveState.phase, 'fighting');
 });
 
@@ -299,12 +300,13 @@ test('Laddoo Mausi Super deals exact 33% maxHp (~50% laddoo storm + ~50% Mega La
   }
 });
 
-test('Laddoo Mausi Super cleanly KOs opponent at <= 33% HP and leaves 34% HP opponent at exact 1 HP', () => {
-  // Case A: Exact 33% HP (33/100) -> KO on Mega Laddoo finisher
+test('Laddoo Mausi Super cleanly KOs opponent at <= 33% HP and leaves 33%+1 HP opponent at exact 1 HP', () => {
+  // Case A: Exact 33% HP -> KO on Mega Laddoo finisher
   const koState = createMatchState('mausi', 'billa', true);
   const [mausiA, billaA] = koState.fighters;
+  const superCap = computeTotalSuperDamage(billaA.maxHp);
   mausiA.shakti = 100;
-  billaA.hp = 33;
+  billaA.hp = superCap;
 
   const superInput = createEmptyInput();
   superInput.superMove = true;
@@ -328,17 +330,17 @@ test('Laddoo Mausi Super cleanly KOs opponent at <= 33% HP and leaves 34% HP opp
   assert.equal(koState.roundWinnerSlot, 0);
   assert.equal(koState.p1RoundsWon, 1);
 
-  // Case B: 34/100 HP -> survives exact 33% cap with 1 HP
+  // Case B: 1 HP above exact 33% cap -> survives with 1 HP
   const surviveState = createMatchState('mausi', 'billa', true);
   const [mausiB, billaB] = surviveState.fighters;
   mausiB.shakti = 100;
-  billaB.hp = 34;
+  billaB.hp = superCap + 1;
 
   stepMatch(surviveState, [superInput, idle], 0.02);
   for (let i = 0; i < 140; i++) {
     stepMatch(surviveState, [idle, idle], 0.04);
   }
-  assert.equal(billaB.hp, 1, 'Opponent at 34/100 HP must survive with 1 HP left');
+  assert.equal(billaB.hp, 1, 'Opponent at 33% cap + 1 HP must survive with 1 HP left');
   assert.equal(surviveState.phase, 'fighting');
 });
 

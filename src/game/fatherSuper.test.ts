@@ -19,11 +19,11 @@ import {
 } from './fatherSuper';
 import type { FighterId } from './types';
 
-test('Principal Man (id: father) & School Assembly Ground are registered in the 9-fighter roster and 6 stages', () => {
-  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 unique fighters including Krish at the end');
+test('Principal Man (id: father) & School Assembly Ground are registered in the 9-playable roster and 6 stages', () => {
+  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 unique playable fighters');
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi', 'krish'],
+    ['sheru', 'billa', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
   );
   assert.equal(STAGE_LIST.length, 6);
 
@@ -33,7 +33,7 @@ test('Principal Man (id: father) & School Assembly Ground are registered in the 
     FIGHTER_LIST.every((f) => !/father roy|dolphus/i.test(f.name)),
     'No fighter display name may contain leftover Father Roy Dolphus text',
   );
-  assert.equal(father.maxHp, 130, 'Principal Man must have boss-tier 130 HP (strongest)');
+  assert.equal(father.maxHp, 200, 'Principal Man must have boss-tier 200 HP (strongest)');
   assert.equal(father.attackPowerMultiplier, 1.15, 'Principal Man must have 1.15x attack power');
   assert.ok(
     father.maxHp > FIGHTER_CONFIGS.samyak.maxHp,

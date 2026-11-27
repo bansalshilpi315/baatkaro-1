@@ -12,9 +12,28 @@ export const DIALOGUE_OUTWARD_NUDGE_PX = 28;
 export const MID_FIGHT_RETRIGGER_COOLDOWN_MS = 2500;
 export const DIALOGUE_VIEWPORT_PADDING = 12;
 export const DIALOGUE_TAIL_HEIGHT = 10;
+export const MAX_ONSCREEN_DIALOGUE_CHARS = 48;
 
 export function getDialogueHudTopSafePx(viewportH: number): number {
   return viewportH <= 520 ? DIALOGUE_HUD_TOP_SAFE_COMPACT_PX : DIALOGUE_HUD_TOP_SAFE_PX;
+}
+
+/**
+ * Formats any live on-screen fighter dialogue into a crisp, single-line punchline
+ * (max 48 chars, zero multi-line paragraphs) so combat bubbles never clutter the arena.
+ */
+export function formatCompactDialogueLine(
+  raw: string,
+  maxChars = MAX_ONSCREEN_DIALOGUE_CHARS,
+): string {
+  const singleLine = raw.replace(/\s+/g, ' ').trim();
+  if (singleLine.length <= maxChars) return singleLine;
+  const limit = Math.max(8, maxChars - 1);
+  const sliced = singleLine.slice(0, limit);
+  const lastSpace = sliced.lastIndexOf(' ');
+  const trimmed = (lastSpace >= Math.floor(limit * 0.6) ? sliced.slice(0, lastSpace) : sliced)
+    .replace(/[\s,—–-]+$/, '');
+  return `${trimmed}…`;
 }
 
 export interface ActiveFighterDialogue {
@@ -125,7 +144,7 @@ export function triggerMidFightDialogue(
   tracker.slots[slot] = {
     id: tracker.nextId++,
     slot,
-    text,
+    text: formatCompactDialogueLine(text),
     startedAt: nowMs,
     expiresAt: nowMs + MID_FIGHT_DIALOGUE_DURATION_MS,
     smoothX: null,

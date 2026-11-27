@@ -28,6 +28,7 @@ import {
   loadActivePlayerProfile,
   loginPlayerAccount,
   logoutToGuest,
+  recordRewardedAdWatch,
   unlockFighterWithCoins,
   unlockStageWithCoins,
   type PlayerProfile,
@@ -51,14 +52,14 @@ import { useFullscreen } from './utils/fullscreen';
 import { loadAudioPrefs, saveAudioPrefs } from './utils/safeStorage';
 
 const INITIAL_HUD: HudSnapshot = {
-  p1Hp: 110,
-  p1MaxHp: 110,
+  p1Hp: 155,
+  p1MaxHp: 155,
   p1Shakti: 0,
   p1SpecialCd: 0,
   p1SpecialMaxCd: 3.5,
   p1Combo: 0,
-  p2Hp: 100,
-  p2MaxHp: 100,
+  p2Hp: 150,
+  p2MaxHp: 150,
   p2Shakti: 0,
   p2SpecialCd: 0,
   p2SpecialMaxCd: 3.5,
@@ -634,14 +635,33 @@ export default function App() {
     }
   }, []);
 
-  const handleUnlockFighter = useCallback((id: FighterId) => {
+  const handleUnlockFighter = useCallback((id: FighterId): boolean => {
     audioEngine.unlock();
     const res = unlockFighterWithCoins(playerProfileRef.current, id);
     if (res.ok) {
-      audioEngine.playUiClick();
+      audioEngine.playUnlockFanfare();
       playerProfileRef.current = res.profile;
       setPlayerProfile(res.profile);
+      return true;
     }
+    return false;
+  }, []);
+
+  const handleWatchAdUnlock = useCallback((id: FighterId) => {
+    audioEngine.unlock();
+    const res = recordRewardedAdWatch(playerProfileRef.current, id);
+    playerProfileRef.current = res.profile;
+    setPlayerProfile(res.profile);
+    if (res.unlockedNow) {
+      audioEngine.playUnlockFanfare();
+    } else {
+      audioEngine.playUiClick();
+    }
+    return {
+      watched: res.watched,
+      required: res.required,
+      unlockedNow: res.unlockedNow,
+    };
   }, []);
 
   const handleUnlockStage = useCallback((stageNumber: number) => {
@@ -1053,6 +1073,7 @@ export default function App() {
           onSelectStage={handleSelectStage}
           onSelectDifficulty={handleSelectDifficulty}
           onUnlockFighter={handleUnlockFighter}
+          onWatchAdUnlock={handleWatchAdUnlock}
           onUnlockStage={handleUnlockStage}
           onToggleGlobalMute={handleToggleGlobalMute}
           onToggleFullscreen={toggleFullscreen}

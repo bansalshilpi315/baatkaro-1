@@ -1,4 +1,14 @@
-export { FIGHTER_CONFIGS, FIGHTER_LIST, STAGE_CONFIGS, STAGE_LIST } from './configs';
+export {
+  FIGHTER_CONFIGS,
+  FIGHTER_LIST,
+  ROSTER_SLOTS,
+  STAGE_CONFIGS,
+  STAGE_LIST,
+  UTKARSH_TEASER_SLOT,
+  type ComingFutureRosterSlot,
+  type PlayableRosterSlot,
+  type RosterSlot,
+} from './configs';
 export { buildFighterRig } from './builders';
 export { animateFighterRig, type FighterRig } from './rig';
 export { getFighterPortraitDataUrl } from './faceCanvas';

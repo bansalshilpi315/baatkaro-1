@@ -140,11 +140,12 @@ test('Blue Billa "CHIRKUT CHAOS" deals exact 33% opponent maxHp (~45% smoke tick
   }
 });
 
-test('Blue Billa Super cleanly KOs opponent at <= 33% HP on pop finisher and leaves 34% HP opponent alive at 1 HP', () => {
+test('Blue Billa Super cleanly KOs opponent at <= 33% HP on pop finisher and leaves 33%+1 HP opponent alive at 1 HP', () => {
   const koState = createMatchState('billa', 'billa', true);
   const [billaA, oppA] = koState.fighters;
+  const superCap = computeTotalSuperDamage(oppA.maxHp);
   billaA.shakti = 100;
-  oppA.hp = 33; // 33/100 exact 33%
+  oppA.hp = superCap;
 
   const superInput = createEmptyInput();
   superInput.superMove = true;
@@ -167,17 +168,17 @@ test('Blue Billa Super cleanly KOs opponent at <= 33% HP on pop finisher and lea
   assert.equal(koState.phase, 'ko_freeze');
   assert.equal(koState.roundWinnerSlot, 0);
 
-  // Case B: Opponent at 34/100 HP -> survives at 1 HP
+  // Case B: Opponent at 33% cap + 1 HP -> survives at 1 HP
   const surviveState = createMatchState('billa', 'billa', true);
   const [billaB, oppB] = surviveState.fighters;
   billaB.shakti = 100;
-  oppB.hp = 34;
+  oppB.hp = superCap + 1;
 
   stepMatch(surviveState, [superInput, idle], 0.02);
   for (let i = 0; i < 125; i++) {
     stepMatch(surviveState, [idle, idle], 0.04);
   }
-  assert.equal(oppB.hp, 1, 'Opponent at 34/100 HP must survive exact 33% cap with 1 HP left');
+  assert.equal(oppB.hp, 1, 'Opponent at 33% cap + 1 HP must survive exact 33% cap with 1 HP left');
   assert.equal(surviveState.phase, 'fighting');
 });
 
@@ -302,11 +303,12 @@ test('Garib Sena Neta "VANS, ATTACK!" deals exact 33% opponent maxHp (~45% van h
   }
 });
 
-test('Garib Sena Neta Super cleanly KOs opponent at <= 33% HP on Lead Van finisher and leaves 34% HP opponent alive at 1 HP', () => {
+test('Garib Sena Neta Super cleanly KOs opponent at <= 33% HP on Lead Van finisher and leaves 33%+1 HP opponent alive at 1 HP', () => {
   const koState = createMatchState('neta', 'billa', true);
   const [netaA, oppA] = koState.fighters;
+  const superCap = computeTotalSuperDamage(oppA.maxHp);
   netaA.shakti = 100;
-  oppA.hp = 33;
+  oppA.hp = superCap;
 
   const superInput = createEmptyInput();
   superInput.superMove = true;
@@ -329,17 +331,17 @@ test('Garib Sena Neta Super cleanly KOs opponent at <= 33% HP on Lead Van finish
   assert.equal(koState.phase, 'ko_freeze');
   assert.equal(koState.roundWinnerSlot, 0);
 
-  // Case B: 34/100 HP -> survives with 1 HP
+  // Case B: 33% cap + 1 HP -> survives with 1 HP
   const surviveState = createMatchState('neta', 'billa', true);
   const [netaB, oppB] = surviveState.fighters;
   netaB.shakti = 100;
-  oppB.hp = 34;
+  oppB.hp = superCap + 1;
 
   stepMatch(surviveState, [superInput, idle], 0.02);
   for (let i = 0; i < 130; i++) {
     stepMatch(surviveState, [idle, idle], 0.04);
   }
-  assert.equal(oppB.hp, 1, 'Opponent at 34/100 HP must survive exact 33% cap with 1 HP left');
+  assert.equal(oppB.hp, 1, 'Opponent at 33% cap + 1 HP must survive exact 33% cap with 1 HP left');
   assert.equal(surviveState.phase, 'fighting');
 });
 

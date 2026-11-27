@@ -23,16 +23,16 @@ import {
 } from './combat';
 import type { FighterId } from './types';
 
-test('Krish is appended after Adi at the end of the 9-fighter roster with stocky brawler stats, DESK SLAM, and KRISH BACKBENCH RUSH', () => {
+test('Krish is registered in the 9-playable roster with 140 HP, DESK SLAM, and KRISH BACKBENCH RUSH', () => {
   assert.equal(FIGHTER_LIST.length, 9);
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi', 'krish'],
+    ['sheru', 'billa', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
   );
 
   const krish = FIGHTER_CONFIGS.krish;
   assert.equal(krish.name, 'Krish');
-  assert.equal(krish.maxHp, 125);
+  assert.equal(krish.maxHp, 140);
   assert.equal(krish.attackPowerMultiplier, 1.12);
   assert.equal(krish.special.id, 'desk_slam');
   assert.equal(krish.special.shortLabel, 'DESK SLAM');

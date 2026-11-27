@@ -807,6 +807,85 @@
   }
 }
 
+/* =========================================================================
+   ANIMATED PHONE-ROTATION OVERLAY (MOBILE PORTRAIT PROMPT)
+   ========================================================================= */
+.portrait-rotate-guard {
+  display: flex;
+}
+
+@media (orientation: landscape) {
+  .portrait-rotate-guard {
+    display: none !important;
+  }
+}
+
+@keyframes phoneRotate90 {
+  0%,
+  16% {
+    transform: rotate(0deg) scale(1);
+    box-shadow: 0 0 22px rgba(250, 204, 21, 0.5), inset 0 0 10px rgba(250, 204, 21, 0.18);
+  }
+  48%,
+  72% {
+    transform: rotate(-90deg) scale(1.04);
+    box-shadow: 0 0 32px rgba(250, 204, 21, 0.85), inset 0 0 14px rgba(239, 68, 68, 0.25);
+  }
+  92%,
+  100% {
+    transform: rotate(0deg) scale(1);
+    box-shadow: 0 0 22px rgba(250, 204, 21, 0.5), inset 0 0 10px rgba(250, 204, 21, 0.18);
+  }
+}
+
+@keyframes rotateArrowPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.96) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04) rotate(12deg);
+  }
+}
+
+@keyframes phoneScreenPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scaleX(0.84);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.phone-tilt-anim {
+  animation: phoneRotate90 2.2s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+}
+
+.phone-arrows-pulse {
+  animation: rotateArrowPulse 2.2s ease-in-out infinite;
+}
+
+.phone-halo-ring {
+  animation: shaktiReadyPulse 2.2s ease-in-out infinite;
+}
+
+.phone-screen-line-1 {
+  animation: phoneScreenPulse 1.4s ease-in-out infinite;
+}
+
+.phone-screen-line-2 {
+  animation: phoneScreenPulse 1.4s ease-in-out 0.22s infinite;
+}
+
+.phone-screen-line-3 {
+  animation: phoneScreenPulse 1.4s ease-in-out 0.44s infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ticker,
   .comic-pop-text,
@@ -817,7 +896,13 @@
   .arcade-banner-ko,
   .arcade-banner-winner,
   .cta-pulse,
-  .shakti-ready-pulse {
+  .shakti-ready-pulse,
+  .phone-tilt-anim,
+  .phone-arrows-pulse,
+  .phone-halo-ring,
+  .phone-screen-line-1,
+  .phone-screen-line-2,
+  .phone-screen-line-3 {
     animation: none;
   }
 }

@@ -6,7 +6,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Sheru Bhai',
     tagline: 'White Lion Boss · All-White Suit & Gold Bling',
     titleBadge: 'SYSTUMM KING',
-    maxHp: 110,
+    maxHp: 155,
     walkSpeed: 4.5,
     jumpVelocity: 10.8,
     punchDamage: 9,
@@ -43,7 +43,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Blue Billa',
     tagline: 'Lanky Sky-Blue Cat · Giant Flyswatter Chaos',
     titleBadge: 'SWATTER BILLA',
-    maxHp: 100,
+    maxHp: 150,
     walkSpeed: 5.1,
     jumpVelocity: 11.4,
     punchDamage: 8,
@@ -80,7 +80,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Garib Sena Neta',
     tagline: 'Jhola-Chaap Aam Aadmi · Unstoppable Dharna',
     titleBadge: 'JHOLA NETA',
-    maxHp: 120,
+    maxHp: 175,
     walkSpeed: 4.1,
     jumpVelocity: 10.2,
     punchDamage: 9,
@@ -117,7 +117,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Anda Bhai',
     tagline: 'Dapper Humpty · Cracks Under Pressure',
     titleBadge: 'CRACK KING',
-    maxHp: 115,
+    maxHp: 145,
     walkSpeed: 4.3,
     jumpVelocity: 10.5,
     punchDamage: 10,
@@ -154,7 +154,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Laddoo Mausi',
     tagline: 'Heavyweight Sweet-Shop Boss · Pinpoint Belan',
     titleBadge: 'BELAN QUEEN',
-    maxHp: 105,
+    maxHp: 165,
     walkSpeed: 4.6,
     jumpVelocity: 10.6,
     punchDamage: 8,
@@ -191,7 +191,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Principal Man',
     tagline: 'Strict School Principal · White Cassock & Nehru Vest',
     titleBadge: 'PRINCIPAL SIR',
-    maxHp: 130,
+    maxHp: 200,
     attackPowerMultiplier: 1.15,
     walkSpeed: 4.55,
     jumpVelocity: 10.7,
@@ -230,7 +230,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Samyak',
     tagline: 'Bodybuilder & UPSC/IAS Aspirant · Beast Mode',
     titleBadge: 'FUTURE IAS · AIR 1',
-    maxHp: 125,
+    maxHp: 185,
     attackPowerMultiplier: 1.1,
     walkSpeed: 4.5,
     jumpVelocity: 10.9,
@@ -269,7 +269,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Adi',
     tagline: 'Last-Bench Legend · Open Plaid Shirt & Olive Graphic Tee',
     titleBadge: 'LAST-BENCH ACE',
-    maxHp: 120,
+    maxHp: 160,
     attackPowerMultiplier: 1.12,
     walkSpeed: 4.8,
     jumpVelocity: 11.0,
@@ -308,7 +308,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     name: 'Krish',
     tagline: 'Backbench Brawler · Olive Crewneck & Charcoal Joggers',
     titleBadge: 'BACKBENCH TITAN',
-    maxHp: 125,
+    maxHp: 140,
     attackPowerMultiplier: 1.12,
     walkSpeed: 4.55,
     jumpVelocity: 10.6,
@@ -347,13 +347,59 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
 export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.sheru,
   FIGHTER_CONFIGS.billa,
-  FIGHTER_CONFIGS.neta,
   FIGHTER_CONFIGS.anda,
-  FIGHTER_CONFIGS.mausi,
-  FIGHTER_CONFIGS.father,
-  FIGHTER_CONFIGS.samyak,
-  FIGHTER_CONFIGS.adi,
   FIGHTER_CONFIGS.krish,
+  FIGHTER_CONFIGS.adi,
+  FIGHTER_CONFIGS.mausi,
+  FIGHTER_CONFIGS.neta,
+  FIGHTER_CONFIGS.samyak,
+  FIGHTER_CONFIGS.father,
+];
+
+export interface ComingFutureRosterSlot {
+  kind: 'coming_future';
+  id: 'utkarsh';
+  name: string;
+  shortName: string;
+  maxHp: number;
+  badgeText: string;
+  toastMessage: string;
+}
+
+export interface PlayableRosterSlot {
+  kind: 'playable';
+  fighter: FighterConfig;
+}
+
+export type RosterSlot = PlayableRosterSlot | ComingFutureRosterSlot;
+
+export const UTKARSH_TEASER_SLOT: ComingFutureRosterSlot = {
+  kind: 'coming_future',
+  id: 'utkarsh',
+  name: 'Utkarsh',
+  shortName: 'UTKARSH',
+  maxHp: 125,
+  badgeText: 'COMING IN FUTURE',
+  toastMessage: 'Utkarsh joins the Dangal in the next update!',
+};
+
+/**
+ * Exact 10-slot Character Select sequence:
+ * 1. Sheru Bhai (155 HP) | 2. Blue Billa (150 HP) | 3. Utkarsh (125 HP · COMING IN FUTURE)
+ * 4. Anda Bhai (145 HP) | 5. Krish (140 HP) | 6. Adi (160 HP)
+ * 7. Laddoo Mausi (165 HP) | 8. Garib Sena Neta (175 HP) | 9. Samyak (185 HP) | 10. Principal Man (200 HP)
+ */
+export const ROSTER_SLOTS: RosterSlot[] = [
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.sheru },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.billa },
+  UTKARSH_TEASER_SLOT,
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.anda },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.krish },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.adi },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.mausi },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.neta },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.samyak },
+  { kind: 'playable', fighter: FIGHTER_CONFIGS.father },
 ];
 
 export const STAGE_CONFIGS: Record<StageId, StageConfig> = {
