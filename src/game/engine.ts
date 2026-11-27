@@ -15,6 +15,7 @@ import {
   FIGHTER_CONFIGS,
   preloadFatherGlbHead,
   preloadRealFaceTextures,
+  preloadSamyakGlbHead,
   type FighterRig,
 } from './characters';
 import { getActiveStrikeTrailInfo } from './characters/kinematics';
@@ -629,6 +630,7 @@ export class DesiShowdownEngine {
     void audioEngine.preloadAllSuperAudios();
     preloadRealFaceTextures();
     preloadFatherGlbHead();
+    preloadSamyakGlbHead();
 
     if (!this.isSoftwareGl) {
       // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes

@@ -11,7 +11,7 @@ import {
   PHOTO_HEAD_OVAL_SCALE,
   type PhotoFaceFighterId,
 } from './photoFaceLoader';
-import { attachFatherGlbHead } from './fatherGlbHead';
+import { attachFatherGlbHead, attachSamyakGlbHead } from './fatherGlbHead';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
 /**
@@ -3889,9 +3889,15 @@ function buildSamyak(rig: FighterRig): void {
 
   const sneakerTreadMat = makeMat(0x0b0c10, 0.82, 0.04);
 
-  // === 3. CLEAN D-SHAPED HEMISPHERE + FLAT FRONT FACE HEAD (SAMYAK — NO DUPLICATE 3D SUNGLASSES) ===
+  // === 3. REAL 3D GLB HEAD (/models/samyak_head.glb) WITH HEMISPHERE FALLBACK (NO DUPLICATE 3D SUNGLASSES) ===
   void hairMat;
-  buildPhotoHemisphereHead(rig, 'samyak', skinMat);
+  const fallbackHeadGroup = buildPhotoHemisphereHead(rig, 'samyak', skinMat);
+  attachSamyakGlbHead(
+    rig.head,
+    fallbackHeadGroup,
+    rig.flashMaterials,
+    () => rig.isDisposed,
+  );
 
   // === 4. SHIRTLESS HEAVILY SCULPTED BODYBUILDER UPPER BODY (NO SHIRT / NO BANIYAN!) ===
   // Muscular neck & broad trapezius slopes
