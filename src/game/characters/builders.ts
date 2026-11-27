@@ -11,7 +11,7 @@ import {
   PHOTO_HEAD_OVAL_SCALE,
   type PhotoFaceFighterId,
 } from './photoFaceLoader';
-import { attachFatherGlbHead, attachSamyakGlbHead } from './fatherGlbHead';
+import { attachAdiGlbHead, attachFatherGlbHead, attachSamyakGlbHead } from './fatherGlbHead';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
 /**
@@ -4127,6 +4127,538 @@ function buildSamyak(rig: FighterRig): void {
   });
 }
 
+function createAdiOliveTeeTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Rich olive-green crew-neck t-shirt base (#4b5338 / #555e3f)
+  const baseGrad = ctx.createLinearGradient(0, 0, 0, 512);
+  baseGrad.addColorStop(0, '#5a6343');
+  baseGrad.addColorStop(0.5, '#4b5338');
+  baseGrad.addColorStop(1, '#3b422c');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle cotton jersey knit texture
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+  for (let y = 0; y < 512; y += 4) {
+    ctx.fillRect(0, y, 512, 1.5);
+  }
+
+  // Crew-neck ribbed collar trim at top
+  ctx.fillStyle = '#363d28';
+  ctx.fillRect(0, 0, 512, 26);
+
+  // Front chest graphic print centered on UV front face (cylinder UV u=0.5 faces +Z)
+  const gx = 256;
+  const gy = 175;
+  ctx.fillStyle = '#1b1f16';
+  ctx.fillRect(gx - 58, gy - 54, 116, 112);
+  ctx.strokeStyle = '#8b9570';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(gx - 58, gy - 54, 116, 112);
+
+  // Subtle urban graphic emblem inside chest block
+  ctx.fillStyle = '#d6d3c4';
+  ctx.fillRect(gx - 42, gy - 34, 84, 10);
+  ctx.fillStyle = '#a3b18a';
+  ctx.beginPath();
+  ctx.moveTo(gx, gy - 12);
+  ctx.lineTo(gx + 30, gy + 24);
+  ctx.lineTo(gx - 30, gy + 24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#e7e5e4';
+  ctx.fillRect(gx - 36, gy + 34, 72, 6);
+  ctx.fillStyle = '#84cc16';
+  ctx.fillRect(gx - 22, gy + 45, 44, 4);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createAdiPlaidShirtTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Charcoal-slate flannel base
+  ctx.fillStyle = '#292e36';
+  ctx.fillRect(0, 0, 512, 512);
+
+  const cell = 64;
+  // Wide muted slate-blue & dark charcoal bands
+  for (let i = 0; i < 512; i += cell) {
+    ctx.fillStyle = 'rgba(92, 116, 138, 0.52)';
+    ctx.fillRect(i, 0, 26, 512);
+    ctx.fillRect(0, i, 512, 26);
+
+    ctx.fillStyle = 'rgba(20, 23, 28, 0.55)';
+    ctx.fillRect(i + 26, 0, 14, 512);
+    ctx.fillRect(0, i + 26, 512, 14);
+  }
+
+  // Muted ochre / warm tan check bands
+  for (let i = 0; i < 512; i += cell) {
+    ctx.fillStyle = 'rgba(176, 142, 92, 0.72)';
+    ctx.fillRect(i + 44, 0, 11, 512);
+    ctx.fillRect(0, i + 44, 512, 11);
+
+    // Crisp cream pinstripe accent bisecting the check
+    ctx.fillStyle = 'rgba(226, 220, 206, 0.65)';
+    ctx.fillRect(i + 12, 0, 3, 512);
+    ctx.fillRect(0, i + 12, 512, 3);
+  }
+
+  // Subtle woven twill diagonal grain
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.lineWidth = 1;
+  for (let i = -512; i < 512; i += 8) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i + 512, 512);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.5, 1.5);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createAdiDistressedJeansTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Dark charcoal-grey denim base
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#2e3238');
+  grad.addColorStop(0.5, '#3b4048');
+  grad.addColorStop(1, '#25282e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle denim twill lines & whiskered thigh fades
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+  for (let y = 0; y < 512; y += 3) {
+    ctx.fillRect(0, y, 512, 1);
+  }
+  const fade = ctx.createRadialGradient(256, 220, 24, 256, 220, 170);
+  fade.addColorStop(0, 'rgba(148, 156, 168, 0.22)');
+  fade.addColorStop(1, 'rgba(148, 156, 168, 0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle side seam stitching
+  ctx.strokeStyle = 'rgba(180, 165, 142, 0.35)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(128, 0);
+  ctx.lineTo(128, 512);
+  ctx.moveTo(384, 0);
+  ctx.lineTo(384, 512);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Distressed frayed rip marks
+  ctx.fillStyle = '#c48f6a';
+  ctx.fillRect(220, 310, 72, 26);
+  ctx.strokeStyle = '#d6d3d1';
+  ctx.lineWidth = 2.4;
+  for (let y = 313; y <= 334; y += 5) {
+    ctx.beginPath();
+    ctx.moveTo(216, y);
+    ctx.lineTo(296, y + (y % 2 === 0 ? 1.5 : -1.5));
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function buildAdiFallbackHead(rig: FighterRig, skinMat: THREE.MeshStandardMaterial): THREE.Group {
+  const fallbackHeadGroup = new THREE.Group();
+  fallbackHeadGroup.name = 'adi_fallback_head';
+
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x161418,
+    roughness: 0.76,
+    metalness: 0.04,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(hairMat);
+
+  // Textured expressive head sphere facing +Z
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: rig.face.texture,
+    color: 0xffffff,
+    roughness: 0.68,
+    metalness: 0.0,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveMap: rig.face.texture,
+    emissiveIntensity: 0.06,
+  });
+  faceMat.userData.baseEmissiveIntensity = 0.06;
+  rig.flashMaterials.push(faceMat);
+
+  const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.165, 22, 18), faceMat);
+  cranium.scale.set(0.94, 1.06, 0.96);
+  cranium.rotation.y = -Math.PI / 2;
+  cranium.position.set(0, 0.175, 0);
+  cranium.castShadow = true;
+  fallbackHeadGroup.add(cranium);
+
+  // Stylish dark layered hair cap & swept top crest (positioned cleanly above forehead/brows)
+  const hairBack = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.38),
+    hairMat,
+  );
+  hairBack.scale.set(0.97, 1.02, 1.02);
+  hairBack.position.set(0, 0.195, -0.026);
+  hairBack.rotation.x = -0.38;
+  hairBack.castShadow = true;
+  fallbackHeadGroup.add(hairBack);
+
+  const hairCrest = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.11, 6, 10), hairMat);
+  hairCrest.rotation.z = Math.PI * 0.44;
+  hairCrest.position.set(0.01, 0.345, 0.025);
+  hairCrest.castShadow = true;
+  fallbackHeadGroup.add(hairCrest);
+
+  // Subtle sculpted ears & nose
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), skinMat);
+    ear.scale.set(0.55, 1.15, 0.8);
+    ear.position.set(side * 0.152, 0.17, -0.008);
+    fallbackHeadGroup.add(ear);
+  });
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.044, 8), skinMat);
+  nose.rotation.x = Math.PI * 0.42;
+  nose.position.set(0, 0.155, 0.16);
+  fallbackHeadGroup.add(nose);
+
+  rig.head.add(fallbackHeadGroup);
+  return fallbackHeadGroup;
+}
+
+function buildAdi(rig: FighterRig): void {
+  // === 1. AGILE ATHLETIC ARCADE PROPORTIONS (~1.42x HEAD SCALE MATCHING SAMYAK/PRINCIPAL) ===
+  rig.pelvis.position.set(0, 1.04, 0);
+  rig.torso.position.set(0, 0.09, 0);
+  // Seated directly atop Adi's neck top (y=0.775) so both fallback & Box3-grounded GLB head sit flush
+  rig.head.position.set(0, 0.775, 0);
+  rig.head.scale.setScalar(1.42);
+
+  const shoulderX = 0.325;
+  const shoulderY = 0.605;
+  rig.leftShoulder.position.set(-shoulderX, shoulderY, 0);
+  rig.rightShoulder.position.set(shoulderX, shoulderY, 0);
+  rig.leftElbow.position.set(0, -0.34, 0);
+  rig.rightElbow.position.set(0, -0.34, 0);
+
+  rig.leftHip.position.set(-0.13, -0.02, 0);
+  rig.rightHip.position.set(0.13, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.48, 0);
+  rig.rightKnee.position.set(0, -0.48, 0);
+
+  // === 2. GROUNDED PBR MATERIALS ===
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xc28a64,
+    roughness: 0.62,
+    metalness: 0.0,
+    envMapIntensity: 0.24,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(skinMat);
+
+  const oliveTeeTex = createAdiOliveTeeTexture();
+  const oliveTeeMat = new THREE.MeshStandardMaterial({
+    map: oliveTeeTex,
+    color: 0xffffff,
+    roughness: 0.84,
+    metalness: 0.02,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(oliveTeeMat);
+
+  const plaidTex = createAdiPlaidShirtTexture();
+  const plaidMat = new THREE.MeshStandardMaterial({
+    map: plaidTex,
+    color: 0xffffff,
+    roughness: 0.82,
+    metalness: 0.02,
+    envMapIntensity: 0.18,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(plaidMat);
+
+  const jeansTex = createAdiDistressedJeansTexture();
+  const jeansMat = new THREE.MeshStandardMaterial({
+    map: jeansTex,
+    color: 0xffffff,
+    roughness: 0.86,
+    metalness: 0.02,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(jeansMat);
+
+  const frayMat = makeMat(0xd6d3d1, 0.9, 0.0);
+  const beltMat = makeMat(0x18181b, 0.62, 0.14);
+  const buckleMat = makeMat(0xa1a1aa, 0.35, 0.65);
+
+  const sneakerUpperMat = new THREE.MeshStandardMaterial({
+    color: 0x1e2126,
+    roughness: 0.64,
+    metalness: 0.06,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sneakerUpperMat);
+
+  const sneakerSoleMat = new THREE.MeshStandardMaterial({
+    color: 0xe5e7eb,
+    roughness: 0.56,
+    metalness: 0.02,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sneakerSoleMat);
+
+  // === 3. CUSTOM 3D GLB HEAD (/models/adi_head.glb) WITH EXACT BOX3 MATH & FALLBACK HEAD ===
+  const fallbackHeadGroup = buildAdiFallbackHead(rig, skinMat);
+  attachAdiGlbHead(
+    rig.head,
+    fallbackHeadGroup,
+    rig.flashMaterials,
+    () => rig.isDisposed,
+  );
+
+  // === 4. LAYERED TORSO: OLIVE-GREEN GRAPHIC TEE + OPEN CHECKED PLAID SHIRT ===
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.086, 0.16, 14), skinMat);
+  neck.position.set(0, 0.695, 0);
+  rig.torso.add(neck);
+
+  // Crew-neck ribbed olive collar ring
+  const teeCollar = new THREE.Mesh(
+    new THREE.TorusGeometry(0.095, 0.018, 8, 18),
+    makeMat(0x3a422d, 0.86, 0.02),
+  );
+  teeCollar.rotation.x = Math.PI / 2;
+  teeCollar.position.set(0, 0.618, 0.01);
+  rig.torso.add(teeCollar);
+
+  // Inner Olive-Green Graphic T-Shirt torso core
+  const teeCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.226, 0.194, 0.61, 20),
+    oliveTeeMat,
+  );
+  teeCore.scale.set(1.14, 1, 0.78);
+  teeCore.position.set(0, 0.33, 0);
+  teeCore.castShadow = true;
+  rig.torso.add(teeCore);
+
+  // Outer Open Checked/Plaid Shirt: back yoke + left & right open front panels framing the olive graphic tee!
+  const plaidBack = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.246, 0.226, 0.635, 18, 1, true, Math.PI * 0.26, Math.PI * 1.48),
+    plaidMat,
+  );
+  plaidBack.scale.set(1.16, 1, 0.83);
+  plaidBack.position.set(0, 0.325, -0.005);
+  plaidBack.castShadow = true;
+  rig.torso.add(plaidBack);
+
+  [-1, 1].forEach((side) => {
+    // Open front plaid shirt panel draping cleanly on each side of chest
+    const frontPanel = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.635, 0.042), plaidMat);
+    frontPanel.position.set(side * 0.188, 0.325, 0.148);
+    frontPanel.rotation.y = side * -0.26;
+    frontPanel.castShadow = true;
+    rig.torso.add(frontPanel);
+
+    // Shoulder yoke cap blending shirt cleanly into sleeves
+    const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.068, 0.24), plaidMat);
+    yoke.position.set(side * 0.195, 0.612, 0.005);
+    yoke.rotation.z = side * -0.14;
+    rig.torso.add(yoke);
+
+    // Folded open plaid shirt collar lapel
+    const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.13, 0.032), plaidMat);
+    lapel.position.set(side * 0.115, 0.615, 0.125);
+    lapel.rotation.z = side * -0.34;
+    lapel.rotation.y = side * -0.32;
+    rig.torso.add(lapel);
+
+    // Chest patch pocket detail on outer plaid panel
+    if (side === 1) {
+      const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.092, 0.016), plaidMat);
+      pocket.position.set(0.188, 0.435, 0.174);
+      pocket.rotation.y = -0.26;
+      rig.torso.add(pocket);
+    }
+  });
+
+  // Back collar fold
+  const backCollar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.115, 0.122, 0.068, 14, 1, true, Math.PI * 0.6, Math.PI * 0.8),
+    plaidMat,
+  );
+  backCollar.position.set(0, 0.652, -0.018);
+  rig.torso.add(backCollar);
+
+  // === 5. 2-BONE ARMS: PLAID UPPER SLEEVES + ROLLED CUFFS + BARE FOREARMS + FISTS ===
+  const upperSleeveGeo = new THREE.CapsuleGeometry(0.082, 0.21, 8, 12);
+  const rolledCuffGeo = new THREE.CylinderGeometry(0.084, 0.078, 0.082, 12);
+  const forearmGeo = new THREE.CapsuleGeometry(0.056, 0.21, 8, 12);
+  const fistGeo = new THREE.BoxGeometry(0.082, 0.088, 0.072);
+
+  const armSpecs: Array<{ shoulder: THREE.Group; elbow: THREE.Group; isLeft: boolean }> = [
+    { shoulder: rig.leftShoulder, elbow: rig.leftElbow, isLeft: true },
+    { shoulder: rig.rightShoulder, elbow: rig.rightElbow, isLeft: false },
+  ];
+
+  for (const { shoulder, elbow, isLeft } of armSpecs) {
+    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.096, 14, 10), plaidMat);
+    shoulderCap.castShadow = true;
+    shoulder.add(shoulderCap);
+
+    const upperSleeve = new THREE.Mesh(upperSleeveGeo, plaidMat);
+    upperSleeve.position.y = -0.17;
+    upperSleeve.castShadow = true;
+    shoulder.add(upperSleeve);
+
+    // Rolled / pushed-up plaid sleeve cuff sitting just below the elbow joint!
+    const rolledCuff = new THREE.Mesh(rolledCuffGeo, plaidMat);
+    rolledCuff.position.y = -0.045;
+    rolledCuff.castShadow = true;
+    elbow.add(rolledCuff);
+
+    const forearm = new THREE.Mesh(forearmGeo, skinMat);
+    forearm.position.y = -0.175;
+    forearm.castShadow = true;
+    elbow.add(forearm);
+
+    const fist = new THREE.Mesh(fistGeo, skinMat);
+    fist.position.set(0, -0.355, 0.01);
+    fist.castShadow = true;
+    elbow.add(fist);
+
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.016, 0.036, 5, 8), skinMat);
+    thumb.position.set(isLeft ? 0.038 : -0.038, -0.348, 0.034);
+    thumb.rotation.z = isLeft ? -0.42 : 0.42;
+    elbow.add(thumb);
+  }
+
+  // === 6. DISTRESSED DARK CHARCOAL-GREY DENIM JEANS WITH RIPPED KNEE ACCENTS & CASUAL SNEAKERS ===
+  const jeansPelvis = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.202, 0.21, 0.21, 18),
+    jeansMat,
+  );
+  jeansPelvis.scale.set(1.14, 1, 0.78);
+  jeansPelvis.position.set(0, 0.01, 0);
+  jeansPelvis.castShadow = true;
+  rig.pelvis.add(jeansPelvis);
+
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.207, 0.207, 0.044, 18), beltMat);
+  belt.scale.set(1.14, 1, 0.78);
+  belt.position.set(0, 0.092, 0);
+  rig.pelvis.add(belt);
+
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.048, 0.022), buckleMat);
+  buckle.position.set(0, 0.092, 0.162);
+  rig.pelvis.add(buckle);
+
+  const thighGeo = new THREE.CapsuleGeometry(0.098, 0.33, 8, 12);
+  const calfGeo = new THREE.CapsuleGeometry(0.072, 0.33, 8, 12);
+
+  [
+    { hip: rig.leftHip, knee: rig.leftKnee, ripOffset: 0.01 },
+    { hip: rig.rightHip, knee: rig.rightKnee, ripOffset: -0.015 },
+  ].forEach(({ hip, knee, ripOffset }) => {
+    const thigh = new THREE.Mesh(thighGeo, jeansMat);
+    thigh.position.y = -0.24;
+    thigh.castShadow = true;
+    hip.add(thigh);
+
+    // Distressed knee-rip patch (skin peeking through + light frayed cotton threads across front knee)
+    const ripSkin = new THREE.Mesh(new THREE.BoxGeometry(0.098, 0.056, 0.026), skinMat);
+    ripSkin.position.set(0, -0.455 + ripOffset, 0.084);
+    hip.add(ripSkin);
+
+    for (let tIdx = -1; tIdx <= 1; tIdx++) {
+      const thread = new THREE.Mesh(new THREE.BoxGeometry(0.104, 0.008, 0.03), frayMat);
+      thread.position.set(0, -0.455 + ripOffset + tIdx * 0.017, 0.086);
+      hip.add(thread);
+    }
+
+    const shin = new THREE.Mesh(calfGeo, jeansMat);
+    shin.position.y = -0.23;
+    shin.castShadow = true;
+    knee.add(shin);
+
+    // Tapered distressed jean hem cuff
+    const jeanHem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.074, 0.068, 0.056, 12),
+      jeansMat,
+    );
+    jeanHem.position.y = -0.43;
+    knee.add(jeanHem);
+
+    // Dark charcoal streetwear casual sneaker with clean off-white sole
+    const shoeGroup = new THREE.Group();
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.138, 0.042, 0.335), sneakerSoleMat);
+    sole.position.set(0, 0.022, 0.056);
+    sole.castShadow = true;
+
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.128, 0.086, 0.175), sneakerUpperMat);
+    upper.position.set(0, 0.08, -0.02);
+    upper.castShadow = true;
+
+    const toe = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.13, 6, 10), sneakerUpperMat);
+    toe.rotation.x = Math.PI / 2;
+    toe.scale.set(1.04, 1, 0.7);
+    toe.position.set(0, 0.068, 0.105);
+    toe.castShadow = true;
+
+    const laceStrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.018, 0.075), sneakerSoleMat);
+    laceStrip.position.set(0, 0.104, 0.078);
+    laceStrip.rotation.x = 0.28;
+
+    shoeGroup.add(sole, upper, toe, laceStrip);
+    shoeGroup.position.set(0, -0.545, 0);
+    knee.add(shoeGroup);
+  });
+}
+
 export function buildFighterRig(id: FighterId): FighterRig {
   const face = createDynamicFace(id);
   const isEggBody = id === 'anda';
@@ -4181,6 +4713,13 @@ export function buildFighterRig(id: FighterId): FighterRig {
       rig.rightFistAnchor.position.set(0, -0.37, 0.02);
       rig.leftFootAnchor.position.set(0, -0.48, 0.10);
       rig.rightFootAnchor.position.set(0, -0.48, 0.10);
+      break;
+    case 'adi':
+      buildAdi(rig);
+      rig.leftFistAnchor.position.set(0, -0.355, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.355, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.465, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.465, 0.10);
       break;
   }
 

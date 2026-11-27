@@ -8,4 +8,9 @@ export {
   markPortraitPhotoFailed,
   preloadRealFaceTextures,
 } from './photoFaceLoader';
-export { preloadFatherGlbHead, preloadSamyakGlbHead } from './fatherGlbHead';
+export {
+  ADI_GLB_HEAD_CONFIG,
+  preloadAdiGlbHead,
+  preloadFatherGlbHead,
+  preloadSamyakGlbHead,
+} from './fatherGlbHead';

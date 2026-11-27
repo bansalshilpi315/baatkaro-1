@@ -1,3 +1,4 @@
+import type { AdiSuperBeatSignal, AdiSuperState } from './adiSuper';
 import type { AndaSuperBeatSignal, AndaSuperState } from './andaSuper';
 import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
 import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
@@ -6,7 +7,7 @@ import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
 import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
 
-export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak';
+export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak' | 'adi';
 
 export type StageId = 'mohalla' | 'school' | 'studio' | 'shaadi' | 'railway' | 'assembly';
 
@@ -54,13 +55,14 @@ export type SpecialMoveKind =
   | 'anda_squash'
   | 'belan_throw'
   | 'diary_note'
-  | 'laxmikant_slam';
+  | 'laxmikant_slam'
+  | 'notebook_smash';
 
 export interface SpecialMoveConfig {
   id: SpecialMoveKind;
   name: string;
   shortLabel: string;
-  iconKey: 'notes' | 'swatter' | 'shield' | 'drop' | 'belan' | 'diary' | 'polity';
+  iconKey: 'notes' | 'swatter' | 'shield' | 'drop' | 'belan' | 'diary' | 'polity' | 'notebook';
   description: string;
   cooldown: number;
   damage: number;
@@ -161,7 +163,7 @@ export interface FighterState {
 export interface ProjectileState {
   uid: number;
   ownerSlot: 0 | 1;
-  kind: 'notes' | 'swatter' | 'belan' | 'diary' | 'polity' | 'shockwave';
+  kind: 'notes' | 'swatter' | 'belan' | 'diary' | 'polity' | 'notebook' | 'shockwave';
   x: number;
   y: number;
   vx: number;
@@ -262,6 +264,8 @@ export interface MatchState {
   fatherSuperSignals: FatherSuperBeatSignal[];
   samyakSuper: SamyakSuperState | null;
   samyakSuperSignals: SamyakSuperBeatSignal[];
+  adiSuper: AdiSuperState | null;
+  adiSuperSignals: AdiSuperBeatSignal[];
 }
 
 export interface FloatingCallout {

@@ -2228,13 +2228,151 @@ export function paintFighterFace(
     case 'samyak':
       paintSamyakFace(ctx, expression);
       return;
+    case 'adi':
+      paintAdiFace(ctx, expression);
+      return;
+  }
+}
+
+function paintAdiFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+
+  // Warm youthful Indian skin tone with subtle arcade shading
+  const skinGrad = ctx.createRadialGradient(cx, h * 0.45, w * 0.06, cx, h * 0.5, w * 0.52);
+  skinGrad.addColorStop(0, '#D49E76');
+  skinGrad.addColorStop(0.62, '#C28A64');
+  skinGrad.addColorStop(1, '#9A6442');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle cheek warmth & jawline contour
+  const cheekY = h * 0.57;
+  [-1, 1].forEach((side) => {
+    const chX = cx + side * w * 0.14;
+    const g = ctx.createRadialGradient(chX, cheekY, 4, chX, cheekY, w * 0.085);
+    g.addColorStop(0, 'rgba(186, 98, 72, 0.24)');
+    g.addColorStop(1, 'rgba(186, 98, 72, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(chX, cheekY, w * 0.085, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Dark stylish textured hair fringe along top forehead
+  ctx.fillStyle = '#171518';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.31);
+  ctx.quadraticCurveTo(w * 0.78, h * 0.24, w * 0.58, h * 0.29);
+  ctx.quadraticCurveTo(w * 0.42, h * 0.22, w * 0.22, h * 0.31);
+  ctx.quadraticCurveTo(w * 0.1, h * 0.29, 0, h * 0.34);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sharp expressive eyebrows
+  const eyeY = h * 0.48;
+  const eyeSpan = w * 0.115;
+  ctx.strokeStyle = '#181415';
+  ctx.lineWidth = Math.max(6, w * 0.022);
+  ctx.lineCap = 'round';
+  const browTilt =
+    expression === 'attack' ? 14 : expression === 'hit' || expression === 'ko' ? -10 : 5;
+  [-1, 1].forEach((side) => {
+    const bx = cx + side * eyeSpan;
+    ctx.beginPath();
+    ctx.moveTo(bx - side * w * 0.075, eyeY - h * 0.08 - browTilt * 0.5);
+    ctx.quadraticCurveTo(bx, eyeY - h * 0.105, bx + side * w * 0.068, eyeY - h * 0.068 + browTilt * 0.6);
+    ctx.stroke();
+  });
+
+  // Expressive eyes
+  if (expression === 'ko') {
+    ctx.strokeStyle = '#181415';
+    ctx.lineWidth = Math.max(7, w * 0.02);
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeSpan;
+      ctx.beginPath();
+      ctx.moveTo(ex - 20, eyeY - 16);
+      ctx.lineTo(ex + 20, eyeY + 16);
+      ctx.moveTo(ex + 20, eyeY - 16);
+      ctx.lineTo(ex - 20, eyeY + 16);
+      ctx.stroke();
+    });
+  } else {
+    const eyeH = expression === 'hit' ? h * 0.05 : expression === 'block' ? h * 0.022 : h * 0.038;
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeSpan;
+      ctx.fillStyle = '#F8FAFC';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, w * 0.056, eyeH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1E1512';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.fillStyle = '#231712';
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, w * 0.027, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(ex - 6, eyeY - 6, w * 0.011, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // Clean subtle nose shading
+  ctx.strokeStyle = 'rgba(84, 44, 24, 0.55)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(cx, eyeY + h * 0.03);
+  ctx.lineTo(cx - 4, h * 0.60);
+  ctx.quadraticCurveTo(cx + 2, h * 0.635, cx + 14, h * 0.61);
+  ctx.stroke();
+
+  // Confident mouth / expression
+  const mouthY = h * 0.72;
+  ctx.strokeStyle = '#4A1F18';
+  ctx.lineWidth = 6.5;
+  ctx.lineCap = 'round';
+  if (expression === 'attack') {
+    ctx.fillStyle = '#521515';
+    ctx.beginPath();
+    ctx.roundRect(cx - 34, mouthY - 12, 68, 30, 12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillRect(cx - 26, mouthY - 10, 52, 9);
+  } else if (expression === 'hit' || expression === 'ko') {
+    ctx.fillStyle = '#451212';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 4, 24, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (expression === 'victory') {
+    ctx.fillStyle = '#F8FAFC';
+    ctx.beginPath();
+    ctx.arc(cx, mouthY - 4, 34, 0.08 * Math.PI, 0.92 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // Cool relaxed Last-Bench smirk
+    ctx.beginPath();
+    ctx.moveTo(cx - 28, mouthY + 2);
+    ctx.quadraticCurveTo(cx + 4, mouthY + 14, cx + 32, mouthY - 6);
+    ctx.stroke();
   }
 }
 
 export function createDynamicFace(id: FighterId): DynamicFace {
   const canvas = document.createElement('canvas');
   const size =
-    id === 'anda' || id === 'father' || id === 'samyak' ? 512 : 256;
+    id === 'anda' || id === 'father' || id === 'samyak' || id === 'adi' ? 512 : 256;
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
@@ -3767,6 +3905,157 @@ function paintPrincipalPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function paintAdiPortrait(ctx: CanvasRenderingContext2D): void {
+  // Deep slate-olive arcade studio backdrop with energetic lime-gold rim glow
+  const bg = ctx.createRadialGradient(80, 66, 12, 80, 82, 108);
+  bg.addColorStop(0, '#365314');
+  bg.addColorStop(0.55, '#1e293b');
+  bg.addColorStop(1, '#090d16');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  const rim = ctx.createRadialGradient(80, 82, 16, 80, 80, 74);
+  rim.addColorStop(0, 'rgba(132, 204, 22, 0.34)');
+  rim.addColorStop(1, 'rgba(132, 204, 22, 0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Inner Olive-Green Graphic T-Shirt (#4b5338)
+  ctx.fillStyle = '#4b5338';
+  ctx.beginPath();
+  ctx.moveTo(22, 160);
+  ctx.quadraticCurveTo(28, 114, 58, 106);
+  ctx.lineTo(102, 106);
+  ctx.quadraticCurveTo(132, 114, 138, 160);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle dark front chest graphic block on olive t-shirt
+  ctx.fillStyle = '#1f2419';
+  ctx.fillRect(62, 125, 36, 22);
+  ctx.fillStyle = '#a3e635';
+  ctx.fillRect(66, 130, 28, 3);
+  ctx.fillStyle = '#d6d3d1';
+  ctx.fillRect(68, 136, 24, 3);
+  ctx.fillRect(72, 141, 16, 2.5);
+
+  // Open Checked Plaid Shirt panels framing both sides (charcoal + ochre/tan + slate-blue check)
+  const drawPlaidPanel = (leftSide: boolean) => {
+    ctx.save();
+    ctx.beginPath();
+    if (leftSide) {
+      ctx.moveTo(14, 160);
+      ctx.quadraticCurveTo(20, 112, 54, 104);
+      ctx.lineTo(63, 106);
+      ctx.lineTo(57, 160);
+    } else {
+      ctx.moveTo(146, 160);
+      ctx.quadraticCurveTo(140, 112, 106, 104);
+      ctx.lineTo(97, 106);
+      ctx.lineTo(103, 160);
+    }
+    ctx.closePath();
+    ctx.clip();
+
+    ctx.fillStyle = '#2d333b';
+    ctx.fillRect(10, 100, 140, 62);
+    // Ochre/tan & slate-blue plaid cross-stripes
+    ctx.fillStyle = 'rgba(166, 136, 91, 0.72)';
+    for (let x = 14; x < 150; x += 14) ctx.fillRect(x, 100, 4, 62);
+    for (let y = 104; y < 160; y += 14) ctx.fillRect(10, y, 140, 4);
+    ctx.fillStyle = 'rgba(100, 124, 144, 0.65)';
+    for (let x = 21; x < 150; x += 14) ctx.fillRect(x, 100, 3, 62);
+    for (let y = 111; y < 160; y += 14) ctx.fillRect(10, y, 140, 3);
+    ctx.restore();
+
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (leftSide) {
+      ctx.moveTo(63, 106);
+      ctx.lineTo(57, 160);
+    } else {
+      ctx.moveTo(97, 106);
+      ctx.lineTo(103, 160);
+    }
+    ctx.stroke();
+  };
+  drawPlaidPanel(true);
+  drawPlaidPanel(false);
+
+  // Crew-neck olive trim + neck
+  ctx.fillStyle = '#a8724e';
+  ctx.fillRect(68, 90, 24, 18);
+  ctx.strokeStyle = '#363d28';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(80, 105, 15, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+
+  // Youthful sculpted head
+  ctx.fillStyle = '#c8916a';
+  ctx.strokeStyle = '#4a2b18';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(80, 64, 27, 34, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Stylish dark textured hair with side-swept top volume
+  ctx.fillStyle = '#141316';
+  ctx.beginPath();
+  ctx.moveTo(51, 60);
+  ctx.quadraticCurveTo(48, 22, 80, 18);
+  ctx.quadraticCurveTo(112, 22, 109, 60);
+  ctx.quadraticCurveTo(102, 41, 86, 40);
+  ctx.quadraticCurveTo(72, 34, 57, 45);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle hair highlight streak
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(64, 27);
+  ctx.quadraticCurveTo(80, 22, 95, 29);
+  ctx.stroke();
+
+  // Sharp brows & confident eyes
+  ctx.strokeStyle = '#181415';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(59, 53);
+  ctx.lineTo(74, 55);
+  ctx.moveTo(101, 53);
+  ctx.lineTo(86, 55);
+  ctx.stroke();
+
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 12;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.ellipse(ex, 62, 5.8, 3.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#231712';
+    ctx.beginPath();
+    ctx.arc(ex, 62, 2.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(ex - 0.8, 61, 1, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Cool smirk
+  ctx.strokeStyle = '#4a1f18';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(69, 81);
+  ctx.quadraticCurveTo(81, 86, 92, 77);
+  ctx.stroke();
+}
+
 export function getFighterPortraitDataUrl(id: FighterId): string {
   const cached = portraitCache.get(id);
   if (cached) return cached;
@@ -3798,6 +4087,9 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
       break;
     case 'samyak':
       paintSamyakPortrait(ctx);
+      break;
+    case 'adi':
+      paintAdiPortrait(ctx);
       break;
   }
 

@@ -118,7 +118,8 @@ function getFighterQueryParam(key: string, fallback: FighterId): FighterId {
     raw === 'anda' ||
     raw === 'mausi' ||
     raw === 'father' ||
-    raw === 'samyak'
+    raw === 'samyak' ||
+    raw === 'adi'
   ) {
     return raw;
   }

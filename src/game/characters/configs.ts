@@ -264,6 +264,45 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       'PRELIMS, MAINS, AUR RING — SAB MEIN AIR 1!',
     ],
   },
+  adi: {
+    id: 'adi',
+    name: 'Adi',
+    tagline: 'Last-Bench Legend · Open Plaid Shirt & Olive Graphic Tee',
+    titleBadge: 'LAST-BENCH ACE',
+    maxHp: 120,
+    attackPowerMultiplier: 1.12,
+    walkSpeed: 4.8,
+    jumpVelocity: 11.0,
+    punchDamage: 10,
+    kickDamage: 13,
+    grabDamage: 16,
+    accentHex: '#84CC16',
+    secondaryHex: '#4B5338',
+    skinHex: '#C28A64',
+    special: {
+      id: 'notebook_smash',
+      name: 'Adi Notebook Smash',
+      shortLabel: 'NOTEBOOK SMASH',
+      iconKey: 'notebook',
+      description:
+        'Snaps his collar and whips a fast-spinning spiral Last-Bench Notebook across mid-range with chalk-dust sparks.',
+      cooldown: 3.5,
+      damage: 14,
+      range: 5.6,
+      knockbackX: 6.3,
+      knockbackY: 2.7,
+      windup: 0.14,
+      active: 0.16,
+      recovery: 0.23,
+      stunDuration: 0.42,
+      accentColor: '#84CC16',
+    },
+    superName: 'ADI LAST-BENCH STRIKE',
+    victoryQuotes: [
+      'LAST BENCH SE SEEDHA TOP SCORE — FULL SWAG KNOCKOUT!',
+      'NOTES BHI SOLID, COMBO BHI SOLID — ADI ON TOP!',
+    ],
+  },
 };
 
 export const FIGHTER_LIST: FighterConfig[] = [
@@ -274,6 +313,7 @@ export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.mausi,
   FIGHTER_CONFIGS.father,
   FIGHTER_CONFIGS.samyak,
+  FIGHTER_CONFIGS.adi,
 ];
 
 export const STAGE_CONFIGS: Record<StageId, StageConfig> = {

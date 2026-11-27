@@ -144,6 +144,7 @@ export type SuperCameraKind =
   | 'mausi'
   | 'father'
   | 'samyak'
+  | 'adi'
   | 'generic';
 
 /**
@@ -567,6 +568,80 @@ export function computeSuperCameraTarget(
     }
 
     const returnT = smoothstep((elapsed - 4.45) / Math.max(0.12, duration - 4.45));
+    return {
+      x: lerp(slamTarget.x, fightTarget.x, returnT),
+      y: lerp(slamTarget.y, fightTarget.y, returnT),
+      z: lerp(slamTarget.z, fightTarget.z, returnT),
+      lookX: lerp(slamTarget.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(slamTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // ADI ("ADI LAST-BENCH STRIKE!", 4.6s):
+  // 0.0-1.1s: Dramatic low-angle collar-snap close-up with olive-gold spotlight sweep
+  // 1.1-3.0s: Wide dynamic 3D perspective orbit framing notebook & chalk-duster barrage
+  // 3.0-4.25s: Tracks Adi's acrobatic Last-Bench leaping strike & impact shockwave
+  // 4.25-4.6s: Smooth restore to standard 2.5D fighting camera (Z = 9.2)
+  if (kind === 'adi') {
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+
+    if (elapsed < 1.1) {
+      const flexT = smoothstep(elapsed / 1.1);
+      const sweepAngle = lerp(-0.34, 0.28, flexT) * attackerFacing;
+      return {
+        x: clampCameraPanX(attackerX + Math.sin(sweepAngle) * 2.0 + attackerFacing * 0.5),
+        y: lerp(1.12, 1.58, flexT),
+        z: lerp(3.6, 4.25, flexT),
+        lookX: attackerX,
+        lookY: lerp(1.48, 1.72, flexT),
+        lookZ: 0,
+      };
+    }
+
+    const phase1EndX = clampCameraPanX(
+      attackerX + Math.sin(0.28 * attackerFacing) * 2.0 + attackerFacing * 0.5,
+    );
+
+    if (elapsed < 3.0) {
+      const barrageT = smoothstep((elapsed - 1.1) / 0.38);
+      const orbitNorm = (elapsed - 1.1) / 1.9;
+      const orbitAngle = lerp(0.28, -0.24, orbitNorm) * attackerFacing;
+      const targetX = clampCameraPanX(midX + Math.sin(orbitAngle) * 2.15);
+      return {
+        x: lerp(phase1EndX, targetX, barrageT),
+        y: lerp(1.58, 3.15 + orbitNorm * 0.2, barrageT),
+        z: lerp(4.25, 8.75 + orbitNorm * 0.3, barrageT),
+        lookX: lerp(attackerX, clampCameraPanX(lerp(midX, defenderX, 0.22)), barrageT),
+        lookY: lerp(1.72, 1.65, barrageT),
+        lookZ: 0,
+      };
+    }
+
+    const isPostImpact = elapsed >= 3.62;
+    const slamTarget: FixedZoomCameraTarget = {
+      x: clampCameraPanX(lerp(midX, defenderX, isPostImpact ? 0.32 : 0.18)),
+      y: isPostImpact ? 2.8 : 3.3 + attackerY * 0.24,
+      z: isPostImpact ? 7.9 : 8.95,
+      lookX: clampCameraPanX(lerp(midX, defenderX, isPostImpact ? 0.38 : 0.24)),
+      lookY: isPostImpact ? 1.28 : 1.65 + attackerY * 0.3,
+      lookZ: 0,
+    };
+
+    if (elapsed < 4.22) {
+      const blendT = smoothstep((elapsed - 3.0) / 0.28);
+      const prevX = clampCameraPanX(midX + Math.sin(-0.24 * attackerFacing) * 2.15);
+      return {
+        x: lerp(prevX, slamTarget.x, blendT),
+        y: lerp(3.35, slamTarget.y, blendT),
+        z: lerp(9.05, slamTarget.z, blendT),
+        lookX: lerp(clampCameraPanX(lerp(midX, defenderX, 0.22)), slamTarget.lookX, blendT),
+        lookY: lerp(1.65, slamTarget.lookY, blendT),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 4.22) / Math.max(0.12, duration - 4.22));
     return {
       x: lerp(slamTarget.x, fightTarget.x, returnT),
       y: lerp(slamTarget.y, fightTarget.y, returnT),

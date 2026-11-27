@@ -1,6 +1,11 @@
 import { FIGHTER_CONFIGS, STAGE_CONFIGS } from './characters/configs';
 import { ROUND1_INTRO_TOTAL_SECONDS } from './dialogue';
 import {
+  ADI_SUPER_DURATION,
+  createAdiSuperState,
+  stepAdiSuper,
+} from './adiSuper';
+import {
   ANDA_SUPER_DURATION,
   createAndaSuperState,
   stepAndaSuper,
@@ -96,6 +101,7 @@ const COMBO_FINISHER_CALLOUTS: Record<FighterId, string> = {
   mausi: 'BELAN SMASH!',
   father: 'DISCIPLINE CHOP!',
   samyak: 'BEAST UPPERCUT!',
+  adi: 'LAST-BENCH HOOK!',
 };
 
 const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
@@ -106,6 +112,7 @@ const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
   mausi: 'AUNTY PATKI!',
   father: 'PRINCIPAL DISMISSAL!',
   samyak: 'BENCH-PRESS SLAM!',
+  adi: 'BACK-BENCH TOSS!',
 };
 
 export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
@@ -194,6 +201,8 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     fatherSuperSignals: [],
     samyakSuper: null,
     samyakSuperSignals: [],
+    adiSuper: null,
+    adiSuperSignals: [],
   };
 }
 
@@ -207,6 +216,7 @@ export function isAnySuperActive(state: MatchState): boolean {
       state.mausiSuper?.active ||
       state.fatherSuper?.active ||
       state.samyakSuper?.active ||
+      state.adiSuper?.active ||
       state.fighters[0].action === 'super' ||
       state.fighters[1].action === 'super',
   );
@@ -812,6 +822,25 @@ function startAction(
         color: '#FACC15',
         headline: `MISSION IAS: BEAST MODE! ${cfg.name.toUpperCase()} FLEXES AND UNLEASHES THE UPSC BARRAGE!`,
       });
+    } else if (fighter.id === 'adi') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = ADI_SUPER_DURATION;
+      state.adiSuper = createAdiSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = ADI_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.65,
+        damage: 0,
+        color: '#84CC16',
+        headline: `ADI LAST-BENCH STRIKE! ${cfg.name.toUpperCase()} UNLEASHES THE BACK-BENCH BARRAGE!`,
+      });
     } else {
       fighter.invulnTimer = 0.65;
       fighter.vx = 0;
@@ -1209,6 +1238,27 @@ function spawnSpecialProjectileIfNeeded(
       active: true,
     };
     state.projectiles.push(proj);
+  } else if (cfg.special.id === 'notebook_smash') {
+    // Fast-spinning spiral Last-Bench Notebook projectile for Adi ("NOTEBOOK SMASH")
+    const proj: ProjectileState = {
+      uid: state.nextProjectileUid++,
+      ownerSlot: fighter.slot,
+      kind: 'notebook',
+      x: fighter.x + fighter.facing * 0.85,
+      y: fighter.y + 1.32,
+      vx: fighter.facing * 11.6,
+      vy: 0,
+      radius: 0.48,
+      damage: sigDamage,
+      stunDuration: cfg.special.stunDuration,
+      knockbackX: cfg.special.knockbackX,
+      knockbackY: cfg.special.knockbackY,
+      life: 0,
+      maxLife: 0.72,
+      spin: 0,
+      active: true,
+    };
+    state.projectiles.push(proj);
   }
 }
 
@@ -1330,6 +1380,8 @@ export function stepMatch(
         state.fatherSuperSignals = [];
         state.samyakSuper = null;
         state.samyakSuperSignals = [];
+        state.adiSuper = null;
+        state.adiSuperSignals = [];
         state.activeSuperSlot = null;
         state.activeSuperElapsed = 0;
         state.activeSuperDuration = 0;
@@ -1351,6 +1403,7 @@ export function stepMatch(
   state.mausiSuperSignals = [];
   state.fatherSuperSignals = [];
   state.samyakSuperSignals = [];
+  state.adiSuperSignals = [];
 
   // Hit-stop freezes simulation physics while camera shake / flashes still tick
   if (state.hitstopTimer > 0) {
@@ -1482,6 +1535,24 @@ export function stepMatch(
       return events;
     }
     state.samyakSuper = null;
+  }
+
+  // Choreographed 4.6s Adi "ADI LAST-BENCH STRIKE!" Super sequence locks both fighters & pauses round clock
+  if (state.adiSuper) {
+    if (state.adiSuper.active) {
+      state.adiSuperSignals = stepAdiSuper(state, state.adiSuper, dt, events);
+      state.activeSuperSlot = state.adiSuper.attackerSlot;
+      state.activeSuperElapsed = state.adiSuper.elapsed;
+      state.activeSuperDuration = state.adiSuper.duration;
+      if (!state.adiSuper.active) {
+        state.adiSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.adiSuper = null;
   }
 
   // Track active non-Sheru Super cutscene timer
@@ -1727,7 +1798,8 @@ export function stepMatch(
             cfg.special.id === 'swatter_throw' ||
             cfg.special.id === 'belan_throw' ||
             cfg.special.id === 'diary_note' ||
-            cfg.special.id === 'laxmikant_slam') &&
+            cfg.special.id === 'laxmikant_slam' ||
+            cfg.special.id === 'notebook_smash') &&
           prevTime < timing.windup &&
           f.actionTimer >= timing.windup
         ) {
@@ -2053,7 +2125,9 @@ export function stepMatch(
                 ? 'DIARY NOTE!'
                 : proj.kind === 'polity'
                   ? 'LAXMIKANT SLAM!'
-                  : undefined;
+                  : proj.kind === 'notebook'
+                    ? 'NOTEBOOK SMASH!'
+                    : undefined;
       applyHit(
         state,
         attacker,
@@ -2348,7 +2422,8 @@ export function computeCpuInput(
         cpu.id === 'sheru' ||
         cpu.id === 'anda' ||
         cpu.id === 'father' ||
-        cpu.id === 'samyak';
+        cpu.id === 'samyak' ||
+        cpu.id === 'adi';
       if (rangedSpecial && cpu.specialCooldown <= 0 && dist < 5.4 && rng() < params.specialChance) {
         input.special = true;
       } else if (rng() < 0.14 + params.stageTier * 0.03) {
@@ -2436,6 +2511,11 @@ const WINNER_SATIRE_HEADLINES: Record<FighterId, string[]> = {
     'AIR 1 BEAST MODE: SAMYAK BENCH-PRESSES THE ENTIRE ROSTER!',
     'POLITY BY MORNING, DEADLIFTS BY NIGHT — SAMYAK SWEEPS MOHALLA!',
   ],
+  adi: [
+    'ADI TOPS THE SCOREBOARD STRAIGHT FROM THE LAST BENCH!',
+    'LAST-BENCH LEGEND: ADI CLOSES THE NOTEBOOK ON OPPOSITION!',
+    'ZERO ATTENDANCE, 100% COMBO — ADI STEALS THE DESI DANGAL CROWN!',
+  ],
 };
 
 const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
@@ -2466,6 +2546,10 @@ const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
   samyak: [
     '"That was just my Prelims warm-up — wait for Mains and Interview!" — Samyak Study Circle',
     '"Forgot my pre-workout shake today, rematch after leg day!" — Team Samyak',
+  ],
+  adi: [
+    '"Out-of-syllabus combo! Give me five minutes to check my last-bench notes!" — Team Adi',
+    '"Wait till I roll up my plaid sleeves properly in the rematch!" — Last-Bench Crew',
   ],
 };
 

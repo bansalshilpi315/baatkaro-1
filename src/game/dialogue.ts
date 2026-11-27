@@ -292,6 +292,18 @@ export const DIALOGUE_ENGLISH_SUBTITLES: Record<string, string> = {
   'Article 21 tera defense suspend kar diya!': 'Article 21 just suspended your defense!',
   'First attempt mein hi knockout — AIR 1 confirmed!': 'Knockout on the very first attempt — Rank 1 confirmed!',
   'Gym pump bhi solid, Polity bhi solid!': 'Solid gym pump, solid exam prep!',
+
+  // Adi
+  'Last bench se direct knockout dene aaya hoon!': 'Came straight from the back bench to deliver a knockout!',
+  'Attendance kam hai, par combo 100 percent hai!': 'Low attendance, but my combo game is 100 percent!',
+  'Checked shirt press hai, ab tera test hai!': 'Plaid shirt is crisp — now time for your pop quiz!',
+  'Arre meri checked shirt pe dhool mat daal!': 'Hey, do not get dust on my plaid shirt!',
+  'Back-bencher hoon, abhi comeback dekhna!': 'Back-bencher spirit — watch this comeback!',
+  'Ye le Last-Bench Notebook seedha muh pe!': 'Catch this spiral notebook straight to the face!',
+  'Proxy lagwa di, ab tera defense gayab!': 'Marked attendance — now your defense just vanished!',
+  'Zero syllabus, hundred percent swag combo!': 'Zero syllabus, hundred percent swagger combo!',
+  'Last bench se seedha top score — game over!': 'Straight from the back bench to top score — game over!',
+  'Notebook band, opponent flat — Adi on top!': 'Notebook closed, opponent flattened — Adi on top!',
 };
 
 export function getEnglishSubtitle(text: string): string | undefined {

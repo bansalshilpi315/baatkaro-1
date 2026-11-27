@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export const FATHER_GLB_HEAD_URL = '/models/father_head.glb';
 export const SAMYAK_GLB_HEAD_URL = '/models/samyak_head.glb';
+export const ADI_GLB_HEAD_URL = '/models/adi_head.glb';
 
 /**
  * Easy one-line tweak constants for aligning Principal Man's TRELLIS GLB head
@@ -26,8 +27,29 @@ export const SAMYAK_GLB_HEAD_CONFIG = {
   rotationY: 0,
 };
 
+/**
+ * Easy one-line tweak constants for aligning Adi's custom 3D `.glb` head
+ * inside his animated `rig.head` (`headGroup`).
+ */
+export const ADI_GLB_HEAD_CONFIG = {
+  scaleMultiplier: 1.0,
+  offsetX: 0.0,
+  offsetY: 0.0,
+  offsetZ: 0.0,
+  rotationY: 0,
+};
+
 export interface GlbHeadConfig {
   scaleMultiplier: number;
+  offsetX?: number;
+  offsetY: number;
+  offsetZ: number;
+  rotationY: number;
+}
+
+export interface AdiGlbHeadConfig {
+  scaleMultiplier: number;
+  offsetX: number;
   offsetY: number;
   offsetZ: number;
   rotationY: number;
@@ -60,6 +82,16 @@ export const SAMYAK_TARGET_HEAD_HEIGHT = 0.345;
  */
 export const SAMYAK_NECK_PIVOT_Y = -0.145;
 
+/**
+ * Target local head height inside Adi's `rig.head` (which has `scale = 1.42`).
+ */
+export const ADI_TARGET_HEAD_HEIGHT = 0.345;
+
+/**
+ * Bottom-neck pivot Y in `rig.head` local space seating cleanly onto Adi's neck & crew-neck collar.
+ */
+export const ADI_NECK_PIVOT_Y = -0.145;
+
 interface GlbHeadCache {
   status: 'idle' | 'loading' | 'loaded' | 'failed';
   templateScene: THREE.Group | null;
@@ -78,6 +110,7 @@ function createGlbHeadCache(): GlbHeadCache {
 
 const fatherGlbCache: GlbHeadCache = createGlbHeadCache();
 const samyakGlbCache: GlbHeadCache = createGlbHeadCache();
+const adiGlbCache: GlbHeadCache = createGlbHeadCache();
 
 let sharedGltfLoader: GLTFLoader | null = null;
 
@@ -396,12 +429,159 @@ export function attachSamyakGlbHead(
   samyakGlbCache.listeners.add(mountClonedHead);
 }
 
+/**
+ * Clones and normalizes Adi's `/models/adi_head.glb` scene via exact `THREE.Box3` math:
+ * - Uniformly scales height to `targetHeadHeight * config.scaleMultiplier`
+ * - Grounds `rawBox.min.y` flush on `neckJointY + config.offsetY`
+ * - Centers X/Z onto `config.offsetX` / `config.offsetZ` and applies `config.rotationY`
+ * - Enforces PBR material calibration (`metalness = 0.0`, `roughness = 0.72`, `DoubleSide`, `SRGBColorSpace`)
+ */
+export function buildFittedAdiGlbHead(
+  templateScene: THREE.Object3D,
+  config: AdiGlbHeadConfig = ADI_GLB_HEAD_CONFIG,
+  targetHeadHeight = ADI_TARGET_HEAD_HEIGHT,
+  neckJointY = ADI_NECK_PIVOT_Y,
+  flashMaterials?: THREE.MeshStandardMaterial[],
+): { glbRoot: THREE.Group; materials: THREE.Material[] } {
+  const cloned = templateScene.clone(true);
+  stripEmbeddedLightsAndCameras(cloned);
+  cloned.updateMatrixWorld(true);
+
+  const rawBox = new THREE.Box3().setFromObject(cloned);
+  const rawSize = new THREE.Vector3();
+  const rawCenter = new THREE.Vector3();
+  rawBox.getSize(rawSize);
+  rawBox.getCenter(rawCenter);
+
+  const safeHeight = Math.max(rawSize.y, 0.001);
+  const baseScale = (targetHeadHeight / safeHeight) * config.scaleMultiplier;
+
+  // Shift cloned scene in raw units so bottom-neck sits at local y=0 and X/Z center is (0, 0)
+  cloned.position.set(
+    cloned.position.x - rawCenter.x,
+    cloned.position.y - rawBox.min.y,
+    cloned.position.z - rawCenter.z,
+  );
+
+  const materials: THREE.Material[] = [];
+  cloned.traverse((obj) => {
+    if (!(obj as THREE.Mesh).isMesh) return;
+    const mesh = obj as THREE.Mesh;
+    mesh.frustumCulled = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = false;
+    mesh.userData.sharedGeometry = true;
+
+    const calibrateMaterial = (srcMat: THREE.Material): THREE.Material => {
+      const mat = srcMat.clone();
+      const std = mat as THREE.MeshStandardMaterial;
+      if (std.map) {
+        std.map.colorSpace = THREE.SRGBColorSpace;
+        std.map.needsUpdate = true;
+      }
+      if (typeof std.metalness === 'number') {
+        std.metalness = 0.0;
+      }
+      if (typeof std.roughness === 'number') {
+        std.roughness = 0.72;
+      }
+      std.side = THREE.DoubleSide;
+      if ('envMapIntensity' in std) {
+        std.envMapIntensity = 0.22;
+      }
+      if (std.emissive && std.emissive.isColor) {
+        std.emissive.setHex(0xffffff);
+        if (std.map) {
+          std.emissiveMap = std.map;
+        }
+        std.emissiveIntensity = 0.08;
+        std.userData.baseEmissiveIntensity = 0.08;
+        if (flashMaterials) {
+          flashMaterials.push(std);
+        }
+      }
+      std.needsUpdate = true;
+      materials.push(mat);
+      return mat;
+    };
+
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map(calibrateMaterial);
+    } else if (mesh.material) {
+      mesh.material = calibrateMaterial(mesh.material);
+    }
+  });
+
+  const glbRoot = new THREE.Group();
+  glbRoot.name = 'adi_glb_head_root';
+  glbRoot.scale.setScalar(baseScale);
+  glbRoot.position.set(config.offsetX, neckJointY + config.offsetY, config.offsetZ);
+  glbRoot.rotation.y = config.rotationY;
+  glbRoot.add(cloned);
+  glbRoot.updateMatrixWorld(true);
+
+  return { glbRoot, materials };
+}
+
+/**
+ * Preloads and caches `/models/adi_head.glb` ONCE at module level via `GLTFLoader`.
+ */
+export function preloadAdiGlbHead(
+  loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+): Promise<boolean> {
+  return preloadCachedGlbHead(ADI_GLB_HEAD_URL, adiGlbCache, loaderFactory);
+}
+
+/**
+ * Attaches a cloned, normalized `/models/adi_head.glb` head inside Adi's animated `rig.head`
+ * while keeping `fallbackHeadGroup` visible during loading or if `/models/adi_head.glb` is absent.
+ */
+export function attachAdiGlbHead(
+  headGroup: THREE.Group,
+  fallbackHeadGroup: THREE.Group,
+  flashMaterials: THREE.MeshStandardMaterial[],
+  isDisposed: () => boolean,
+  loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+): void {
+  fallbackHeadGroup.visible = true;
+  preloadAdiGlbHead(loaderFactory);
+
+  const mountClonedHead = (template: THREE.Group) => {
+    if (isDisposed()) return;
+    const { glbRoot } = buildFittedAdiGlbHead(
+      template,
+      ADI_GLB_HEAD_CONFIG,
+      ADI_TARGET_HEAD_HEIGHT,
+      ADI_NECK_PIVOT_Y,
+      flashMaterials,
+    );
+    headGroup.add(glbRoot);
+    fallbackHeadGroup.visible = false;
+  };
+
+  if (adiGlbCache.status === 'loaded' && adiGlbCache.templateScene) {
+    mountClonedHead(adiGlbCache.templateScene);
+    return;
+  }
+
+  if (adiGlbCache.status === 'failed') {
+    fallbackHeadGroup.visible = true;
+    return;
+  }
+
+  adiGlbCache.listeners.add(mountClonedHead);
+}
+
 export function getFatherGlbHeadStatus(): GlbHeadCache['status'] {
   return fatherGlbCache.status;
 }
 
 export function getSamyakGlbHeadStatus(): GlbHeadCache['status'] {
   return samyakGlbCache.status;
+}
+
+export function getAdiGlbHeadStatus(): GlbHeadCache['status'] {
+  return adiGlbCache.status;
 }
 
 export function clearFatherGlbHeadCacheForTests(): void {
@@ -416,4 +596,11 @@ export function clearSamyakGlbHeadCacheForTests(): void {
   samyakGlbCache.templateScene = null;
   samyakGlbCache.listeners.clear();
   samyakGlbCache.waiters.clear();
+}
+
+export function clearAdiGlbHeadCacheForTests(): void {
+  adiGlbCache.status = 'idle';
+  adiGlbCache.templateScene = null;
+  adiGlbCache.listeners.clear();
+  adiGlbCache.waiters.clear();
 }

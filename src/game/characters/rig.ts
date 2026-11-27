@@ -346,7 +346,8 @@ export function animateFighterRig(
       state.id !== 'anda' &&
       state.id !== 'mausi' &&
       state.id !== 'father' &&
-      state.id !== 'samyak') ||
+      state.id !== 'samyak' &&
+      state.id !== 'adi') ||
     state.shakti >= 100 ||
     isSheruPaisaFlex;
   if (rig.superAura.visible) {
@@ -382,9 +383,11 @@ export function animateFighterRig(
           ? 1.06
           : state.id === 'samyak'
             ? 1.07
-            : rig.isEggBody
-              ? 0.68
-              : 0.92;
+            : state.id === 'adi'
+              ? 1.04
+              : rig.isEggBody
+                ? 0.68
+                : 0.92;
   const pose = computeCombatPose(state, elapsed, basePelvisY, rig.isEggBody);
 
   let pelvisX = pose.pelvisX;
@@ -1606,6 +1609,137 @@ export function animateFighterRig(
       rElbX = -0.18;
       rElbZ = 1.86 + pump;
     }
+  } else if (state.id === 'adi') {
+    if (state.action === 'special') {
+      // NOTEBOOK SMASH: Snappy back-bench collar twist -> fast frisbee-style spiral notebook hurl!
+      const isWindup = atkProgress < 0.25;
+      const wind = isWindup ? atkProgress / 0.25 : 1;
+      const snap = isWindup ? 0 : Math.min(1, (atkProgress - 0.25) / 0.28);
+      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
+      const hurl = snap * (1 - settle * 0.35);
+
+      pelvisX = 0.16 * hurl;
+      pelvisY = basePelvisY - 0.04 * hurl;
+      torsoRotX = isWindup ? -0.1 * wind : 0.16 * hurl;
+      torsoRotY = isWindup ? 0.58 * wind : -0.54 * hurl;
+      headRotY = isWindup ? -0.32 * wind : 0.36 * hurl;
+      rShX = isWindup ? -1.35 * wind - 0.35 : -1.58 * hurl - 0.4 * (1 - hurl);
+      rShZ = isWindup ? 0.58 * wind : 0.18;
+      rElbX = isWindup ? -1.25 * wind : -0.12;
+      lShX = -0.42;
+      lShZ = -0.36;
+      lElbX = -1.1;
+    } else if (state.action === 'super') {
+      // ADI LAST-BENCH STRIKE (4.6s):
+      // 0.0-1.1s: Cool open-plaid collar pop & knuckle crack angled 3/4 toward camera
+      // 1.1-3.0s: Snappy rapid martial-arts pointing/hurling barrage stance
+      // 3.0-3.62s: Acrobatic leaping spinning last-bench flying kick!
+      // 3.62-4.6s: Smooth hero landing & confident relaxed swag pose
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 1.1) {
+        const p = Math.min(1, t / 0.26);
+        const pulse = Math.sin(t * 9) * 0.05;
+        pelvisY = basePelvisY - 0.02 * p;
+        pelvisRotY = -0.42 * state.facing * p;
+        torsoRotX = -0.08 * p;
+        torsoRotY = -0.15 * state.facing * p;
+        headRotX = -0.04;
+        headRotY = 0.12 * state.facing * p;
+        // Both hands pop open plaid shirt lapels outward!
+        lShX = (-0.82 + pulse) * p;
+        lShZ = -0.45 * p;
+        lElbX = -1.45 * p;
+        rShX = (-0.82 - pulse) * p;
+        rShZ = 0.45 * p;
+        rElbX = -1.45 * p;
+        lHipX = -0.12 * p;
+        lKneeX = 0.2 * p;
+        rHipX = 0.1 * p;
+        rKneeX = 0.16 * p;
+      } else if (t < 3.0) {
+        jointAlpha = 1 - Math.exp(-26 * Math.max(dt, 0.008));
+        const wave = Math.sin((t - 1.1) * 19);
+        pelvisY = basePelvisY - 0.05;
+        pelvisRotX = 0.06;
+        torsoRotX = 0.14;
+        torsoRotY = wave * 0.34;
+        headRotY = -wave * 0.18;
+        lShX = -1.28 + wave * 0.42;
+        lShZ = -0.26;
+        lElbX = -0.35 - Math.max(0, -wave) * 0.65;
+        rShX = -1.28 - wave * 0.42;
+        rShZ = 0.26;
+        rElbX = -0.35 - Math.max(0, wave) * 0.65;
+        lHipX = -0.22;
+        lKneeX = 0.36;
+        rHipX = 0.18;
+        rKneeX = 0.24;
+      } else if (t < 3.62) {
+        // Acrobatic airborne Last-Bench flying strike!
+        jointAlpha = 1 - Math.exp(-28 * Math.max(dt, 0.008));
+        const leapP = (t - 3.0) / 0.62;
+        pelvisY = basePelvisY;
+        pelvisRotX = -0.16 + leapP * 0.36;
+        torsoRotX = 0.24;
+        torsoRotY = -0.42;
+        headRotY = 0.34;
+        rShX = -1.55;
+        rShZ = 0.38;
+        rElbX = -0.25;
+        lShX = 0.35;
+        lShZ = -0.62;
+        lElbX = -0.95;
+        // Extended flying front-kick right leg + tucked left knee
+        rHipX = -1.48;
+        rKneeX = 0.12;
+        lHipX = -0.78;
+        lKneeX = 1.42;
+      } else {
+        // Crisp cool follow-through landing & relaxed collar brush
+        const settle = Math.min(1, (t - 3.62) / 0.45);
+        pelvisY = basePelvisY - 0.18 * (1 - settle);
+        torsoRotX = 0.18 * (1 - settle) - 0.05 * settle;
+        torsoRotY = -0.2 * settle;
+        headRotY = 0.15 * settle;
+        rShX = -0.95 * settle - 0.4 * (1 - settle);
+        rShZ = 0.35;
+        rElbX = -1.45 * settle - 0.6 * (1 - settle);
+        lShX = -0.32;
+        lShZ = -0.22;
+        lElbX = -0.65;
+        lHipX = -0.25 * (1 - settle);
+        lKneeX = 0.45 * (1 - settle);
+        rHipX = 0.15 * (1 - settle);
+        rKneeX = 0.25 * (1 - settle);
+      }
+    } else if (state.action === 'victory') {
+      // Confident relaxed Last-Bench victory pose — one fist raised, other hand on plaid lapel!
+      const bob = Math.sin(elapsed * 3.2) * 0.025;
+      pelvisY = basePelvisY + bob;
+      pelvisRotY = -0.45 * state.facing;
+      torsoRotX = -0.06;
+      torsoRotY = -0.12 * state.facing;
+      headRotY = 0.1 * state.facing;
+      rShX = -2.45 + Math.sin(elapsed * 4) * 0.08;
+      rShZ = 0.32;
+      rElbX = -0.32;
+      lShX = -0.72;
+      lShZ = -0.32;
+      lElbX = -1.42;
+    }
   }
 
   // Opponent flattened horizontally on the arena floor underneath Anda Bhai's ANDA SQUASH!
@@ -1646,9 +1780,9 @@ export function animateFighterRig(
   rig.torso.rotation.y = lerpAngle(rig.torso.rotation.y, torsoRotY, jointAlpha);
   rig.torso.rotation.z = lerpAngle(rig.torso.rotation.z, torsoRotZ, jointAlpha);
 
-  // Keep flat front face plates angled ~25-35 deg toward front camera (+Z) for crisp 2.5D readability
+  // Keep 3D GLB & photo-face heads angled ~25-35 deg toward front camera (+Z) for crisp 2.5D readability
   if (
-    isPhotoFaceFighter(state.id) &&
+    (isPhotoFaceFighter(state.id) || state.id === 'adi') &&
     state.squashedTimer <= 0 &&
     state.action !== 'knockdown' &&
     state.action !== 'ko'

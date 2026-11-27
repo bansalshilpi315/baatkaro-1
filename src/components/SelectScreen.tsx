@@ -51,6 +51,7 @@ const SHORT_NAMES: Record<FighterId, string> = {
   mausi: 'MAUSI',
   father: 'PRINCIPAL MAN',
   samyak: 'SAMYAK',
+  adi: 'ADI',
 };
 
 export function SelectScreen({

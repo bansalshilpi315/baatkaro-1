@@ -1,4 +1,5 @@
 import { createEmptyInput } from './combat';
+import type { AdiSuperBeatSignal, AdiSuperState } from './adiSuper';
 import type { AndaSuperBeatSignal, AndaSuperState } from './andaSuper';
 import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
 import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
@@ -85,6 +86,7 @@ export interface SyncedSuperStates {
   mausi?: MausiSuperState | null;
   father?: FatherSuperState | null;
   samyak?: SamyakSuperState | null;
+  adi?: AdiSuperState | null;
 }
 
 export interface SyncedSuperSignals {
@@ -95,6 +97,7 @@ export interface SyncedSuperSignals {
   mausi?: MausiSuperBeatSignal[];
   father?: FatherSuperBeatSignal[];
   samyak?: SamyakSuperBeatSignal[];
+  adi?: AdiSuperBeatSignal[];
 }
 
 export interface StateSnapshotPacket {
@@ -312,7 +315,8 @@ export function packMatchStateSnapshot(state: MatchState, seq: number): StateSna
     state.andaSuper ||
     state.mausiSuper ||
     state.fatherSuper ||
-    state.samyakSuper
+    state.samyakSuper ||
+    state.adiSuper
   ) {
     supers = {};
     if (state.sheruSuper) supers.sheru = state.sheruSuper;
@@ -322,6 +326,7 @@ export function packMatchStateSnapshot(state: MatchState, seq: number): StateSna
     if (state.mausiSuper) supers.mausi = state.mausiSuper;
     if (state.fatherSuper) supers.father = state.fatherSuper;
     if (state.samyakSuper) supers.samyak = state.samyakSuper;
+    if (state.adiSuper) supers.adi = state.adiSuper;
   }
 
   return {
@@ -453,4 +458,5 @@ export function applyStateSnapshotToGuest(
   state.mausiSuper = snap.supers?.mausi ?? null;
   state.fatherSuper = snap.supers?.father ?? null;
   state.samyakSuper = snap.supers?.samyak ?? null;
+  state.adiSuper = snap.supers?.adi ?? null;
 }

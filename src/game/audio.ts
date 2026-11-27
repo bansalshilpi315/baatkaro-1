@@ -10,6 +10,7 @@ export const ANDA_SUPER_AUDIO_URL = '/audio/supers/anda.mp3';
 export const MAUSI_SUPER_AUDIO_URL = '/audio/supers/mausi.mp3';
 export const FATHER_SUPER_AUDIO_URL = '/audio/supers/father.mp3';
 export const SAMYAK_SUPER_AUDIO_URL = '/audio/supers/ias.mp3';
+export const ADI_SUPER_AUDIO_URL = '/audio/supers/adi.mp3';
 export const DAHI_KO_AUDIO_URL = '/audio/supers/dahi.mp3';
 
 export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
@@ -20,6 +21,7 @@ export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
   mausi: MAUSI_SUPER_AUDIO_URL,
   father: FATHER_SUPER_AUDIO_URL,
   samyak: SAMYAK_SUPER_AUDIO_URL,
+  adi: ADI_SUPER_AUDIO_URL,
 };
 
 export function getSuperAudioUrl(fighterId: FighterId): string | null {
@@ -160,6 +162,7 @@ export class DesiAudioEngine {
       this.preloadSuperAudio(MAUSI_SUPER_AUDIO_URL),
       this.preloadSuperAudio(FATHER_SUPER_AUDIO_URL),
       this.preloadSuperAudio(SAMYAK_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(ADI_SUPER_AUDIO_URL),
       this.preloadSuperAudio(DAHI_KO_AUDIO_URL),
     ]);
   }
@@ -268,9 +271,23 @@ export class DesiAudioEngine {
       return;
     }
 
-    // Fallback: decode & start as soon as preload resolves (unless match was restarted/exited)
+    // Fallback: decode & start as soon as preload resolves (or synth fallback if MP3 is absent)
     void this.preloadSuperAudio(url).then((decoded) => {
-      if (!decoded || !this.ctx) return;
+      if (token !== this.superPlaybackToken) return;
+      if (!decoded || !this.ctx) {
+        if (!this.superAudioActive) {
+          this.superSfxMuted = false;
+          this.restoreBgmFromSuper();
+          if (this.ctx && typeof this.ctx.createOscillator === 'function') {
+            try {
+              this.playSuper();
+            } catch {
+              // Ignore synth fallback errors in restricted audio contexts
+            }
+          }
+        }
+        return;
+      }
       this.startDecodedSuperBuffer(this.ctx, decoded, token);
     });
   }
@@ -297,6 +314,10 @@ export class DesiAudioEngine {
 
   public playFatherSuperAudio(): void {
     this.playSuperAudio(FATHER_SUPER_AUDIO_URL);
+  }
+
+  public playAdiSuperAudio(): void {
+    this.playSuperAudio(ADI_SUPER_AUDIO_URL);
   }
 
   public playFighterSuperAudio(fighterId: FighterId): void {

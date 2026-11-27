@@ -13,6 +13,7 @@ import {
   animateFighterRig,
   buildFighterRig,
   FIGHTER_CONFIGS,
+  preloadAdiGlbHead,
   preloadFatherGlbHead,
   preloadRealFaceTextures,
   preloadSamyakGlbHead,
@@ -45,6 +46,8 @@ import {
   type ActiveFighterDialogue,
   type DialogueTracker,
 } from './dialogue';
+import { ADI_SUPER_BANNER } from './adiSuper';
+import { AdiSuperVfx } from './adiSuperVfx';
 import { ANDA_SUPER_BANNER } from './andaSuper';
 import { AndaSuperVfx } from './andaSuperVfx';
 import { BILLA_SUPER_BANNER } from './billaSuper';
@@ -139,6 +142,7 @@ const _andaFlashColor = new THREE.Color(0xdbeafe);
 const _mausiFestiveDimColor = new THREE.Color(0x2d1404);
 const _fatherCrimsonDimColor = new THREE.Color(0x1f0709);
 const _samyakBlueGoldDimColor = new THREE.Color(0x071324);
+const _adiOliveGoldDimColor = new THREE.Color(0x0b1708);
 
 const INTRO_TAUNTS: Record<FighterId, string[]> = {
   sheru: [
@@ -176,6 +180,11 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Body bhi hai aur dimaag bhi — ab dekh IAS ki power!',
     '18 ghante padhai aur 2 ghante gym — aaj teri Prelims fail!',
   ],
+  adi: [
+    'Last bench se direct knockout dene aaya hoon!',
+    'Attendance kam hai, par combo 100 percent hai!',
+    'Checked shirt press hai, ab tera test hai!',
+  ],
 };
 
 const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
@@ -186,6 +195,7 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
   father: ['This is gross indiscipline!', 'Wait till I sign your diary!'],
   samyak: ['Arre mera pre-workout gir gaya!', 'Prelims mein jhatka, Mains mein phod dunga!'],
+  adi: ['Arre meri checked shirt pe dhool mat daal!', 'Back-bencher hoon, abhi comeback dekhna!'],
 };
 
 const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
@@ -224,6 +234,11 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Article 21 tera defense suspend kar diya!',
     'No pain, no AIR 1 — full beast mode ON!',
   ],
+  adi: [
+    'Ye le Last-Bench Notebook seedha muh pe!',
+    'Proxy lagwa di, ab tera defense gayab!',
+    'Zero syllabus, hundred percent swag combo!',
+  ],
 };
 
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
@@ -234,6 +249,7 @@ const VICTORY_QUIPS: Record<FighterId, string[]> = {
   mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai kya?'],
   father: ['Assembly dismissed! Maintain pin-drop silence.', 'Rustication order stands — bring your parents!'],
   samyak: ['First attempt mein hi knockout — AIR 1 confirmed!', 'Gym pump bhi solid, Polity bhi solid!'],
+  adi: ['Last bench se seedha top score — game over!', 'Notebook band, opponent flat — Adi on top!'],
 };
 
 function detectSoftwareWebGL(): boolean {
@@ -307,7 +323,7 @@ export class DesiShowdownEngine {
   private impactInnerGeo: THREE.RingGeometry;
   private impactOuterGeo: THREE.RingGeometry;
 
-  // Pre-pooled 3D Super Power VFX managers (all 7 fighters)
+  // Pre-pooled 3D Super Power VFX managers (all 8 fighters)
   private sheruSuperVfx: SheruSuperVfx;
   private billaSuperVfx: BillaSuperVfx;
   private netaSuperVfx: NetaSuperVfx;
@@ -315,6 +331,7 @@ export class DesiShowdownEngine {
   private mausiSuperVfx: MausiSuperVfx;
   private fatherSuperVfx: FatherSuperVfx;
   private samyakSuperVfx: SamyakSuperVfx;
+  private adiSuperVfx: AdiSuperVfx;
 
   // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
   private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
@@ -346,6 +363,12 @@ export class DesiShowdownEngine {
   private polityBookSpineMat: THREE.MeshStandardMaterial;
   private polityBookPageMat: THREE.MeshStandardMaterial;
   private polityBookMats: THREE.MeshStandardMaterial[];
+  private adiNotebookTex: THREE.CanvasTexture;
+  private adiNotebookGeo: THREE.BoxGeometry;
+  private adiNotebookCoverMat: THREE.MeshStandardMaterial;
+  private adiNotebookSpineMat: THREE.MeshStandardMaterial;
+  private adiNotebookPageMat: THREE.MeshStandardMaterial;
+  private adiNotebookMats: THREE.MeshStandardMaterial[];
 
   // Loop & lifecycle
   private frameId = 0;
@@ -535,6 +558,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx = new MausiSuperVfx(this.scene);
     this.fatherSuperVfx = new FatherSuperVfx(this.scene);
     this.samyakSuperVfx = new SamyakSuperVfx(this.scene);
+    this.adiSuperVfx = new AdiSuperVfx(this.scene);
 
     this.strikeTrails = [new StrikeTrailRibbon(), new StrikeTrailRibbon()];
     this.scene.add(this.strikeTrails[0].mesh);
@@ -624,6 +648,36 @@ export class DesiShowdownEngine {
       this.polityBookCoverMat, // -Z back cover
     ];
 
+    // Spiral college notebook projectile for Adi ("NOTEBOOK SMASH")
+    this.adiNotebookTex = this.createAdiNotebookTexture();
+    this.adiNotebookGeo = new THREE.BoxGeometry(0.42, 0.54, 0.085);
+    this.adiNotebookCoverMat = new THREE.MeshStandardMaterial({
+      map: this.adiNotebookTex,
+      color: 0xffffff,
+      emissive: 0x365314,
+      emissiveIntensity: 0.24,
+      roughness: 0.45,
+      metalness: 0.08,
+    });
+    this.adiNotebookSpineMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.38,
+      metalness: 0.42,
+    });
+    this.adiNotebookPageMat = new THREE.MeshStandardMaterial({
+      color: 0xfefce8,
+      roughness: 0.84,
+      metalness: 0.02,
+    });
+    this.adiNotebookMats = [
+      this.adiNotebookPageMat,
+      this.adiNotebookSpineMat,
+      this.adiNotebookPageMat,
+      this.adiNotebookPageMat,
+      this.adiNotebookCoverMat,
+      this.adiNotebookCoverMat,
+    ];
+
     this.matchState = createMatchState(this.p1Id, this.p2Id, false);
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
@@ -634,6 +688,7 @@ export class DesiShowdownEngine {
       preloadRealFaceTextures();
       preloadFatherGlbHead();
       preloadSamyakGlbHead();
+      preloadAdiGlbHead();
     }
 
     if (!this.isSoftwareGl) {
@@ -645,6 +700,7 @@ export class DesiShowdownEngine {
       this.mausiSuperVfx.setPrewarmVisible(true);
       this.fatherSuperVfx.setPrewarmVisible(true);
       this.samyakSuperVfx.setPrewarmVisible(true);
+      this.adiSuperVfx.setPrewarmVisible(true);
       this.shockwaveRing.visible = true;
       this.strikeTrails[0].mesh.visible = true;
       this.renderer.compile(this.scene, this.camera);
@@ -655,6 +711,7 @@ export class DesiShowdownEngine {
       this.mausiSuperVfx.setPrewarmVisible(false);
       this.fatherSuperVfx.setPrewarmVisible(false);
       this.samyakSuperVfx.setPrewarmVisible(false);
+      this.adiSuperVfx.setPrewarmVisible(false);
       this.shockwaveRing.visible = false;
       this.strikeTrails[0].mesh.visible = false;
     }
@@ -869,6 +926,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.fatherSuperVfx.reset();
     this.samyakSuperVfx.reset();
+    this.adiSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
   }
@@ -884,6 +942,7 @@ export class DesiShowdownEngine {
         this.matchState.mausiSuper?.active ||
         this.matchState.fatherSuper?.active ||
         this.matchState.samyakSuper?.active ||
+        this.matchState.adiSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -1057,6 +1116,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.fatherSuperVfx.reset();
     this.samyakSuperVfx.reset();
+    this.adiSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
     // Explicit match start/restart: stop any prior Super/KO audio and ensure buffers are preloaded
@@ -1456,6 +1516,60 @@ export class DesiShowdownEngine {
     return tex;
   }
 
+  private createAdiNotebookTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 320;
+    const ctx = c.getContext('2d')!;
+    // Olive-slate college spiral notebook cover for Adi's "NOTEBOOK SMASH"
+    const grad = ctx.createLinearGradient(0, 0, 256, 320);
+    grad.addColorStop(0, '#3f6212');
+    grad.addColorStop(0.58, '#4d7c0f');
+    grad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 320);
+
+    // Metallic spiral binding edge
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, 28, 320);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 4;
+    for (let y = 24; y < 306; y += 26) {
+      ctx.beginPath();
+      ctx.arc(14, y, 9, -Math.PI * 0.4, Math.PI * 0.4);
+      ctx.stroke();
+    }
+
+    // Crisp cream sticker label
+    ctx.fillStyle = '#fefce8';
+    ctx.fillRect(46, 54, 184, 120);
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(46, 54, 184, 120);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.font = '900 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('LAST BENCH', 138, 92);
+    ctx.fillStyle = '#3f6212';
+    ctx.font = '900 30px sans-serif';
+    ctx.fillText('ADI', 138, 134);
+
+    // Subtle plaid stripe accent at bottom
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(46, 214, 184, 10);
+    ctx.fillStyle = '#84cc16';
+    ctx.fillRect(46, 232, 184, 8);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('CLASS TOPPER SMASH', 138, 272);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   private syncProjectiles(): void {
     const activeIds = this.activeProjectileIds;
     activeIds.clear();
@@ -1486,6 +1600,8 @@ export class DesiShowdownEngine {
           mesh = new THREE.Mesh(this.diaryNoteGeo, this.diaryNoteMat);
         } else if (proj.kind === 'polity') {
           mesh = new THREE.Mesh(this.polityBookGeo, this.polityBookMats);
+        } else if (proj.kind === 'notebook') {
+          mesh = new THREE.Mesh(this.adiNotebookGeo, this.adiNotebookMats);
         } else {
           mesh = new THREE.Mesh(this.currencyNoteGeo, this.currencyNoteMat);
         }
@@ -1519,6 +1635,14 @@ export class DesiShowdownEngine {
         this.spawnParticles(proj.x, proj.y, 1, 0xfefce8, 2.4);
         this.spawnParticles(proj.x, proj.y, 1, 0xdc2626, 2.7);
         this.spawnParticles(proj.x, proj.y, 1, 0xfacc15, 2.5);
+      } else if (proj.kind === 'notebook') {
+        mesh.rotation.z = -proj.spin * 1.24;
+        mesh.rotation.y = Math.sin(proj.spin * 0.8) * 0.42;
+        mesh.rotation.x = Math.cos(proj.spin * 0.6) * 0.22;
+        // Olive-lime & chalk-gold spark trail behind Adi's spinning spiral notebook
+        this.spawnParticles(proj.x, proj.y, 1, 0x84cc16, 2.4);
+        this.spawnParticles(proj.x, proj.y, 1, 0xfefce8, 2.2);
+        this.spawnParticles(proj.x, proj.y, 1, 0xfacc15, 2.6);
       } else {
         mesh.rotation.z = Math.sin(proj.spin * 1.4) * 0.65;
         mesh.rotation.y = proj.spin * 1.15;
@@ -1589,6 +1713,11 @@ export class DesiShowdownEngine {
           this.spawnParticles(ev.x, ev.y, 14, 0xdc2626, 6.4);
           this.spawnParticles(ev.x, ev.y, 12, 0xfefce8, 5.6);
           this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 6.2);
+        } else if (ev.type === 'heavy_hit' && attacker?.id === 'adi' && ev.moveCallout === 'NOTEBOOK SMASH!') {
+          audioEngine.playHeavyHit();
+          this.spawnParticles(ev.x, ev.y, 14, 0x84cc16, 6.2);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfefce8, 5.4);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 6.0);
         } else if (ev.type === 'dharna_counter') {
           audioEngine.playHeavyHit();
           this.shockwaveRing.position.set(ev.x, 0.06, 0);
@@ -1667,6 +1796,10 @@ export class DesiShowdownEngine {
           // Red Indian Polity cover & golden page sparks on LAXMIKANT SLAM launch
           this.spawnParticles(ev.x, ev.y, 12, 0xdc2626, 5.8);
           this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 5.0);
+        } else if (caster?.id === 'adi') {
+          // Olive-lime & chalk-gold sparks on NOTEBOOK SMASH launch
+          this.spawnParticles(ev.x, ev.y, 12, 0x84cc16, 5.6);
+          this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 4.8);
         } else {
           this.spawnParticles(ev.x, ev.y, 12, 0xf97316, 4.8);
         }
@@ -1679,7 +1812,8 @@ export class DesiShowdownEngine {
           caster?.id === 'anda' ||
           caster?.id === 'mausi' ||
           caster?.id === 'father' ||
-          caster?.id === 'samyak'
+          caster?.id === 'samyak' ||
+          caster?.id === 'adi'
         ) {
           audioEngine.playFighterSuperAudio(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
@@ -1704,7 +1838,9 @@ export class DesiShowdownEngine {
                     ? 0xef4444
                     : caster?.id === 'samyak'
                       ? 0x38bdf8
-                      : 0xfde047;
+                      : caster?.id === 'adi'
+                        ? 0x84cc16
+                        : 0xfde047;
         this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -1825,6 +1961,7 @@ export class DesiShowdownEngine {
       mausi: 2.18,
       father: 2.26,
       samyak: 2.28,
+      adi: 2.24,
     };
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
@@ -1935,6 +2072,7 @@ export class DesiShowdownEngine {
         this.matchState.mausiSuper?.active ||
         this.matchState.fatherSuper?.active ||
         this.matchState.samyakSuper?.active ||
+        this.matchState.adiSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -2060,11 +2198,12 @@ export class DesiShowdownEngine {
       const isMausi = caster.id === 'mausi';
       const isFather = caster.id === 'father';
       const isSamyak = caster.id === 'samyak';
+      const isAdi = caster.id === 'adi';
       const bannerWindow = isSheru
         ? 1.85
         : isSamyak
           ? 1.75
-          : isFather
+          : isFather || isAdi
             ? 1.65
             : isMausi
               ? 1.6
@@ -2094,7 +2233,9 @@ export class DesiShowdownEngine {
                       ? FATHER_SUPER_BANNER
                       : isSamyak
                         ? SAMYAK_SUPER_BANNER
-                        : cfg.superName,
+                        : isAdi
+                          ? ADI_SUPER_BANNER
+                          : cfg.superName,
           slot: caster.slot,
         };
       }
@@ -2229,7 +2370,9 @@ export class DesiShowdownEngine {
                     ? 'father'
                     : attacker.id === 'samyak'
                       ? 'samyak'
-                      : 'generic';
+                      : attacker.id === 'adi'
+                        ? 'adi'
+                        : 'generic';
       target = computeSuperCameraTarget(
         this.matchState.activeSuperElapsed,
         this.matchState.activeSuperDuration,
@@ -2538,6 +2681,51 @@ export class DesiShowdownEngine {
       }
     }
 
+    const adiSignals = bundle.adi;
+    if (adiSignals && adiSignals.length > 0) {
+      anySignal = true;
+      this.adiSuperVfx.handleBeatSignals(adiSignals, this.graphics === 'low');
+      for (const sig of adiSignals) {
+        if (sig.kind === 'collar_flex') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.spawnParticles(sig.x, sig.y, 16, 0x84cc16, 6.0);
+          this.stage?.triggerExcitement(1.7);
+        } else if (sig.kind === 'aura_surge') {
+          this.trauma = Math.min(1, this.trauma + 0.24);
+          this.spawnImpactRing(sig.x, sig.y, false);
+          this.spawnParticles(sig.x, sig.y, 14, 0xfacc15, 6.4);
+          this.stage?.triggerExcitement(1.9);
+        } else if (sig.kind === 'barrage_summon') {
+          this.stage?.triggerExcitement(2.1);
+        } else if (sig.kind === 'barrage_hit') {
+          const isChalkDuster = (sig.hitIndex ?? 0) % 2 === 1;
+          this.trauma = Math.min(1, this.trauma + (isChalkDuster ? 0.34 : 0.25));
+          this.spawnImpactRing(sig.x, sig.y, isChalkDuster);
+          this.spawnStarburstSparks(sig.x, sig.y, false);
+          this.spawnParticles(
+            sig.x,
+            sig.y,
+            isChalkDuster ? 14 : 10,
+            isChalkDuster ? 0xfefce8 : 0x84cc16,
+            6.5,
+          );
+        } else if (sig.kind === 'finisher_leap') {
+          this.trauma = Math.min(1, this.trauma + 0.28);
+          this.spawnParticles(sig.x, 0.16, 14, 0xfacc15, 5.8);
+          this.stage?.triggerExcitement(2.2);
+        } else if (sig.kind === 'last_bench_impact') {
+          this.trauma = 1.0;
+          this.spawnImpactRing(sig.x, sig.y, true);
+          this.spawnStarburstSparks(sig.x, sig.y, true);
+          this.spawnParticles(sig.x, sig.y, 26, 0xfacc15, 9.4);
+          this.spawnParticles(sig.x, sig.y + 0.2, 18, 0x84cc16, 8.2);
+          this.stage?.triggerExcitement(2.8);
+        } else if (sig.kind === 'super_end') {
+          audioEngine.notifySuperAnimationEnd();
+        }
+      }
+    }
+
     return anySignal;
   }
 
@@ -2717,6 +2905,9 @@ export class DesiShowdownEngine {
           if (this.matchState.samyakSuperSignals.length > 0) {
             signalBundle.samyak = this.matchState.samyakSuperSignals;
           }
+          if (this.matchState.adiSuperSignals.length > 0) {
+            signalBundle.adi = this.matchState.adiSuperSignals;
+          }
 
           const anySignal = this.processSuperSignals(signalBundle);
           forceHud = events.length > 0 || anySignal;
@@ -2767,7 +2958,8 @@ export class DesiShowdownEngine {
           this.matchState.andaSuper?.active ||
           this.matchState.mausiSuper?.active ||
           this.matchState.fatherSuper?.active ||
-          this.matchState.samyakSuper?.active
+          this.matchState.samyakSuper?.active ||
+          this.matchState.adiSuper?.active
         ) {
           clearAllMidFightDialogues(this.dialogueTracker);
         } else {
@@ -2950,6 +3142,21 @@ export class DesiShowdownEngine {
         samyakDef?.x ?? 2,
       );
 
+      const adiSuper = this.matchState.adiSuper;
+      const adiSlot = adiSuper?.attackerSlot ?? 0;
+      const adiDefSlot = adiSuper?.defenderSlot ?? 1;
+      const adiFighter = this.matchState.fighters[adiSlot];
+      const adiDef = this.matchState.fighters[adiDefSlot];
+      const adiDim = this.adiSuperVfx.update(
+        dt,
+        this.elapsed,
+        adiSuper,
+        adiFighter?.x ?? 0,
+        adiFighter?.y ?? 0,
+        adiFighter?.facing ?? 1,
+        adiDef?.x ?? 2,
+      );
+
       const dimFactor = Math.max(
         sheruDim,
         billaDim,
@@ -2958,19 +3165,22 @@ export class DesiShowdownEngine {
         mausiDim,
         fatherDim,
         samyakDim,
+        adiDim,
       );
       if (this.stage) {
         const lightningFlash = andaVfxResult.skyFlash;
         const dimTargetColor =
           andaVfxResult.dimFactor > 0.01
             ? _andaStormDimColor
-            : samyakDim > 0.01
-              ? _samyakBlueGoldDimColor
-              : fatherDim > 0.01
-                ? _fatherCrimsonDimColor
-                : mausiDim > 0.01
-                  ? _mausiFestiveDimColor
-                  : _superDimColor;
+            : adiDim > 0.01
+              ? _adiOliveGoldDimColor
+              : samyakDim > 0.01
+                ? _samyakBlueGoldDimColor
+                : fatherDim > 0.01
+                  ? _fatherCrimsonDimColor
+                  : mausiDim > 0.01
+                    ? _mausiFestiveDimColor
+                    : _superDimColor;
 
         this.keyLight.intensity =
           this.stage.keyLightIntensity * (1 - dimFactor * 0.82) + lightningFlash * 2.4;
@@ -3043,6 +3253,7 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.dispose(this.scene);
     this.fatherSuperVfx.dispose(this.scene);
     this.samyakSuperVfx.dispose(this.scene);
+    this.adiSuperVfx.dispose(this.scene);
     for (const trail of this.strikeTrails) {
       this.scene.remove(trail.mesh);
       trail.dispose();
@@ -3081,6 +3292,11 @@ export class DesiShowdownEngine {
     this.polityBookCoverMat.dispose();
     this.polityBookSpineMat.dispose();
     this.polityBookPageMat.dispose();
+    this.adiNotebookTex.dispose();
+    this.adiNotebookGeo.dispose();
+    this.adiNotebookCoverMat.dispose();
+    this.adiNotebookSpineMat.dispose();
+    this.adiNotebookPageMat.dispose();
     this.pmremTexture.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {

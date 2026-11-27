@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { audioEngine } from './audio';
 import {
+  preloadAdiGlbHead,
   preloadFatherGlbHead,
   preloadSamyakGlbHead,
 } from './characters/fatherGlbHead';
@@ -89,6 +90,7 @@ export async function preloadStartupAssets(
     const threeAssetsTask = Promise.all([
       preloadFatherGlbHead(createGltfLoader),
       preloadSamyakGlbHead(createGltfLoader),
+      preloadAdiGlbHead(createGltfLoader),
       preloadRealFaceTextures(createTexLoader),
     ]).then(() => {
       threeDone = true;
