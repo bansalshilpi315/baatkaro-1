@@ -56,6 +56,7 @@ export interface FighterRig {
   face: DynamicFace;
   flashMaterials: THREE.MeshStandardMaterial[];
   isEggBody: boolean;
+  isDisposed: boolean;
   dispose: () => void;
 }
 
@@ -244,12 +245,16 @@ export function createBaseRigSkeleton(
     face,
     flashMaterials: [],
     isEggBody,
+    isDisposed: false,
     dispose() {
+      rig.isDisposed = true;
       face.dispose();
       root.traverse((obj) => {
         if ((obj as THREE.Mesh).isMesh) {
           const m = obj as THREE.Mesh;
-          m.geometry.dispose();
+          if (!m.userData.sharedGeometry) {
+            m.geometry.dispose();
+          }
           if (Array.isArray(m.material)) {
             m.material.forEach((mat) => mat.dispose());
           } else {

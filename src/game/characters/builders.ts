@@ -11,6 +11,7 @@ import {
   PHOTO_HEAD_OVAL_SCALE,
   type PhotoFaceFighterId,
 } from './photoFaceLoader';
+import { attachFatherGlbHead } from './fatherGlbHead';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
 /**
@@ -26,7 +27,7 @@ function buildPhotoHemisphereHead(
   id: PhotoFaceFighterId,
   skinMat: THREE.MeshStandardMaterial,
   grayTempleMat?: THREE.MeshStandardMaterial,
-): void {
+): THREE.Group {
   const r = 0.15;
   const headDomeGroup = new THREE.Group();
   // Shift slightly forward over the neck axis so neck & collar sit cleanly inside the D-head base
@@ -114,6 +115,7 @@ function buildPhotoHemisphereHead(
   headDomeGroup.add(facePlate);
 
   bindRealPhotoFacePlate(id, facePlateMat);
+  return headDomeGroup;
 }
 
 const sharedFabricWeaveCache = new Map<string, THREE.CanvasTexture>();
@@ -3325,9 +3327,15 @@ function buildFatherRoyDolphus(rig: FighterRig): void {
   const penDarkMat = makeMat(0x0f172a, 0.3, 0.55);
   const penClipMat = makeMat(0xe2e8f0, 0.18, 0.92);
 
-  // === 3. CLEAN D-SHAPED HEMISPHERE + FLAT FRONT FACE HEAD (FATHER ROY DOLPHUS) ===
+  // === 3. REAL 3D GLB HEAD (/models/father_head.glb) WITH HEMISPHERE FALLBACK ===
   void hairMat;
-  buildPhotoHemisphereHead(rig, 'father', skinMat);
+  const fallbackHeadGroup = buildPhotoHemisphereHead(rig, 'father', skinMat);
+  attachFatherGlbHead(
+    rig.head,
+    fallbackHeadGroup,
+    rig.flashMaterials,
+    () => rig.isDisposed,
+  );
 
   // === 4. NECK, WHITE CLERICAL COLLAR, CASSOCK CHEST & PALE SKY-BLUE NEHRU VEST ===
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.074, 0.15, 14), skinMat);

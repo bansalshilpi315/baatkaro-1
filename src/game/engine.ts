@@ -13,6 +13,7 @@ import {
   animateFighterRig,
   buildFighterRig,
   FIGHTER_CONFIGS,
+  preloadFatherGlbHead,
   preloadRealFaceTextures,
   type FighterRig,
 } from './characters';
@@ -644,6 +645,7 @@ export class DesiShowdownEngine {
     // Preload all Super Power MP3 bytes & optional real face photo textures once at startup
     void audioEngine.preloadAllSuperAudios();
     preloadRealFaceTextures();
+    preloadFatherGlbHead();
 
     if (!this.isSoftwareGl) {
       // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes

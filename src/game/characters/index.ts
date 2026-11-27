@@ -8,3 +8,4 @@ export {
   markPortraitPhotoFailed,
   preloadRealFaceTextures,
 } from './photoFaceLoader';
+export { preloadFatherGlbHead } from './fatherGlbHead';
