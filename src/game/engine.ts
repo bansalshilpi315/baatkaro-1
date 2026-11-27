@@ -36,6 +36,7 @@ import {
   computeDialogueBubbleOpacity,
   createDialogueTracker,
   getDialogueHudTopSafePx,
+  getEnglishSubtitle,
   getIntroDialoguePhase,
   pauseDialogueTimers,
   pruneExpiredDialogues,
@@ -835,6 +836,7 @@ export class DesiShowdownEngine {
       this.clearInputs();
       resumeDialogueTimers(this.dialogueTracker, performance.now());
     } else if (screen === 'paused') {
+      this.clearInputs();
       pauseDialogueTimers(this.dialogueTracker, performance.now());
     } else if (screen === 'select' || screen === 'title' || screen === 'notice') {
       // Explicitly exited to menu: reset Super VFX, preview flags, mid-fight dialogues, callouts, and stop active Super audio
@@ -1818,9 +1820,11 @@ export class DesiShowdownEngine {
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
     const h = Math.max(this.container.clientHeight, 240);
+    const subtitle = getEnglishSubtitle(text);
     const isCompact = h <= 520;
-    const bubbleW = isCompact ? 182 : w < 640 ? 196 : 228;
-    const bubbleH = isCompact ? 48 : w < 640 ? 58 : 64;
+    const bubbleW = isCompact ? 190 : w < 640 ? 208 : 244;
+    const subtitleExtraH = subtitle ? (isCompact ? 14 : 18) : 0;
+    const bubbleH = (isCompact ? 48 : w < 640 ? 58 : 64) + subtitleExtraH;
     const topSafeY = getDialogueHudTopSafePx(h);
 
     const isIntroCloseUp =
@@ -1895,6 +1899,7 @@ export class DesiShowdownEngine {
       slot,
       speakerName: FIGHTER_CONFIGS[f.id].name,
       text,
+      subtitle,
       screenX: finalX,
       screenY: finalY,
       opacity: Number(Math.max(0, Math.min(1, opacity)).toFixed(3)),
@@ -1994,8 +1999,8 @@ export class DesiShowdownEngine {
         bannerTone = 'ko';
         bannerText =
           this.matchState.finishReason === 'timeout'
-            ? 'TIME UP!'
-            : this.matchState.koCalloutText || 'DAHI KHATAM!';
+            ? 'TIME UP! — TIME KHATAM!'
+            : 'K.O.! — DAHI KHATAM!';
         if (!isSuperCinematic) {
           for (const slotEntry of this.dialogueTracker.slots) {
             if (slotEntry) {
@@ -2635,7 +2640,13 @@ export class DesiShowdownEngine {
             p2Input = consumeRemoteInput(this.remoteP2Input);
           } else {
             p1Input = this.samplePlayerInput();
-            p2Input = computeCpuInput(this.matchState, this.difficulty, dt);
+            p2Input = computeCpuInput(
+              this.matchState,
+              this.difficulty,
+              dt,
+              Math.random,
+              this.stageId,
+            );
           }
 
           this.pendingBroadcastDialogues.length = 0;

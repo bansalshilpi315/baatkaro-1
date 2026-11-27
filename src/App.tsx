@@ -36,6 +36,7 @@ import type {
   StageId,
 } from './game/types';
 import { useFullscreen } from './utils/fullscreen';
+import { loadAudioPrefs, saveAudioPrefs } from './utils/safeStorage';
 
 const INITIAL_HUD: HudSnapshot = {
   p1Hp: 110,
@@ -139,8 +140,11 @@ export default function App() {
   const [p2Id, setP2Id] = useState<FighterId>(initialP2);
   const [stageId, setStageId] = useState<StageId>(initialStage);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
-  const [muted, setMuted] = useState(false);
-  const [musicMuted, setMusicMuted] = useState(false);
+  const initialAudioPrefsRef = useRef(loadAudioPrefs());
+  const [globalMuted, setGlobalMuted] = useState(initialAudioPrefsRef.current.globalMuted);
+  const [muted, setMuted] = useState(initialAudioPrefsRef.current.sfxMuted);
+  const [musicMuted, setMusicMuted] = useState(initialAudioPrefsRef.current.musicMuted);
+  const [autoPaused, setAutoPaused] = useState(false);
   const [graphics, setGraphics] = useState<GraphicsQuality>('high');
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -166,6 +170,8 @@ export default function App() {
   const engineRef = useRef<DesiShowdownEngine | null>(null);
   const friendRoomRef = useRef<FriendRoomManager | null>(null);
   const screenRef = useRef<GameScreen>(screen);
+  const globalMutedRef = useRef(globalMuted);
+  const mutedRef = useRef(muted);
   const musicMutedRef = useRef(musicMuted);
   const p1IdRef = useRef(p1Id);
   const p2IdRef = useRef(p2Id);
@@ -177,12 +183,22 @@ export default function App() {
     friendRoomState.status === 'connected' ? friendRoomState.role : 'offline';
 
   screenRef.current = screen;
+  globalMutedRef.current = globalMuted;
+  mutedRef.current = muted;
   musicMutedRef.current = musicMuted;
   p1IdRef.current = p1Id;
   p2IdRef.current = p2Id;
   stageIdRef.current = stageId;
   difficultyRef.current = difficulty;
   onlineRoleRef.current = activeOnlineRole;
+
+  // Apply persisted audio mute preferences immediately on boot
+  useEffect(() => {
+    const prefs = initialAudioPrefsRef.current;
+    audioEngine.setMuted(prefs.sfxMuted);
+    audioEngine.setMusicMuted(prefs.musicMuted);
+    audioEngine.setGlobalMuted(prefs.globalMuted, false);
+  }, []);
 
   // Mirror game state to document.body.dataset.state
   useEffect(() => {
@@ -400,7 +416,53 @@ export default function App() {
     };
   }, []);
 
-  // Global Esc / P pause and M mute shortcuts
+  // Poki & CrazyGames QA: Automatic Tab-Switch & Window-Blur Pause
+  // Immediately pauses active combat + ALL playing audio on tab hide/minimize/blur,
+  // and keeps the match safely paused behind the PAUSED overlay until the player clicks RESUME.
+  useEffect(() => {
+    const handleInactiveWindow = () => {
+      audioEngine.pauseAllAudio();
+      if (screenRef.current === 'playing') {
+        setAutoPaused(true);
+        engineRef.current?.setScreen('paused');
+        setScreen('paused');
+      }
+    };
+
+    const handleActiveWindow = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      // Never auto-unpause combat — wait for the player to click RESUME.
+      if (screenRef.current === 'paused') return;
+      const shouldResumeMusic =
+        !globalMutedRef.current &&
+        !musicMutedRef.current &&
+        (screenRef.current === 'title' ||
+          screenRef.current === 'select' ||
+          screenRef.current === 'super_preview' ||
+          screenRef.current === 'victory');
+      audioEngine.resumeAllAudio(shouldResumeMusic);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden || document.visibilityState === 'hidden') {
+        handleInactiveWindow();
+      } else {
+        handleActiveWindow();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', handleInactiveWindow);
+    window.addEventListener('focus', handleActiveWindow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', handleInactiveWindow);
+      window.removeEventListener('focus', handleActiveWindow);
+    };
+  }, []);
+
+  // Global Esc / P pause and M global mute shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -411,22 +473,33 @@ export default function App() {
         if (screenRef.current === 'playing') {
           e.preventDefault();
           audioEngine.playUiClick();
-          audioEngine.stopMusic();
+          audioEngine.pauseAllAudio();
+          setAutoPaused(false);
           engineRef.current?.setScreen('paused');
           setScreen('paused');
         } else if (screenRef.current === 'paused') {
           e.preventDefault();
+          setAutoPaused(false);
+          audioEngine.resumeAllAudio(!globalMutedRef.current && !musicMutedRef.current);
           audioEngine.playUiClick();
-          if (!musicMutedRef.current) audioEngine.startMusic();
           engineRef.current?.setScreen('playing');
           setScreen('playing');
         }
-      } else if (e.code === 'KeyM' && (screenRef.current === 'playing' || screenRef.current === 'paused')) {
-        setMuted((prev) => {
-          const next = !prev;
-          audioEngine.setMuted(next);
-          return next;
+      } else if (e.code === 'KeyM') {
+        e.preventDefault();
+        const nextGlobalMuted = !globalMutedRef.current;
+        globalMutedRef.current = nextGlobalMuted;
+        setGlobalMuted(nextGlobalMuted);
+        saveAudioPrefs({
+          globalMuted: nextGlobalMuted,
+          sfxMuted: mutedRef.current,
+          musicMuted: musicMutedRef.current,
         });
+        const allowMusic = screenRef.current !== 'paused' && screenRef.current !== 'notice' && screenRef.current !== 'loading';
+        audioEngine.setGlobalMuted(nextGlobalMuted, allowMusic);
+        if (!nextGlobalMuted) {
+          audioEngine.playUiClick();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -635,38 +708,100 @@ export default function App() {
 
   const handlePause = useCallback(() => {
     audioEngine.playUiClick();
-    audioEngine.stopMusic();
+    audioEngine.pauseAllAudio();
+    setAutoPaused(false);
     engineRef.current?.setScreen('paused');
     setScreen('paused');
   }, []);
 
   const handleResume = useCallback(() => {
+    setAutoPaused(false);
+    audioEngine.resumeAllAudio(!globalMutedRef.current && !musicMutedRef.current);
     audioEngine.playUiClick();
-    if (!musicMutedRef.current) audioEngine.startMusic();
     (document.activeElement as HTMLElement | null)?.blur?.();
     engineRef.current?.setScreen('playing');
     setScreen('playing');
   }, []);
 
-  const handleToggleMute = useCallback(() => {
-    setMuted((prev) => {
-      const next = !prev;
-      audioEngine.setMuted(next);
-      if (!next) audioEngine.playUiClick();
-      return next;
+  const handleToggleGlobalMute = useCallback(() => {
+    audioEngine.unlock();
+    const next = !globalMutedRef.current;
+    globalMutedRef.current = next;
+    setGlobalMuted(next);
+    saveAudioPrefs({
+      globalMuted: next,
+      sfxMuted: mutedRef.current,
+      musicMuted: musicMutedRef.current,
     });
+    const allowMusic =
+      screenRef.current !== 'paused' &&
+      screenRef.current !== 'notice' &&
+      screenRef.current !== 'loading';
+    audioEngine.setGlobalMuted(next, allowMusic);
+    if (!next) {
+      audioEngine.playUiClick();
+    }
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    audioEngine.unlock();
+    if (globalMutedRef.current) {
+      globalMutedRef.current = false;
+      setGlobalMuted(false);
+      mutedRef.current = false;
+      setMuted(false);
+      saveAudioPrefs({
+        globalMuted: false,
+        sfxMuted: false,
+        musicMuted: musicMutedRef.current,
+      });
+      audioEngine.setMuted(false);
+      audioEngine.setGlobalMuted(false, screenRef.current !== 'paused');
+      audioEngine.playUiClick();
+      return;
+    }
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    saveAudioPrefs({
+      globalMuted: globalMutedRef.current,
+      sfxMuted: next,
+      musicMuted: musicMutedRef.current,
+    });
+    audioEngine.setMuted(next);
+    if (!next) audioEngine.playUiClick();
   }, []);
 
   const handleToggleMusic = useCallback(() => {
+    audioEngine.unlock();
+    if (globalMutedRef.current) {
+      globalMutedRef.current = false;
+      setGlobalMuted(false);
+      musicMutedRef.current = false;
+      setMusicMuted(false);
+      saveAudioPrefs({
+        globalMuted: false,
+        sfxMuted: mutedRef.current,
+        musicMuted: false,
+      });
+      audioEngine.setMusicMuted(false);
+      audioEngine.setGlobalMuted(false, screenRef.current !== 'paused');
+      audioEngine.playUiClick();
+      return;
+    }
     audioEngine.playUiClick();
-    setMusicMuted((prev) => {
-      const next = !prev;
-      audioEngine.setMusicMuted(next);
-      if (!next && screenRef.current !== 'paused') {
-        audioEngine.startMusic();
-      }
-      return next;
+    const next = !musicMutedRef.current;
+    musicMutedRef.current = next;
+    setMusicMuted(next);
+    saveAudioPrefs({
+      globalMuted: globalMutedRef.current,
+      sfxMuted: mutedRef.current,
+      musicMuted: next,
     });
+    audioEngine.setMusicMuted(next);
+    if (!next && screenRef.current !== 'paused') {
+      audioEngine.startMusic();
+    }
   }, []);
 
   const handleToggleGraphics = useCallback(() => {
@@ -679,13 +814,14 @@ export default function App() {
   }, []);
 
   const handleQuitToSelect = useCallback(() => {
-    audioEngine.playUiClick();
+    setAutoPaused(false);
     audioEngine.stopSuperAudio();
     audioEngine.stopDahiKoAudio();
+    audioEngine.resumeAllAudio(!globalMutedRef.current && !musicMutedRef.current);
+    audioEngine.playUiClick();
     if (onlineRoleRef.current !== 'offline') {
       friendRoomRef.current?.send({ type: 'BACK_TO_SELECT' });
     }
-    if (!musicMutedRef.current) audioEngine.startMusic();
     engineRef.current?.setScreen('select');
     engineRef.current?.setPreviewSelection(p1Id, p2Id, stageId, difficulty);
     setScreen('select');
@@ -729,13 +865,13 @@ export default function App() {
 
       {screen === 'title' && (
         <TitleScreen
-          muted={muted}
+          globalMuted={globalMuted}
           musicMuted={musicMuted}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
           modalOpen={howToPlayOpen || aboutOpen}
           onStart={handleOpenSelect}
-          onToggleMute={handleToggleMute}
+          onToggleGlobalMute={handleToggleGlobalMute}
           onToggleMusic={handleToggleMusic}
           onToggleFullscreen={toggleFullscreen}
           onOpenHowToPlay={() => {
@@ -757,12 +893,14 @@ export default function App() {
           difficulty={difficulty}
           onlineRole={activeOnlineRole}
           roomCode={friendRoomState.roomCode}
+          globalMuted={globalMuted}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
           onSelectP1={handleSelectP1}
           onSelectP2={handleSelectP2}
           onSelectStage={handleSelectStage}
           onSelectDifficulty={handleSelectDifficulty}
+          onToggleGlobalMute={handleToggleGlobalMute}
           onToggleFullscreen={toggleFullscreen}
           onOpenHowToPlay={() => {
             audioEngine.playUiClick();
@@ -786,10 +924,12 @@ export default function App() {
         <SuperPreviewBar
           activeFighterId={previewFighterId}
           isSuperPlaying={previewSuperPlaying}
+          globalMuted={globalMuted}
           superBanner={hud.superBanner}
           callouts={callouts}
           onSwitchFighter={handlePreviewSwitchFighter}
           onTriggerSuper={handlePreviewTriggerSuper}
+          onToggleGlobalMute={handleToggleGlobalMute}
           onSelectAndBack={handlePreviewSelectAndBack}
         />
       )}
@@ -801,13 +941,13 @@ export default function App() {
           stageId={stageId}
           hud={hud}
           callouts={callouts}
-          muted={muted}
+          globalMuted={globalMuted}
           onlineRole={activeOnlineRole}
           roomCode={friendRoomState.roomCode}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
           onPause={handlePause}
-          onToggleMute={handleToggleMute}
+          onToggleGlobalMute={handleToggleGlobalMute}
           onToggleFullscreen={toggleFullscreen}
           onSkipIntro={handleSkipIntro}
           onTouchDirection={handleTouchDirection}
@@ -817,10 +957,13 @@ export default function App() {
 
       {screen === 'paused' && (
         <PauseModal
+          globalMuted={globalMuted}
           muted={muted}
           musicMuted={musicMuted}
           graphics={graphics}
+          autoPaused={autoPaused}
           onResume={handleResume}
+          onToggleGlobalMute={handleToggleGlobalMute}
           onToggleMute={handleToggleMute}
           onToggleMusic={handleToggleMusic}
           onToggleGraphics={handleToggleGraphics}
@@ -883,8 +1026,8 @@ export default function App() {
       {/* Settings, How to Play & About Modals */}
       {settingsOpen && screen === 'select' && (
         <SettingsModal
-          muted={muted}
-          musicMuted={musicMuted}
+          muted={globalMuted || muted}
+          musicMuted={globalMuted || musicMuted}
           onToggleMute={handleToggleMute}
           onToggleMusic={handleToggleMusic}
           onStartSuperPreview={handleStartSuperPreview}

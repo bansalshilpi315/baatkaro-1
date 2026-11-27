@@ -162,6 +162,14 @@ export function VictoryScreen({
             =============================================================== */}
         <aside className="victory-action-col flex w-full max-w-[300px] flex-col items-stretch gap-3.5 text-left">
           <div>
+            <div
+              data-testid="victory-ko-banner"
+              className="mb-1.5 inline-block border-2 border-[#facc15] bg-[#dc2626] px-2.5 py-0.5 font-display text-xs font-extrabold uppercase italic tracking-[0.16em] text-white shadow-[3px_3px_0_#110b08] sm:text-sm"
+            >
+              {result.finishReason === 'ko'
+                ? 'K.O.! — DAHI KHATAM!'
+                : 'TIME UP! — TIME KHATAM!'}
+            </div>
             <div className="font-display text-xs font-extrabold uppercase tracking-[0.22em] text-[#facc15] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] sm:text-sm">
               {announcementEyebrow}
             </div>

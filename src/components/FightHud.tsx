@@ -12,13 +12,13 @@ interface FightHudProps {
   stageId: StageId;
   hud: HudSnapshot;
   callouts: FloatingCallout[];
-  muted: boolean;
+  globalMuted: boolean;
   onlineRole?: OnlineRole;
   roomCode?: string;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   onPause: () => void;
-  onToggleMute: () => void;
+  onToggleGlobalMute: () => void;
   onToggleFullscreen: () => void;
   onSkipIntro: () => void;
   onTouchDirection: (dir: { left: boolean; right: boolean; up: boolean; down: boolean }) => void;
@@ -30,13 +30,13 @@ export function FightHud({
   p2Id,
   hud,
   callouts,
-  muted,
+  globalMuted,
   onlineRole = 'offline',
   roomCode = '',
   isFullscreen,
   fullscreenSupported,
   onPause,
-  onToggleMute,
+  onToggleGlobalMute,
   onToggleFullscreen,
   onSkipIntro,
   onTouchDirection,
@@ -355,11 +355,18 @@ export function FightHud({
               />
               <button
                 type="button"
-                onClick={onToggleMute}
-                aria-label={muted ? 'Unmute Audio' : 'Mute Audio'}
-                className="hud-util-btn flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white/40 bg-[#14100d]/90 text-white transition-colors hover:border-[#facc15] hover:text-[#facc15]"
+                data-testid="global-mute-btn"
+                onClick={onToggleGlobalMute}
+                aria-label={globalMuted ? 'Unmute All Audio' : 'Mute All Audio'}
+                aria-pressed={globalMuted}
+                title={globalMuted ? 'Unmute All Audio (M)' : 'Mute All Audio (M)'}
+                className={`hud-util-btn flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 bg-[#14100d]/90 transition-colors hover:border-[#facc15] hover:text-[#facc15] ${
+                  globalMuted
+                    ? 'border-[#f87171]/80 text-[#f87171]'
+                    : 'border-white/40 text-white'
+                }`}
               >
-                {muted ? (
+                {globalMuted ? (
                   <VolumeX className="h-3.5 w-3.5 text-[#f87171]" aria-hidden="true" />
                 ) : (
                   <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -459,13 +466,21 @@ export function FightHud({
               transform: 'translate(-50%, -100%)',
             }}
           >
-            <div className="comic-bubble-pop relative max-w-[11.25rem] rounded-lg border-2 border-[#110b08] bg-white/95 px-2 py-1 text-[#110b08] shadow-[3px_3px_0_#110b08] sm:max-w-[13.5rem] sm:px-2.5 sm:py-1.5">
+            <div className="comic-bubble-pop relative max-w-[12.5rem] rounded-lg border-2 border-[#110b08] bg-white/95 px-2.5 py-1.5 text-[#110b08] shadow-[3px_3px_0_#110b08] sm:max-w-[15rem] sm:px-3 sm:py-1.5">
               <div className="font-display text-[9px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#b45309] sm:text-[10px]">
                 {bubble.speakerName}
               </div>
               <div className="mt-0.5 font-display text-[11px] font-extrabold leading-tight tracking-wide text-[#110b08] sm:text-xs">
                 &ldquo;{bubble.text}&rdquo;
               </div>
+              {bubble.subtitle && (
+                <div
+                  data-testid="dialogue-english-subtitle"
+                  className="mt-0.5 border-t border-[#110b08]/15 pt-0.5 font-sans text-[9px] font-semibold leading-tight text-[#44403c] sm:text-[10px]"
+                >
+                  {bubble.subtitle}
+                </div>
+              )}
               {/* Crisp compact comic speech tail pointing toward fighter head */}
               <div
                 aria-hidden="true"

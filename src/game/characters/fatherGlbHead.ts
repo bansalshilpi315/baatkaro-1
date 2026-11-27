@@ -38,7 +38,7 @@ export type SamyakGlbHeadConfig = GlbHeadConfig;
 
 /**
  * Target local head height inside Principal Man's `rig.head` (which has `scale = 1.42`).
- * Matches his FightKaro-style readable ~1.42x head height (~0.49 world units tall).
+ * Matches his readable 3D arcade ~1.42x head height (~0.49 world units tall).
  */
 export const FATHER_TARGET_HEAD_HEIGHT = 0.345;
 
@@ -50,7 +50,7 @@ export const FATHER_COLLAR_PIVOT_Y = -0.145;
 
 /**
  * Target local head height inside Samyak's `rig.head` (which has `scale = 1.42`).
- * Matches Principal Man's FightKaro-style readable ~1.42x head proportion (~0.49 world units tall).
+ * Matches Principal Man's readable 3D arcade ~1.42x head proportion (~0.49 world units tall).
  */
 export const SAMYAK_TARGET_HEAD_HEIGHT = 0.345;
 
@@ -254,7 +254,7 @@ export function buildFittedFatherGlbHead(
  * Clones and normalizes Samyak's loaded GLB head scene:
  * 1. Strips embedded lights/cameras.
  * 2. Computes bounding box (`Box3.setFromObject`), normalizes uniform scale so height matches
- *    FightKaro-style ~1.42x head proportion (`targetHeight * config.scaleMultiplier`).
+ *    readable 3D arcade ~1.42x head proportion (`targetHeight * config.scaleMultiplier`).
  * 3. Centers horizontally on X & Z and seats bottom-neck pivot onto `neckPivotY + config.offsetY`.
  * 4. Calibrates PBR materials (`SRGBColorSpace`, `roughness: 0.72`, `metalness: 0.0`).
  */

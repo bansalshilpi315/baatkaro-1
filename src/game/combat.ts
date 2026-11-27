@@ -2109,11 +2109,160 @@ export function stepMatch(
   return events;
 }
 
+export interface StageAiProfile {
+  stageTier: 1 | 2 | 3 | 4 | 5;
+  thinkMin: number;
+  thinkMax: number;
+  blockChance: number;
+  dodgeChance: number;
+  attackChance: number;
+  comboFrequency: number;
+  specialChance: number;
+  grabChance: number;
+  superChance: number;
+  superRange: number;
+}
+
+/**
+ * 5-Stage Arcade AI Difficulty Ladder:
+ * Stage 1 (Desi Mohalla) -> Beginner-friendly
+ * Stage 2 (Coaching Class) -> Steady challenger
+ * Stage 3 (News & Meme Studio) -> Tactical brawler
+ * Stage 4 (Shaadi ka Pandal) -> Fast & punishing
+ * Stage 5 (Railway Station Platform) & Stage 6 (School Assembly Ground) -> Aggressive & fast
+ */
+export const STAGE_AI_TIER: Record<StageId, 1 | 2 | 3 | 4 | 5> = {
+  mohalla: 1,
+  school: 2,
+  studio: 3,
+  shaadi: 4,
+  railway: 5,
+  assembly: 5,
+};
+
+const BASE_STAGE_PROFILES: Record<1 | 2 | 3 | 4 | 5, StageAiProfile> = {
+  1: {
+    stageTier: 1,
+    thinkMin: 0.34,
+    thinkMax: 0.54,
+    blockChance: 0.22,
+    dodgeChance: 0.06,
+    attackChance: 0.44,
+    comboFrequency: 0.24,
+    specialChance: 0.22,
+    grabChance: 0.1,
+    superChance: 0.4,
+    superRange: 2.6,
+  },
+  2: {
+    stageTier: 2,
+    thinkMin: 0.27,
+    thinkMax: 0.44,
+    blockChance: 0.34,
+    dodgeChance: 0.11,
+    attackChance: 0.54,
+    comboFrequency: 0.4,
+    specialChance: 0.3,
+    grabChance: 0.15,
+    superChance: 0.56,
+    superRange: 2.8,
+  },
+  3: {
+    stageTier: 3,
+    thinkMin: 0.21,
+    thinkMax: 0.34,
+    blockChance: 0.48,
+    dodgeChance: 0.16,
+    attackChance: 0.66,
+    comboFrequency: 0.56,
+    specialChance: 0.39,
+    grabChance: 0.21,
+    superChance: 0.72,
+    superRange: 3.1,
+  },
+  4: {
+    stageTier: 4,
+    thinkMin: 0.15,
+    thinkMax: 0.26,
+    blockChance: 0.6,
+    dodgeChance: 0.22,
+    attackChance: 0.76,
+    comboFrequency: 0.7,
+    specialChance: 0.48,
+    grabChance: 0.27,
+    superChance: 0.85,
+    superRange: 3.4,
+  },
+  5: {
+    stageTier: 5,
+    thinkMin: 0.1,
+    thinkMax: 0.19,
+    blockChance: 0.72,
+    dodgeChance: 0.28,
+    attackChance: 0.86,
+    comboFrequency: 0.84,
+    specialChance: 0.56,
+    grabChance: 0.33,
+    superChance: 0.95,
+    superRange: 3.7,
+  },
+};
+
+function clamp01(v: number): number {
+  return Math.max(0.04, Math.min(0.98, Number(v.toFixed(3))));
+}
+
+/**
+ * Computes the effective CPU AI profile by combining the 5-stage arcade progression
+ * with the selected difficulty preset (Easy / Normal / Hard).
+ */
+export function getStageAiProfile(
+  stageId: StageId = 'studio',
+  difficulty: Difficulty = 'normal',
+): StageAiProfile {
+  const tier = STAGE_AI_TIER[stageId] ?? 3;
+  const base = BASE_STAGE_PROFILES[tier];
+
+  if (difficulty === 'normal') {
+    return { ...base };
+  }
+  if (difficulty === 'easy') {
+    return {
+      stageTier: tier,
+      thinkMin: Number((base.thinkMin * 1.28).toFixed(3)),
+      thinkMax: Number((base.thinkMax * 1.32).toFixed(3)),
+      blockChance: clamp01(base.blockChance * 0.72),
+      dodgeChance: clamp01(base.dodgeChance * 0.7),
+      attackChance: clamp01(base.attackChance * 0.82),
+      comboFrequency: clamp01(base.comboFrequency * 0.72),
+      specialChance: clamp01(base.specialChance * 0.75),
+      grabChance: clamp01(base.grabChance * 0.75),
+      superChance: clamp01(base.superChance * 0.78),
+      superRange: base.superRange,
+    };
+  }
+  // 'hard' scales sharper while preserving monotonic progression from Stage 1 -> Stage 5
+  return {
+    stageTier: tier,
+    thinkMin: Number(Math.max(0.065, base.thinkMin * 0.74).toFixed(3)),
+    thinkMax: Number(Math.max(0.125, base.thinkMax * 0.76).toFixed(3)),
+    blockChance: clamp01(base.blockChance + 0.14),
+    dodgeChance: clamp01(base.dodgeChance + 0.08),
+    attackChance: clamp01(base.attackChance + 0.09),
+    comboFrequency: clamp01(base.comboFrequency + 0.12),
+    specialChance: clamp01(base.specialChance + 0.1),
+    grabChance: clamp01(base.grabChance + 0.06),
+    superChance: clamp01(base.superChance + 0.06),
+    superRange: Number((base.superRange + 0.25).toFixed(2)),
+  };
+}
+
 export function computeCpuInput(
   state: MatchState,
   difficulty: Difficulty,
   dt: number,
   rng: () => number = Math.random,
+  stageId: StageId = 'studio',
 ): FighterInput {
   const input = createEmptyInput();
   if (state.phase !== 'fighting') return input;
@@ -2123,60 +2272,76 @@ export function computeCpuInput(
   const dist = Math.abs(player.x - cpu.x);
   const playerRightOfCpu = player.x > cpu.x;
 
-  // Difficulty knobs
-  const params =
-    difficulty === 'easy'
-      ? {
-          thinkMin: 0.34,
-          thinkMax: 0.56,
-          blockChance: 0.22,
-          attackChance: 0.42,
-          specialChance: 0.22,
-          grabChance: 0.1,
-          superChance: 0.5,
-        }
-      : difficulty === 'normal'
-        ? {
-            thinkMin: 0.2,
-            thinkMax: 0.34,
-            blockChance: 0.48,
-            attackChance: 0.65,
-            specialChance: 0.38,
-            grabChance: 0.22,
-            superChance: 0.8,
-          }
-        : {
-            thinkMin: 0.1,
-            thinkMax: 0.18,
-            blockChance: 0.74,
-            attackChance: 0.84,
-            specialChance: 0.54,
-            grabChance: 0.32,
-            superChance: 0.95,
-          };
+  // Progressive 5-stage AI scaling combined with Easy / Normal / Hard preset
+  const params = getStageAiProfile(stageId, difficulty);
 
   state.aiThinkTimer -= dt;
   state.aiIntentTimer -= dt;
 
+  const incomingProjectile = state.projectiles.some(
+    (p) => p.ownerSlot === 0 && Math.abs(p.x - cpu.x) < 2.9,
+  );
   const incomingThreat =
-    (isBusyAttacking(player.action) && dist < 2.9) ||
-    state.projectiles.some((p) => p.ownerSlot === 0 && Math.abs(p.x - cpu.x) < 2.8);
+    (isBusyAttacking(player.action) && dist < 2.95) || incomingProjectile;
 
-  if (state.aiThinkTimer <= 0) {
+  // Combo chain follow-up on higher stages when CPU just landed a hit in close range
+  const canChainCombo =
+    dist < 2.25 &&
+    cpu.comboChainTimer > 0 &&
+    cpu.action === 'idle' &&
+    player.hitstunTimer > 0.05;
+
+  if (canChainCombo && rng() < params.comboFrequency) {
+    if (cpu.shakti >= 100 && rng() < params.superChance * 0.6) {
+      input.superMove = true;
+    } else if (cpu.specialCooldown <= 0 && rng() < params.specialChance * 0.7) {
+      input.special = true;
+    } else if (cpu.comboStep >= 1 || dist > 1.45) {
+      input.kick = true;
+    } else {
+      input.punch = true;
+    }
+    state.aiThinkTimer = Math.max(0.08, params.thinkMin * 0.85);
+  } else if (state.aiThinkTimer <= 0) {
     state.aiThinkTimer = params.thinkMin + rng() * (params.thinkMax - params.thinkMin);
 
-    if (incomingThreat && rng() < params.blockChance) {
-      // Defensive policy: block or Dharna Shield
-      if (cpu.id === 'neta' && cpu.specialCooldown <= 0 && rng() < 0.65) {
+    // Strategic 33%-capped Super Power activation:
+    // Higher stages save & trigger Super decisively when opponent is open, whiffing, or in KO range (<= 33% HP)
+    const playerInSuperKoRange =
+      player.hp <= Math.ceil(player.maxHp * SUPER_MAX_HP_DAMAGE_RATIO) + 4;
+    const playerVulnerable =
+      player.hitstunTimer > 0 ||
+      player.action === 'knockdown' ||
+      !isBusyAttacking(player.action);
+    const effectiveSuperChance = playerInSuperKoRange
+      ? Math.min(0.98, params.superChance + 0.12)
+      : params.stageTier >= 3 && !playerVulnerable
+        ? params.superChance * 0.45
+        : params.superChance;
+
+    if (incomingThreat && rng() < params.blockChance + params.dodgeChance) {
+      // Defensive policy: jump-dodge projectiles/swings, Dharna Shield, or tight guard block
+      if (incomingProjectile && cpu.y === 0 && rng() < params.dodgeChance) {
+        state.aiCurrentIntent = 'jump_in';
+        state.aiIntentTimer = 0.34;
+        input.up = true;
+      } else if (cpu.id === 'neta' && cpu.specialCooldown <= 0 && rng() < 0.65) {
         input.special = true;
+      } else if (rng() < params.dodgeChance * 0.55) {
+        state.aiCurrentIntent = 'retreat';
+        state.aiIntentTimer = 0.26;
       } else {
         state.aiCurrentIntent = 'block';
         state.aiIntentTimer = 0.28;
       }
-    } else if (cpu.shakti >= 100 && dist < 2.8 && rng() < params.superChance) {
+    } else if (
+      cpu.shakti >= 100 &&
+      dist < params.superRange &&
+      rng() < effectiveSuperChance
+    ) {
       input.superMove = true;
     } else if (dist > 2.65) {
-      // Long-range policy: throw Belan / Swatter / Diary Note / Laxmikant Slam / Paisa Flex / Anda Squash or close gap
+      // Long-range policy: throw signature projectile or close gap aggressively on higher stages
       const rangedSpecial =
         cpu.id === 'mausi' ||
         cpu.id === 'billa' ||
@@ -2186,7 +2351,7 @@ export function computeCpuInput(
         cpu.id === 'samyak';
       if (rangedSpecial && cpu.specialCooldown <= 0 && dist < 5.4 && rng() < params.specialChance) {
         input.special = true;
-      } else if (rng() < 0.18) {
+      } else if (rng() < 0.14 + params.stageTier * 0.03) {
         state.aiCurrentIntent = 'jump_in';
         state.aiIntentTimer = 0.35;
         input.up = true;
@@ -2195,7 +2360,7 @@ export function computeCpuInput(
         state.aiIntentTimer = 0.45;
       }
     } else if (dist <= 2.65) {
-      // Close/mid combat policy
+      // Close/mid combat policy with stage-scaled combo frequency
       const roll = rng();
       if (cpu.specialCooldown <= 0 && roll < params.specialChance * 0.55) {
         input.special = true;
@@ -2206,6 +2371,10 @@ export function computeCpuInput(
           input.punch = true;
         } else {
           input.kick = true;
+        }
+        // Higher stages shorten follow-up think window to chain punch->kick->special combos
+        if (rng() < params.comboFrequency) {
+          state.aiThinkTimer = Math.max(0.08, params.thinkMin * 0.72);
         }
       } else if (rng() < 0.35) {
         state.aiCurrentIntent = 'retreat';

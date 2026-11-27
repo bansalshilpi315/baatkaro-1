@@ -3195,7 +3195,7 @@ function createFatherNehruVestTexture(): THREE.CanvasTexture {
  * - Polished dark-black formal dress shoes (roughness 0.35) peeking beneath the cassock hem
  */
 function buildFatherRoyDolphus(rig: FighterRig): void {
-  // === 1. FIGHTKARO-STYLE READABLE ~1:5.5 PROPORTIONS (~1.42x HEAD SCALE FOR MOBILE CLARITY) ===
+  // === 1. ARCADE CARICATURE READABLE ~1:5.5 PROPORTIONS (~1.42x HEAD SCALE FOR MOBILE CLARITY) ===
   rig.pelvis.position.set(0, 1.06, 0);
   rig.torso.position.set(0, 0.09, 0);
   rig.head.position.set(0, 0.905, 0);
@@ -3783,7 +3783,7 @@ function createSamyakJoggersTexture(): THREE.CanvasTexture {
  * - Fitted matte-black athletic joggers (roughness 0.88) & sporty black-and-white gym sneakers
  */
 function buildSamyak(rig: FighterRig): void {
-  // === 1. FIGHTKARO-STYLE READABLE ~1:5.5 BODYBUILDER PROPORTIONS (~1.42x HEAD SCALE) ===
+  // === 1. ARCADE CARICATURE READABLE ~1:5.5 BODYBUILDER PROPORTIONS (~1.42x HEAD SCALE) ===
   rig.pelvis.position.set(0, 1.07, 0);
   rig.torso.position.set(0, 0.09, 0);
   rig.head.position.set(0, 0.905, 0);

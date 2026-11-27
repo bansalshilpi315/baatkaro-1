@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { HelpCircle, Lock, MapPin, Settings, Swords, Users, Wifi } from 'lucide-react';
+import { HelpCircle, Lock, MapPin, Settings, Swords, Users, Volume2, VolumeX, Wifi } from 'lucide-react';
 import { FIGHTER_CONFIGS, FIGHTER_LIST, STAGE_CONFIGS, STAGE_LIST } from '../game/characters';
+import { STAGE_AI_TIER } from '../game/combat';
 import type { OnlineRole } from '../game/friendRoomProtocol';
 import type { Difficulty, FighterId, StageId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
@@ -13,12 +14,14 @@ interface SelectScreenProps {
   difficulty: Difficulty;
   onlineRole: OnlineRole;
   roomCode: string;
+  globalMuted: boolean;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   onSelectP1: (id: FighterId) => void;
   onSelectP2: (id: FighterId) => void;
   onSelectStage: (id: StageId) => void;
   onSelectDifficulty: (d: Difficulty) => void;
+  onToggleGlobalMute: () => void;
   onToggleFullscreen: () => void;
   onOpenHowToPlay: () => void;
   onOpenSettings: () => void;
@@ -49,12 +52,14 @@ export function SelectScreen({
   difficulty,
   onlineRole,
   roomCode,
+  globalMuted,
   isFullscreen,
   fullscreenSupported,
   onSelectP1,
   onSelectP2,
   onSelectStage,
   onSelectDifficulty,
+  onToggleGlobalMute,
   onToggleFullscreen,
   onOpenHowToPlay,
   onOpenSettings,
@@ -64,6 +69,7 @@ export function SelectScreen({
   const p1Cfg = FIGHTER_CONFIGS[p1Id];
   const p2Cfg = FIGHTER_CONFIGS[p2Id];
   const activeStage = STAGE_CONFIGS[stageId];
+  const stageAiTier = STAGE_AI_TIER[stageId] ?? 1;
 
   const isOnline = onlineRole !== 'offline';
   const isHost = onlineRole === 'host';
@@ -149,6 +155,26 @@ export function SelectScreen({
             className="select-help-btn flex cursor-pointer items-center justify-center shrink-0 border-2 border-[#facc15] bg-[#14100d]/92 p-1.5 text-[#facc15] shadow-[3px_3px_0_#0f0a06] transition-colors hover:bg-[#facc15] hover:text-[#0f0a06] sm:p-2"
           >
             <Settings className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            data-testid="global-mute-btn"
+            aria-label={globalMuted ? 'Unmute All Audio' : 'Mute All Audio'}
+            aria-pressed={globalMuted}
+            title={globalMuted ? 'Audio Muted (Click to Unmute)' : 'Mute All Audio (M)'}
+            onClick={onToggleGlobalMute}
+            className={`select-help-btn flex cursor-pointer items-center justify-center shrink-0 border-2 p-1.5 shadow-[3px_3px_0_#0f0a06] transition-colors sm:p-2 ${
+              globalMuted
+                ? 'border-[#ef4444]/85 bg-[#14100d]/92 text-[#f87171]'
+                : 'border-[#facc15] bg-[#14100d]/92 text-[#facc15] hover:bg-[#facc15] hover:text-[#0f0a06]'
+            }`}
+          >
+            {globalMuted ? (
+              <VolumeX className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+            ) : (
+              <Volume2 className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+            )}
           </button>
 
           <FullscreenButton
@@ -383,8 +409,13 @@ export function SelectScreen({
               );
             })}
           </div>
-          <span className="hidden max-w-[160px] truncate text-xs font-bold text-[#fde68a] lg:inline">
+          <span className="hidden max-w-[190px] truncate text-xs font-bold text-[#fde68a] lg:inline">
             {activeStage.name}
+            {!isOnline && (
+              <span className="ml-1.5 font-mono-num text-[10px] text-[#facc15]">
+                (AI LV.{stageAiTier})
+              </span>
+            )}
           </span>
         </div>
 

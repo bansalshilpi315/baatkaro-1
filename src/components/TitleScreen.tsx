@@ -3,13 +3,13 @@ import { Music, Volume2, VolumeX } from 'lucide-react';
 import { FullscreenButton } from './FullscreenButton';
 
 interface TitleScreenProps {
-  muted: boolean;
+  globalMuted: boolean;
   musicMuted: boolean;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   modalOpen?: boolean;
   onStart: () => void;
-  onToggleMute: () => void;
+  onToggleGlobalMute: () => void;
   onToggleMusic: () => void;
   onToggleFullscreen: () => void;
   onOpenHowToPlay: () => void;
@@ -17,13 +17,13 @@ interface TitleScreenProps {
 }
 
 export function TitleScreen({
-  muted,
+  globalMuted,
   musicMuted,
   isFullscreen,
   fullscreenSupported,
   modalOpen = false,
   onStart,
-  onToggleMute,
+  onToggleGlobalMute,
   onToggleMusic,
   onToggleFullscreen,
   onOpenHowToPlay,
@@ -41,9 +41,11 @@ export function TitleScreen({
     return () => window.removeEventListener('keydown', onKey);
   }, [onStart, modalOpen]);
 
+  const effectiveMusicMuted = globalMuted || musicMuted;
+
   return (
     <div className="safe-pad-screen pointer-events-none fixed inset-0 z-20 flex h-[100dvh] w-[100dvw] flex-col justify-between overflow-hidden select-none touch-none sm:p-7">
-      {/* Top Bar: Static ● LIVE Broadcast Tag (Left) + Sound, Music & Fullscreen Toggles (Right) */}
+      {/* Top Bar: Static ● LIVE Broadcast Tag (Left) + Global Audio Mute, Music & Fullscreen Toggles (Right) */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06]">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-white" aria-hidden="true" />
@@ -53,16 +55,18 @@ export function TitleScreen({
         <div className="pointer-events-auto flex items-center gap-2">
           <button
             type="button"
-            onClick={onToggleMute}
-            aria-label={muted ? 'Unmute Sound Effects' : 'Mute Sound Effects'}
-            title={muted ? 'Sound: OFF' : 'Sound: ON'}
+            data-testid="global-mute-btn"
+            onClick={onToggleGlobalMute}
+            aria-label={globalMuted ? 'Unmute All Audio' : 'Mute All Audio'}
+            aria-pressed={globalMuted}
+            title={globalMuted ? 'Audio Muted (Click to Unmute)' : 'Mute All Audio (M)'}
             className={`title-util-btn flex h-10 w-10 cursor-pointer items-center justify-center border-2 transition-colors ${
-              muted
-                ? 'border-white/30 bg-[#14100d]/90 text-[#a8a29e]'
+              globalMuted
+                ? 'border-[#ef4444]/80 bg-[#14100d]/90 text-[#f87171]'
                 : 'border-[#facc15] bg-[#14100d]/90 text-[#facc15] hover:bg-[#facc15] hover:text-[#0f0a06]'
             }`}
           >
-            {muted ? (
+            {globalMuted ? (
               <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
             ) : (
               <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
@@ -72,16 +76,16 @@ export function TitleScreen({
           <button
             type="button"
             onClick={onToggleMusic}
-            aria-label={musicMuted ? 'Unmute Music' : 'Mute Music'}
-            title={musicMuted ? 'Music: OFF' : 'Music: ON'}
+            aria-label={effectiveMusicMuted ? 'Unmute Music' : 'Mute Music'}
+            title={effectiveMusicMuted ? 'Music: OFF' : 'Music: ON'}
             className={`title-util-btn relative flex h-10 w-10 cursor-pointer items-center justify-center border-2 transition-colors ${
-              musicMuted
+              effectiveMusicMuted
                 ? 'border-white/30 bg-[#14100d]/90 text-[#a8a29e]'
                 : 'border-[#facc15] bg-[#14100d]/90 text-[#facc15] hover:bg-[#facc15] hover:text-[#0f0a06]'
             }`}
           >
             <Music className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-            {musicMuted && (
+            {effectiveMusicMuted && (
               <span
                 aria-hidden="true"
                 className="pointer-events-none absolute h-0.5 w-6 -rotate-45 bg-[#ef4444]"

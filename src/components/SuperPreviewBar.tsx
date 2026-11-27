@@ -1,4 +1,4 @@
-import { Check, Zap } from 'lucide-react';
+import { Check, Volume2, VolumeX, Zap } from 'lucide-react';
 import { FIGHTER_CONFIGS, FIGHTER_LIST } from '../game/characters';
 import type { FighterId, FloatingCallout, SuperBannerInfo } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
@@ -6,10 +6,12 @@ import { FighterPortrait } from './FighterPortrait';
 interface SuperPreviewBarProps {
   activeFighterId: FighterId;
   isSuperPlaying: boolean;
+  globalMuted: boolean;
   superBanner: SuperBannerInfo | null;
   callouts: FloatingCallout[];
   onSwitchFighter: (id: FighterId) => void;
   onTriggerSuper: () => void;
+  onToggleGlobalMute: () => void;
   onSelectAndBack: () => void;
 }
 
@@ -26,10 +28,12 @@ const CHIP_SHORT_NAMES: Record<FighterId, string> = {
 export function SuperPreviewBar({
   activeFighterId,
   isSuperPlaying,
+  globalMuted,
   superBanner,
   callouts,
   onSwitchFighter,
   onTriggerSuper,
+  onToggleGlobalMute,
   onSelectAndBack,
 }: SuperPreviewBarProps) {
   const cfg = FIGHTER_CONFIGS[activeFighterId];
@@ -55,8 +59,29 @@ export function SuperPreviewBar({
           </span>
         </div>
 
-        <div className="hidden border border-white/20 bg-[#120d0a]/85 px-2.5 py-1 font-mono-num text-[11px] font-bold uppercase tracking-wider text-[#fde68a] sm:block">
-          HP {cfg.maxHp} · MAX SUPER DMG 33%
+        <div className="pointer-events-auto flex items-center gap-2">
+          <div className="hidden border border-white/20 bg-[#120d0a]/85 px-2.5 py-1 font-mono-num text-[11px] font-bold uppercase tracking-wider text-[#fde68a] sm:block">
+            HP {cfg.maxHp} · MAX SUPER DMG 33%
+          </div>
+          <button
+            type="button"
+            data-testid="global-mute-btn"
+            onClick={onToggleGlobalMute}
+            aria-label={globalMuted ? 'Unmute All Audio' : 'Mute All Audio'}
+            aria-pressed={globalMuted}
+            title={globalMuted ? 'Audio Muted (Click to Unmute)' : 'Mute All Audio (M)'}
+            className={`flex h-8 w-8 cursor-pointer items-center justify-center border-2 transition-colors ${
+              globalMuted
+                ? 'border-[#ef4444]/85 bg-[#14100d]/90 text-[#f87171]'
+                : 'border-[#facc15] bg-[#14100d]/90 text-[#facc15] hover:bg-[#facc15] hover:text-[#0f0a06]'
+            }`}
+          >
+            {globalMuted ? (
+              <VolumeX className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Volume2 className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
         </div>
       </header>
 

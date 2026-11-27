@@ -72,16 +72,20 @@ export function HowToPlayModal({ onClose }: ModalProps) {
                   <span className="font-mono-num font-bold text-[#facc15]">J / K / I</span>
                 </li>
                 <li className="flex justify-between">
-                  <span className="text-[#d6d3d1]">Specialised Move</span>
-                  <span className="font-mono-num font-bold text-[#fde047]">B</span>
+                  <span className="text-[#d6d3d1]">Signature Move</span>
+                  <span className="font-mono-num font-bold text-[#fde047]">E / B</span>
                 </li>
                 <li className="flex justify-between">
-                  <span className="text-[#d6d3d1]">Shakti Super (100%)</span>
+                  <span className="text-[#d6d3d1]">Super Power (100%)</span>
                   <span className="font-mono-num font-bold text-[#fb923c]">L</span>
                 </li>
                 <li className="flex justify-between">
-                  <span className="text-[#d6d3d1]">Chai Break (Pause)</span>
+                  <span className="text-[#d6d3d1]">Pause Match</span>
                   <span className="font-mono-num font-bold text-white">ESC / P</span>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-[#d6d3d1]">Mute All Audio</span>
+                  <span className="font-mono-num font-bold text-white">M</span>
                 </li>
               </ul>
             </div>
@@ -95,20 +99,20 @@ export function HowToPlayModal({ onClose }: ModalProps) {
                   <strong className="text-white">Left Virtual Stick:</strong> Slide left/right to walk, pull back away from your opponent to block, push up to jump, or down to crouch.
                 </li>
                 <li>
-                  <strong className="text-white">Right Arcade Buttons:</strong> Tap the circular <strong className="text-[#facc15]">PUNCH</strong>, <strong className="text-[#fb7185]">KICK</strong>, <strong className="text-[#38bdf8]">GRAB</strong>, and <strong className="text-[#fb923c]">SUPER</strong> buttons.
+                  <strong className="text-white">Right Arcade Buttons:</strong> Tap the circular <strong className="text-[#facc15]">PUNCH</strong>, <strong className="text-[#38bdf8]">KICK</strong>, <strong className="text-[#34d399]">GRAB</strong>, and <strong className="text-[#fb923c]">SUPER</strong> buttons.
                 </li>
                 <li>
-                  <strong className="text-white">Specialised Ring:</strong> Tap the glowing character special button when its radial cooldown ring completes.
+                  <strong className="text-white">Signature Move Ring:</strong> Tap the glowing character signature button whenever its radial cooldown ring fills up.
                 </li>
               </ul>
             </div>
           </div>
 
-          {/* Character Specialised Moves Reference */}
+          {/* Character Signature Moves Reference */}
           <div className="border border-white/15 bg-[#1d1713] p-3.5">
             <h3 className="flex items-center gap-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#facc15]">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
-              <span>Unique Specialised Moves (Key: B)</span>
+              <span>Unique Signature Moves (Keys: E / B)</span>
             </h3>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {FIGHTER_LIST.map((f) => (
@@ -189,10 +193,10 @@ export function AboutModal({ onClose }: ModalProps) {
             <strong className="text-[#facc15]">DESI SHOWDOWN: The Great Multiverse Fight</strong> is a 2.5D Indian satire arcade fighter celebrating over-the-top prime-time TV news drama, iconic desi archetypes, and fast 60 FPS arcade action.
           </p>
           <p className="text-xs text-[#d6d3d1]">
-            Built 100% procedurally with articulated vinyl-toy 3D fighters, dynamic HTML5 canvas faces, living Desi stages with cheering spectators, and synthesized Web Audio dhol-funk music &amp; SFX — zero external models or image URLs.
+            Built with articulated 3D fighters, custom 3D head models, living Desi stages with cheering spectators, signature voice lines with English subtitles, and synthesized Web Audio dhol-funk music — 100% self-contained with zero external CDNs.
           </p>
           <div className="border-t border-white/15 pt-3 text-xs text-[#fde68a]">
-            <strong>Phase 1 Edition:</strong> 5 Playable Fighters · 5 Living 3D Stages · Easy / Normal / Hard CPU AI · Phase 2 Super Powers Preview Ready.
+            <strong>Full Arcade Edition:</strong> 7 Playable Fighters · 6 Living 3D Stages · 5-Stage Progressive CPU AI · 2-Player Online Friend Room · Super Power Test Lab.
           </div>
           <div className="flex justify-end pt-1">
             <button

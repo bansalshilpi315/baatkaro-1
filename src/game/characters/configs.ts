@@ -301,7 +301,7 @@ export const STAGE_CONFIGS: Record<StageId, StageConfig> = {
   },
   studio: {
     id: 'studio',
-    name: 'News / Meme Studio',
+    name: 'News & Meme Studio',
     subtitle: 'Breaking Bakwas · Neon Debate Floor · Live Cam',
     accentHex: '#EF4444',
     headlines: [
@@ -323,7 +323,7 @@ export const STAGE_CONFIGS: Record<StageId, StageConfig> = {
   },
   railway: {
     id: 'railway',
-    name: 'Railway Platform',
+    name: 'Railway Station Platform',
     subtitle: 'Platform 9¾ · Chai-Samosa Stall · Express Pass',
     accentHex: '#3B82F6',
     headlines: [

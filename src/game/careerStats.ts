@@ -1,3 +1,5 @@
+import { safeGetItem, safeSetItem } from '../utils/safeStorage';
+
 export const CAREER_STATS_STORAGE_KEY = 'desi_showdown_career_stats_v1';
 
 export interface CareerStats {
@@ -89,38 +91,17 @@ export function getWinRatePercent(stats: CareerStats): number {
   return Math.round((stats.wins / total) * 100);
 }
 
-function getDefaultStorage(): ReadWriteStorage | null {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage;
-    }
-  } catch {
-    // Ignore restricted/private-mode storage errors
-  }
-  return null;
-}
-
 export function loadCareerStats(storage?: ReadableStorage | null): CareerStats {
-  const target = storage === undefined ? getDefaultStorage() : storage;
-  if (!target) return createEmptyCareerStats();
-  try {
-    return parseCareerStats(target.getItem(CAREER_STATS_STORAGE_KEY));
-  } catch {
-    return createEmptyCareerStats();
-  }
+  if (storage === null) return createEmptyCareerStats();
+  return parseCareerStats(safeGetItem(CAREER_STATS_STORAGE_KEY, storage));
 }
 
 export function saveCareerStats(
   stats: CareerStats,
   storage?: WritableStorage | null,
 ): void {
-  const target = storage === undefined ? getDefaultStorage() : storage;
-  if (!target) return;
-  try {
-    target.setItem(CAREER_STATS_STORAGE_KEY, JSON.stringify(stats));
-  } catch {
-    // Ignore storage quota / private mode failures gracefully
-  }
+  if (storage === null) return;
+  safeSetItem(CAREER_STATS_STORAGE_KEY, JSON.stringify(stats), storage);
 }
 
 export function recordMatchCareerStats(

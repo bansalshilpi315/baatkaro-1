@@ -2,10 +2,13 @@ import { LogOut, Monitor, Music, Play, Volume2, VolumeX } from 'lucide-react';
 import type { GraphicsQuality } from '../game/types';
 
 interface PauseModalProps {
+  globalMuted: boolean;
   muted: boolean;
   musicMuted: boolean;
   graphics: GraphicsQuality;
+  autoPaused?: boolean;
   onResume: () => void;
+  onToggleGlobalMute: () => void;
   onToggleMute: () => void;
   onToggleMusic: () => void;
   onToggleGraphics: () => void;
@@ -13,33 +16,42 @@ interface PauseModalProps {
 }
 
 export function PauseModal({
+  globalMuted,
   muted,
   musicMuted,
   graphics,
+  autoPaused = false,
   onResume,
+  onToggleGlobalMute,
   onToggleMute,
   onToggleMusic,
   onToggleGraphics,
   onQuitToSelect,
 }: PauseModalProps) {
+  const effectiveSfxMuted = globalMuted || muted;
+  const effectiveMusicMuted = globalMuted || musicMuted;
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="pause-title"
+      data-testid="pause-overlay"
       className="safe-pad-modal fixed inset-0 z-40 flex h-[100dvh] w-[100dvw] items-center justify-center overflow-hidden bg-[#090706]/82"
     >
       <div className="max-h-[92dvh] w-full max-w-sm overflow-y-auto touch-pan-y border-3 border-[#facc15] bg-[#14100d]/95 shadow-[8px_8px_0_#dc2626]">
-        {/* Header */}
+        {/* Clear English PAUSED Header */}
         <div className="bg-[#dc2626] px-5 py-2.5 text-center sm:py-3">
           <h2
             id="pause-title"
             className="font-display text-2xl font-extrabold uppercase italic tracking-wider text-white sm:text-3xl"
           >
-            CHAI BREAK ☕
+            PAUSED
           </h2>
-          <p className="mt-0.5 text-xs font-semibold italic text-[#fef08a]">
-            Arena adjourned till further notice.
+          <p className="mt-0.5 text-xs font-semibold text-[#fef08a]">
+            {autoPaused
+              ? 'Match paused while window was inactive.'
+              : 'Match paused — press Resume to continue.'}
           </p>
         </div>
 
@@ -47,6 +59,7 @@ export function PauseModal({
         <div className="modal-compact-body flex flex-col space-y-2.5 p-5">
           <button
             type="button"
+            data-testid="pause-resume-btn"
             onClick={onResume}
             className="flex w-full cursor-pointer items-center justify-center gap-2 border-2 border-[#0f0a06] bg-[#facc15] py-2.5 font-display text-xl font-extrabold uppercase tracking-wider text-[#110b08] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047]"
           >
@@ -56,19 +69,37 @@ export function PauseModal({
 
           <button
             type="button"
-            onClick={onToggleMute}
+            onClick={onToggleGlobalMute}
             className="flex w-full cursor-pointer items-center justify-between border-2 border-white/20 bg-[#201a16] px-4 py-2 text-sm font-bold text-white hover:border-[#facc15]"
           >
             <span className="flex items-center gap-2">
-              {muted ? (
+              {globalMuted ? (
                 <VolumeX className="h-4 w-4 text-[#fb7185]" aria-hidden="true" />
               ) : (
                 <Volume2 className="h-4 w-4 text-[#4ade80]" aria-hidden="true" />
               )}
-              <span>SOUND</span>
+              <span>ALL AUDIO</span>
             </span>
             <span className="font-mono-num text-xs font-extrabold uppercase text-[#facc15]">
-              {muted ? 'OFF' : 'ON'}
+              {globalMuted ? 'MUTED' : 'ON'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleMute}
+            className="flex w-full cursor-pointer items-center justify-between border-2 border-white/20 bg-[#201a16] px-4 py-2 text-sm font-bold text-white hover:border-[#facc15]"
+          >
+            <span className="flex items-center gap-2">
+              {effectiveSfxMuted ? (
+                <VolumeX className="h-4 w-4 text-[#fb7185]" aria-hidden="true" />
+              ) : (
+                <Volume2 className="h-4 w-4 text-[#4ade80]" aria-hidden="true" />
+              )}
+              <span>SOUND FX</span>
+            </span>
+            <span className="font-mono-num text-xs font-extrabold uppercase text-[#facc15]">
+              {effectiveSfxMuted ? 'OFF' : 'ON'}
             </span>
           </button>
 
@@ -79,13 +110,13 @@ export function PauseModal({
           >
             <span className="flex items-center gap-2">
               <Music
-                className={`h-4 w-4 ${musicMuted ? 'text-[#fb7185]' : 'text-[#4ade80]'}`}
+                className={`h-4 w-4 ${effectiveMusicMuted ? 'text-[#fb7185]' : 'text-[#4ade80]'}`}
                 aria-hidden="true"
               />
               <span>MUSIC</span>
             </span>
             <span className="font-mono-num text-xs font-extrabold uppercase text-[#facc15]">
-              {musicMuted ? 'OFF' : 'ON'}
+              {effectiveMusicMuted ? 'OFF' : 'ON'}
             </span>
           </button>
 
@@ -109,7 +140,7 @@ export function PauseModal({
             className="flex w-full cursor-pointer items-center justify-center gap-2 border-2 border-[#ef4444] bg-[#2a1215] py-2.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#fda4af] hover:bg-[#dc2626] hover:text-white"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
-            <span>QUIT TO SELECT</span>
+            <span>CHARACTER SELECT</span>
           </button>
         </div>
       </div>

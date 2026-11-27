@@ -215,3 +215,85 @@ export function clampDialogueScreenPosition(
     y: Math.round(clampedY),
   };
 }
+
+/**
+ * Crisp English subtitle translations for all Hindi/Hinglish intro taunts,
+ * knockdown quips, mid-fight roasts, and victory lines so international players
+ * immediately enjoy every 2.0-second dialogue popup.
+ */
+export const DIALOGUE_ENGLISH_SUBTITLES: Record<string, string> = {
+  // Sheru Bhai
+  'Tera budget khatam, meri entry shuru!': "Your budget's over — my grand entry begins!",
+  'Aaj Sensex bhi neeche, tu bhi neeche!': 'Market is down today, and so are you!',
+  'Suit dekh, attitude dekh — ab pitai dekh!': 'Check the suit, check the swagger — now face the beatdown!',
+  'Arre mera Armani suit!': 'Hey, my Armani suit!',
+  'Audit karwaunga iska!': "I'll get this audited!",
+  'Ye le 18% GST ke saath pitai!': 'Take this beatdown with 18% tax included!',
+  'Tera portfolio laal kar diya bhai!': 'Just turned your portfolio deep red, bro!',
+  'Bill tera, swag mera — paisa vasool!': 'Your bill, my swagger — totally worth it!',
+  'Full paisa vasool, bhai!': '100% money well spent, bro!',
+
+  // Blue Billa
+  'Aaj teri chhutti, swatter tayyar hai!': "Your day's over — the swatter is ready!",
+  'Machhar samjha kya? Phatak se uda dunga!': "Think I'm a mosquito? I'll swat you flying!",
+  'Chai garam, swatter kadak — aaja bhid le!': 'Tea is hot, swatter is crisp — bring it on!',
+  'Meow!! Yeh cheating hai!': 'Meow!! That is totally cheating!',
+  'Mera swatter kidhar gaya?!': 'Where did my swatter go?!',
+  'Phatak! Machhar jaise uda diya!': 'Smack! Sent you flying like a bug!',
+  'Meow! Swatter ka swaad kaisa laga?': 'Meow! How did that swatter taste?',
+  'Aaj chai thandi, par thappad garam!': 'The tea is cold, but that slap is piping hot!',
+  'Clean sweep — ekdum jhakaas!': 'Clean sweep — totally awesome!',
+
+  // Garib Sena Neta
+  'Aam aadmi ka gussa mat jaga beta!': "Don't wake the common man's fury, kid!",
+  'Jhola halka hai, par jhatka bhari padega!': 'My tote bag is light, but my shock hits heavy!',
+  'Seedha dharna aur full hisaab hoga aaj!': 'Full protest and full payback today!',
+  'Yeh janta pe atyachaar hai!': 'This is injustice against the public!',
+  'Chashma bach gaya!': 'My glasses survived!',
+  'Janta ka faisla seedha mukke se!': "The people's verdict — delivered by fist!",
+  'Dharna mode ON — ab bhaag mat!': "Protest mode ON — don't run now!",
+  'Chanda nahi, seedha danda milega!': 'No donations — just a straight smackdown!',
+  'Janta ki jeet! Cutting chai lao!': 'Victory for the people! Bring the tea!',
+  'Jhola-chaap power zindabad!': 'Long live grassroots power!',
+
+  // Anda Bhai
+  'Crack mat bolna, hard-boiled hoon main!': "Don't call me cracked — I'm hard-boiled!",
+  'Deewar se gira par akad nahi tooti!': 'Fell off the wall, but my pride never broke!',
+  'Omelette tera banega, mera nahi!': "You're getting scrambled, not me!",
+  'Arre shell bachao!': 'Hey, protect the shell!',
+  'Kisi ne farsh pe tel giraya!': 'Someone spilled oil on the floor!',
+  'Hard-boiled Power! Crack nahi hone dunga!': "Hard-boiled power! Won't let it crack!",
+  'Omelette banne se pehle hi flat kar diya!': 'Flattened you before you could scramble me!',
+  'Protein punch seedha muh pe!': 'Protein punch straight to the face!',
+
+  // Laddoo Mausi
+  'Laddoo khayega ya belan khayega beta?': 'Want sweet laddoos or the rolling pin, kid?',
+  'Aaj full desi ghee wali sutai hogi!': 'Full homemade-ghee beatdown coming up!',
+  'Dukaan band karwaunga? Pehle belan jhel!': 'Close my shop? Survive my rolling pin first!',
+  'Haye meri kamar! Ab dekh!': 'Oh, my back! Now you are in for it!',
+  'Belan se double badla lungi!': "I'll get double revenge with my rolling pin!",
+  'Aaj belan ka VIP treatment milega!': "You're getting the VIP rolling-pin treatment!",
+  'Meetha kam, sutai zyada — shabaash!': 'Less sweets, more beatdown — bravo!',
+  'Aunty se panga? Seedha chappal-belan combo!': 'Messing with Aunty? Eat the slipper-pin combo!',
+  'Ab ja aur garma-garam laddoo kha!': 'Now go enjoy some hot sweet laddoos!',
+  'Belan ke aage koi tikta hai kya?': 'Can anyone stand up to the rolling pin?',
+
+  // Principal Man
+  'Uniform kahan hai?! Diary nikaal abhi!': 'Where is your uniform?! Take out your diary now!',
+  'Line seedhi karo — discipline pehle, baaki baad mein!': 'Straighten the line — discipline first, everything else later!',
+
+  // Samyak
+  'Subah 5 baje deadlift, shaam ko Laxmikanth — ready hai kya?': '5 AM deadlifts, evening exam prep — are you ready?',
+  'Body bhi hai aur dimaag bhi — ab dekh IAS ki power!': 'Got brawn and brains — now feel top-rank power!',
+  '18 ghante padhai aur 2 ghante gym — aaj teri Prelims fail!': '18 hrs study, 2 hrs gym — you fail Round 1 today!',
+  'Arre mera pre-workout gir gaya!': 'Hey, my pre-workout spilled!',
+  'Prelims mein jhatka, Mains mein phod dunga!': 'Shaken in Round 1 — I will crush the finals!',
+  'Ye le Laxmikanth 7th Edition seedha muh pe!': 'Take this heavy Polity textbook straight to the face!',
+  'Article 21 tera defense suspend kar diya!': 'Article 21 just suspended your defense!',
+  'First attempt mein hi knockout — AIR 1 confirmed!': 'Knockout on the very first attempt — Rank 1 confirmed!',
+  'Gym pump bhi solid, Polity bhi solid!': 'Solid gym pump, solid exam prep!',
+};
+
+export function getEnglishSubtitle(text: string): string | undefined {
+  return DIALOGUE_ENGLISH_SUBTITLES[text];
+}

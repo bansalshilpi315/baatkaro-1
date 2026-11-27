@@ -209,6 +209,7 @@ export interface ComicSpeechBubble {
   slot: 0 | 1;
   speakerName: string;
   text: string;
+  subtitle?: string;
   screenX: number;
   screenY: number;
   opacity: number;

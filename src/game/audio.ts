@@ -42,6 +42,8 @@ export function clearSuperAudioCacheForTests(): void {
 export class DesiAudioEngine {
   private ctx: AudioContext | null = null;
   private bgmGain: GainNode | null = null;
+  private globalMuted = false;
+  private audioPaused = false;
   private sfxMuted = false;
   private superSfxMuted = false;
   private musicMuted = false;
@@ -71,17 +73,17 @@ export class DesiAudioEngine {
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
       this.bgmGain = this.ctx.createGain();
-      this.bgmGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+      this.bgmGain.gain.setValueAtTime(this.globalMuted ? 0 : 1.0, this.ctx.currentTime);
       this.bgmGain.connect(this.ctx.destination);
     }
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx.state === 'suspended' && !this.globalMuted && !this.audioPaused) {
       this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
 
   private ensureSfxContext(ignoreSuperMute = false): AudioContext | null {
-    if (this.sfxMuted) return null;
+    if (this.globalMuted || this.audioPaused || this.sfxMuted) return null;
     if (!ignoreSuperMute && this.superSfxMuted) return null;
     return this.ensureContext();
   }
@@ -206,7 +208,7 @@ export class DesiAudioEngine {
       source.buffer = buffer;
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(this.sfxMuted ? 0 : 1.0, ctx.currentTime);
+      gain.gain.setValueAtTime(this.globalMuted || this.sfxMuted ? 0 : 1.0, ctx.currentTime);
 
       source.connect(gain);
       gain.connect(ctx.destination);
@@ -249,7 +251,7 @@ export class DesiAudioEngine {
     if (this.superAudioActive) return;
 
     const ctx = this.ensureContext();
-    if (ctx && ctx.state === 'suspended') {
+    if (ctx && ctx.state === 'suspended' && !this.globalMuted && !this.audioPaused) {
       ctx.resume().catch(() => {});
     }
 
@@ -376,7 +378,7 @@ export class DesiAudioEngine {
       source.buffer = buffer;
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(this.sfxMuted ? 0 : 1.0, ctx.currentTime);
+      gain.gain.setValueAtTime(this.globalMuted || this.sfxMuted ? 0 : 1.0, ctx.currentTime);
 
       source.connect(gain);
       gain.connect(ctx.destination);
@@ -422,7 +424,7 @@ export class DesiAudioEngine {
     if (superAudioFailedUrls.has(DAHI_KO_AUDIO_URL)) return;
 
     const ctx = this.ensureContext();
-    if (ctx && ctx.state === 'suspended') {
+    if (ctx && ctx.state === 'suspended' && !this.globalMuted && !this.audioPaused) {
       ctx.resume().catch(() => {});
     }
     if (!ctx) return;
@@ -486,53 +488,170 @@ export class DesiAudioEngine {
     return this.dahiAudioActive;
   }
 
-  public setMuted(mute: boolean): void {
-    this.sfxMuted = mute;
-    if (this.ctx && this.activeSuperGain) {
+  private syncHtmlMediaMute(mute: boolean): void {
+    if (typeof document === 'undefined') return;
+    try {
+      const mediaEls = document.querySelectorAll('audio, video');
+      mediaEls.forEach((el) => {
+        const media = el as HTMLMediaElement;
+        media.muted = mute;
+        if (mute && !media.paused) {
+          media.pause();
+        }
+      });
+    } catch {
+      // Ignore DOM media errors
+    }
+  }
+
+  private syncActiveGains(): void {
+    if (!this.ctx) return;
+    const voiceLevel = this.globalMuted || this.sfxMuted ? 0 : 1.0;
+    const bgmLevel =
+      this.globalMuted || this.musicMuted
+        ? 0
+        : this.superAudioActive || this.dahiAudioActive
+          ? 0.08
+          : 1.0;
+    if (this.bgmGain) {
       try {
-        this.activeSuperGain.gain.setTargetAtTime(mute ? 0 : 1.0, this.ctx.currentTime, 0.03);
+        this.bgmGain.gain.setTargetAtTime(bgmLevel, this.ctx.currentTime, 0.025);
       } catch {
         // Ignore
       }
     }
-    if (this.ctx && this.activeDahiGain) {
+    if (this.activeSuperGain) {
       try {
-        this.activeDahiGain.gain.setTargetAtTime(mute ? 0 : 1.0, this.ctx.currentTime, 0.03);
+        this.activeSuperGain.gain.setTargetAtTime(voiceLevel, this.ctx.currentTime, 0.025);
+      } catch {
+        // Ignore
+      }
+    }
+    if (this.activeDahiGain) {
+      try {
+        this.activeDahiGain.gain.setTargetAtTime(voiceLevel, this.ctx.currentTime, 0.025);
       } catch {
         // Ignore
       }
     }
   }
 
+  /**
+   * Global master mute toggle (Poki / CrazyGames QA requirement):
+   * Immediately silences/restores ALL active BGM, Web Audio contexts, SFX,
+   * custom MP3 voice-lines, and any HTML5 media elements.
+   */
+  public setGlobalMuted(mute: boolean, resumeMusicIfUnmuted = true): void {
+    this.globalMuted = mute;
+    this.syncHtmlMediaMute(mute);
+    this.syncActiveGains();
+    if (mute) {
+      this.stopMusic();
+      if (this.ctx && this.ctx.state === 'running') {
+        this.ctx.suspend().catch(() => {});
+      }
+    } else if (!this.audioPaused) {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      if (resumeMusicIfUnmuted && !this.musicMuted) {
+        this.startMusic();
+      }
+    }
+  }
+
+  public isGlobalMuted(): boolean {
+    return this.globalMuted;
+  }
+
+  /**
+   * Suspends ALL playing audio immediately when the tab is hidden, minimized, or paused.
+   */
+  public pauseAllAudio(): void {
+    this.audioPaused = true;
+    this.stopMusic();
+    if (this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend().catch(() => {});
+    }
+    if (typeof document !== 'undefined') {
+      try {
+        document.querySelectorAll('audio').forEach((el) => {
+          if (!el.paused) el.pause();
+        });
+      } catch {
+        // Ignore
+      }
+    }
+  }
+
+  /**
+   * Resumes audio after returning from pause / tab switch (honoring current mute settings).
+   */
+  public resumeAllAudio(shouldPlayMusic = true): void {
+    this.audioPaused = false;
+    if (this.globalMuted) return;
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    this.syncActiveGains();
+    if (shouldPlayMusic && !this.musicMuted) {
+      this.startMusic();
+    }
+  }
+
+  public setMuted(mute: boolean): void {
+    this.sfxMuted = mute;
+    this.syncActiveGains();
+  }
+
   public isMuted(): boolean {
-    return this.sfxMuted;
+    return this.sfxMuted || this.globalMuted;
   }
 
   public setMusicMuted(mute: boolean): void {
     this.musicMuted = mute;
+    this.syncActiveGains();
     if (mute) {
       this.stopMusic();
-    } else {
+    } else if (!this.globalMuted && !this.audioPaused) {
       this.startMusic();
     }
   }
 
   public isMusicMuted(): boolean {
-    return this.musicMuted;
+    return this.musicMuted || this.globalMuted;
   }
 
   public startMusic(): void {
-    if (this.musicMuted || this.musicPlaying || typeof window === 'undefined') return;
+    if (
+      this.globalMuted ||
+      this.audioPaused ||
+      this.musicMuted ||
+      this.musicPlaying ||
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
     const ctx = this.ensureContext();
     if (!ctx) return;
     this.musicPlaying = true;
+    this.syncActiveGains();
 
     // Energetic Desi Dhol-Funk 16-step groove (C minor / Bhairav-inspired arcade riff)
     const bassNotes = [130.81, 0, 130.81, 146.83, 155.56, 0, 130.81, 196.0, 130.81, 0, 174.61, 155.56, 146.83, 0, 196.0, 146.83];
     const leadNotes = [523.25, 0, 587.33, 622.25, 0, 587.33, 523.25, 493.88, 523.25, 0, 698.46, 622.25, 587.33, 0, 523.25, 0];
 
     const stepTick = () => {
-      if (!this.musicPlaying || this.musicMuted || !this.ctx || this.ctx.state !== 'running') return;
+      if (
+        !this.musicPlaying ||
+        this.musicMuted ||
+        this.globalMuted ||
+        this.audioPaused ||
+        !this.ctx ||
+        this.ctx.state !== 'running'
+      ) {
+        return;
+      }
       const now = this.ctx.currentTime;
       const idx = this.musicStep % 16;
       this.musicStep++;
