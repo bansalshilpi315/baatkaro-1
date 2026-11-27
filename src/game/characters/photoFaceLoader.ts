@@ -138,6 +138,7 @@ interface CachedPhotoEntry {
   rawTexture: THREE.Texture | null;
   croppedTexture: THREE.CanvasTexture | null;
   listeners: Set<(result: CroppedFaceResult) => void>;
+  waiters: Set<() => void>;
 }
 
 const cache: Record<PhotoFaceFighterId, CachedPhotoEntry> = {
@@ -146,12 +147,14 @@ const cache: Record<PhotoFaceFighterId, CachedPhotoEntry> = {
     rawTexture: null,
     croppedTexture: null,
     listeners: new Set(),
+    waiters: new Set(),
   },
   samyak: {
     status: 'idle',
     rawTexture: null,
     croppedTexture: null,
     listeners: new Set(),
+    waiters: new Set(),
   },
 };
 
@@ -225,53 +228,89 @@ function buildCroppedFacePlateTexture(
   return { texture };
 }
 
-function loadSinglePhotoFace(id: PhotoFaceFighterId): void {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+function resolvePhotoWaiters(entry: CachedPhotoEntry): void {
+  for (const waiter of entry.waiters) {
+    waiter();
+  }
+  entry.waiters.clear();
+}
+
+function loadSinglePhotoFace(
+  id: PhotoFaceFighterId,
+  loaderFactory?: () => Pick<THREE.TextureLoader, 'load'>,
+): Promise<void> {
   const entry = cache[id];
-  if (entry.status !== 'idle') return;
+  if (entry.status === 'loaded' || entry.status === 'missing') {
+    return Promise.resolve();
+  }
+  if ((typeof window === 'undefined' || typeof document === 'undefined') && !loaderFactory) {
+    return Promise.resolve();
+  }
+
+  const completion = new Promise<void>((resolve) => {
+    entry.waiters.add(resolve);
+  });
+
+  if (entry.status !== 'idle') return completion;
 
   entry.status = 'loading';
   const url = REAL_FACE_PHOTO_URLS[id];
 
-  if (!sharedTextureLoader) {
-    sharedTextureLoader = new THREE.TextureLoader();
-  }
+  const loader = loaderFactory
+    ? loaderFactory()
+    : (sharedTextureLoader ?? (sharedTextureLoader = new THREE.TextureLoader()));
 
-  sharedTextureLoader.load(
-    url,
-    (loadedTex) => {
-      loadedTex.colorSpace = THREE.SRGBColorSpace;
-      entry.rawTexture = loadedTex;
-      const built = buildCroppedFacePlateTexture(id, loadedTex.image);
-      if (!built) {
+  try {
+    loader.load(
+      url,
+      (loadedTex) => {
+        loadedTex.colorSpace = THREE.SRGBColorSpace;
+        entry.rawTexture = loadedTex;
+        const built = buildCroppedFacePlateTexture(id, loadedTex.image);
+        if (!built) {
+          entry.status = 'missing';
+          failedPortraitUrls.add(url);
+          resolvePhotoWaiters(entry);
+          return;
+        }
+        entry.croppedTexture = built.texture;
+        entry.status = 'loaded';
+        for (const listener of entry.listeners) {
+          listener(built);
+        }
+        entry.listeners.clear();
+        resolvePhotoWaiters(entry);
+      },
+      undefined,
+      () => {
+        // Missing photo file -> silent graceful fallback to procedural Canvas face & portrait
         entry.status = 'missing';
         failedPortraitUrls.add(url);
-        return;
-      }
-      entry.croppedTexture = built.texture;
-      entry.status = 'loaded';
-      for (const listener of entry.listeners) {
-        listener(built);
-      }
-      entry.listeners.clear();
-    },
-    undefined,
-    () => {
-      // Missing photo file -> silent graceful fallback to procedural Canvas face & portrait
-      entry.status = 'missing';
-      failedPortraitUrls.add(url);
-      entry.listeners.clear();
-    },
-  );
+        entry.listeners.clear();
+        resolvePhotoWaiters(entry);
+      },
+    );
+  } catch {
+    entry.status = 'missing';
+    failedPortraitUrls.add(url);
+    entry.listeners.clear();
+    resolvePhotoWaiters(entry);
+  }
+
+  return completion;
 }
 
 /**
  * Preloads and caches cropped 512x512 flat-face CanvasTextures once on load
  * so mobile browsers stay locked at smooth 60 FPS.
  */
-export function preloadRealFaceTextures(): void {
-  loadSinglePhotoFace('father');
-  loadSinglePhotoFace('samyak');
+export function preloadRealFaceTextures(
+  loaderFactory?: () => Pick<THREE.TextureLoader, 'load'>,
+): Promise<void> {
+  return Promise.all([
+    loadSinglePhotoFace('father', loaderFactory),
+    loadSinglePhotoFace('samyak', loaderFactory),
+  ]).then(() => undefined);
 }
 
 /**

@@ -40,7 +40,7 @@ export function SatireNoticeModal({ onContinue }: SatireNoticeModalProps) {
         <div className="modal-compact-body flex flex-col space-y-4 px-6 py-5">
           <p className="text-sm leading-relaxed text-[#f5f5f4]">
             <strong className="text-[#facc15]">English:</strong>{' '}
-            <strong>DESI SHOWDOWN</strong> is a 100% fictional work of Indian pop-culture parody and light-hearted satire. All fighters, dialogues, and breaking-news headlines are purely comedic.
+            <strong>DESI DANGAL</strong> is a 100% fictional work of Indian pop-culture parody and light-hearted satire. All fighters, dialogues, and breaking-news headlines are purely comedic.
           </p>
 
           <p className="border-t border-white/15 pt-3 text-sm leading-relaxed text-[#fde68a]">

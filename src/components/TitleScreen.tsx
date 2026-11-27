@@ -1,32 +1,39 @@
 import { useEffect } from 'react';
-import { Music, Volume2, VolumeX } from 'lucide-react';
+import { Coins, Music, User, Volume2, VolumeX } from 'lucide-react';
+import type { PlayerProfile } from '../game/playerAccount';
 import { FullscreenButton } from './FullscreenButton';
 
 interface TitleScreenProps {
+  profile: PlayerProfile;
   globalMuted: boolean;
   musicMuted: boolean;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   modalOpen?: boolean;
   onStart: () => void;
+  onOpenAccount: () => void;
   onToggleGlobalMute: () => void;
   onToggleMusic: () => void;
   onToggleFullscreen: () => void;
   onOpenHowToPlay: () => void;
+  onOpenSatireNotice: () => void;
   onOpenAbout: () => void;
 }
 
 export function TitleScreen({
+  profile,
   globalMuted,
   musicMuted,
   isFullscreen,
   fullscreenSupported,
   modalOpen = false,
   onStart,
+  onOpenAccount,
   onToggleGlobalMute,
   onToggleMusic,
   onToggleFullscreen,
   onOpenHowToPlay,
+  onOpenSatireNotice,
   onOpenAbout,
 }: TitleScreenProps) {
   useEffect(() => {
@@ -45,11 +52,40 @@ export function TitleScreen({
 
   return (
     <div className="safe-pad-screen pointer-events-none fixed inset-0 z-20 flex h-[100dvh] w-[100dvw] flex-col justify-between overflow-hidden select-none touch-none sm:p-7">
-      {/* Top Bar: Static ● LIVE Broadcast Tag (Left) + Global Audio Mute, Music & Fullscreen Toggles (Right) */}
+      {/* Top Bar: Player Profile / Login Badge + Live Tag (Left) & Audio / Fullscreen Toggles (Right) */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06]">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-white" aria-hidden="true" />
-          <span>LIVE · DESI TV ARENA</span>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="player-profile-badge"
+            onClick={onOpenAccount}
+            aria-label={`Player Profile: ${profile.displayName}, ${profile.coins} coins`}
+            className="flex cursor-pointer items-center gap-2.5 whitespace-nowrap shrink-0 border-2 border-[#facc15] bg-[#14100d]/92 px-3 py-1.5 text-left shadow-[3px_3px_0_#0f0a06] transition-colors hover:bg-[#1f1914] focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <span className="flex h-6 w-6 items-center justify-center bg-[#dc2626] text-white">
+              <User className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+            <span className="flex flex-col leading-none">
+              <span
+                data-testid="player-badge-name"
+                className="font-display text-sm font-extrabold uppercase tracking-wider text-white sm:text-base"
+              >
+                {profile.displayName}
+              </span>
+              <span className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#fde68a]">
+                {profile.mode === 'guest' ? 'Player Profile / Login' : 'View Profile'}
+              </span>
+            </span>
+            <span className="flex items-center gap-1 border-l border-white/20 pl-2 font-mono-num text-xs font-extrabold text-[#facc15] sm:text-sm">
+              <Coins className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span data-testid="player-badge-coins">{profile.coins.toLocaleString()}</span>
+            </span>
+          </button>
+
+          <div className="hidden items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06] md:flex">
+            <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
+            <span>LIVE · DESI TV ARENA</span>
+          </div>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
@@ -109,7 +145,7 @@ export function TitleScreen({
           viewBox="0 0 740 205"
           className="title-crest-svg w-full max-w-[600px] shrink drop-shadow-[0_10px_0_rgba(15,10,6,0.95)]"
           role="img"
-          aria-label="DESI SHOWDOWN — The Great Multiverse Fight"
+          aria-label="DESI DANGAL — The Great Multiverse Fight"
         >
           <polygon
             points="32,18 716,8 698,124 18,134"
@@ -130,27 +166,27 @@ export function TitleScreen({
             x="370"
             y="98"
             textAnchor="middle"
-            fontFamily="Barlow Condensed, sans-serif"
+            fontFamily="Barlow Condensed, Arial Narrow, Impact, sans-serif"
             fontWeight="800"
             fontStyle="italic"
-            fontSize="86"
+            fontSize="88"
             letterSpacing="4"
             fill="#FFFFFF"
             stroke="#0F0A06"
             strokeWidth="12"
             paintOrder="stroke fill"
           >
-            DESI SHOWDOWN
+            DESI DANGAL
           </text>
 
           <text
-            x="368"
-            y="163"
+            x="365"
+            y="162"
             textAnchor="middle"
-            fontFamily="Barlow Condensed, sans-serif"
+            fontFamily="Barlow Condensed, Arial Narrow, sans-serif"
             fontWeight="800"
-            fontSize="30"
-            letterSpacing="6"
+            fontSize="26"
+            letterSpacing="4.5"
             fill="#120D0A"
           >
             THE GREAT MULTIVERSE FIGHT
@@ -170,7 +206,7 @@ export function TitleScreen({
         </div>
       </div>
 
-      {/* Clean Bottom Bar: How to Play · About */}
+      {/* Clean Bottom Bar: How to Play · Satire Notice · About */}
       <div className="flex items-center justify-center">
         <div className="title-bottom-bar pointer-events-auto flex items-center gap-3 border border-white/15 bg-[#120d0a]/88 px-5 py-2">
           <button
@@ -179,6 +215,16 @@ export function TitleScreen({
             className="cursor-pointer font-display text-base font-extrabold uppercase tracking-wider text-[#facc15] hover:text-white focus-visible:outline-2 focus-visible:outline-white"
           >
             How to Play
+          </button>
+          <span className="text-white/35" aria-hidden="true">
+            ·
+          </span>
+          <button
+            type="button"
+            onClick={onOpenSatireNotice}
+            className="cursor-pointer font-display text-base font-extrabold uppercase tracking-wider text-[#e7e5e4] hover:text-[#facc15] focus-visible:outline-2 focus-visible:outline-white"
+          >
+            Satire Notice
           </button>
           <span className="text-white/35" aria-hidden="true">
             ·

@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { HelpCircle, Lock, MapPin, Settings, Swords, Users, Volume2, VolumeX, Wifi } from 'lucide-react';
+import { Coins, HelpCircle, Lock, MapPin, Settings, Swords, Users, Volume2, VolumeX, Wifi } from 'lucide-react';
 import { FIGHTER_CONFIGS, FIGHTER_LIST, STAGE_CONFIGS, STAGE_LIST } from '../game/characters';
 import { STAGE_AI_TIER } from '../game/combat';
 import type { OnlineRole } from '../game/friendRoomProtocol';
+import {
+  FIGHTER_UNLOCK_COSTS,
+  STAGE_UNLOCK_COSTS,
+  type PlayerProfile,
+} from '../game/playerAccount';
 import type { Difficulty, FighterId, StageId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
@@ -14,6 +19,7 @@ interface SelectScreenProps {
   difficulty: Difficulty;
   onlineRole: OnlineRole;
   roomCode: string;
+  playerProfile: PlayerProfile;
   globalMuted: boolean;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
@@ -21,6 +27,8 @@ interface SelectScreenProps {
   onSelectP2: (id: FighterId) => void;
   onSelectStage: (id: StageId) => void;
   onSelectDifficulty: (d: Difficulty) => void;
+  onUnlockFighter: (id: FighterId) => void;
+  onUnlockStage: (stageNumber: number) => void;
   onToggleGlobalMute: () => void;
   onToggleFullscreen: () => void;
   onOpenHowToPlay: () => void;
@@ -52,6 +60,7 @@ export function SelectScreen({
   difficulty,
   onlineRole,
   roomCode,
+  playerProfile,
   globalMuted,
   isFullscreen,
   fullscreenSupported,
@@ -59,6 +68,8 @@ export function SelectScreen({
   onSelectP2,
   onSelectStage,
   onSelectDifficulty,
+  onUnlockFighter,
+  onUnlockStage,
   onToggleGlobalMute,
   onToggleFullscreen,
   onOpenHowToPlay,
@@ -70,6 +81,7 @@ export function SelectScreen({
   const p2Cfg = FIGHTER_CONFIGS[p2Id];
   const activeStage = STAGE_CONFIGS[stageId];
   const stageAiTier = STAGE_AI_TIER[stageId] ?? 1;
+  const activeStageNum = STAGE_LIST.findIndex((s) => s.id === stageId) + 1;
 
   const isOnline = onlineRole !== 'offline';
   const isHost = onlineRole === 'host';
@@ -79,6 +91,12 @@ export function SelectScreen({
   const canPickP2 = !isHost;
   const canPickStage = !isGuest;
   const canStartFight = !isGuest;
+
+  const localSelectedId = isGuest ? p2Id : p1Id;
+  const isLocalFighterLocked = !isOnline && !playerProfile.unlockedFighters.includes(localSelectedId);
+  const localFighterCost = FIGHTER_UNLOCK_COSTS[localSelectedId] ?? 150;
+  const isStageLocked = !isOnline && activeStageNum > playerProfile.highestStage;
+  const activeStageCost = STAGE_UNLOCK_COSTS[activeStageNum] ?? 75;
 
   const p1CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
   const p2CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
@@ -111,6 +129,13 @@ export function SelectScreen({
           <h1 className="select-header-title truncate font-display text-xl font-extrabold uppercase italic tracking-wider text-[#facc15] sm:text-2xl">
             SELECT FIGHTERS
           </h1>
+          <span
+            data-testid="select-coins-badge"
+            className="hidden items-center gap-1 border-l border-white/20 pl-2.5 font-mono-num text-xs font-extrabold text-[#facc15] sm:inline-flex"
+          >
+            <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{playerProfile.coins.toLocaleString()}</span>
+          </span>
           <span className="hidden border-l border-white/20 pl-2.5 text-xs font-bold uppercase tracking-wide text-[#e7e5e4] lg:inline">
             {p1Cfg.name} vs {p2Cfg.name}
           </span>
@@ -209,6 +234,8 @@ export function SelectScreen({
           >
             {FIGHTER_LIST.map((f) => {
               const selected = f.id === p1Id;
+              const locked = !playerProfile.unlockedFighters.includes(f.id);
+              const unlockCost = FIGHTER_UNLOCK_COSTS[f.id] ?? 150;
               return (
                 <button
                   key={f.id}
@@ -220,7 +247,7 @@ export function SelectScreen({
                   onClick={() => {
                     if (canPickP1) onSelectP1(f.id);
                   }}
-                  aria-label={`Select Player 1 ${f.name}`}
+                  aria-label={`Select Player 1 ${f.name}${locked ? ` (Locked, ${unlockCost} coins)` : ''}`}
                   aria-pressed={selected}
                   className={`select-fighter-btn flex min-h-[56px] shrink-0 items-center gap-2 border-2 px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
                     selected
@@ -230,17 +257,26 @@ export function SelectScreen({
                         : 'cursor-not-allowed border-white/10 bg-[#181310]/70 opacity-65'
                   }`}
                 >
-                  <FighterPortrait
-                    id={f.id}
-                    alt={f.name}
-                    className="select-fighter-avatar h-10 w-10 shrink-0 border border-black/60 object-cover sm:h-11 sm:w-11"
-                  />
+                  <div className="relative shrink-0">
+                    <FighterPortrait
+                      id={f.id}
+                      alt={f.name}
+                      className={`select-fighter-avatar h-10 w-10 shrink-0 border border-black/60 object-cover sm:h-11 sm:w-11 ${
+                        locked ? 'grayscale opacity-75' : ''
+                      }`}
+                    />
+                    {locked && (
+                      <span className="absolute right-0.5 bottom-0.5 flex h-4 w-4 items-center justify-center rounded-xs bg-black/85 text-[#facc15]">
+                        <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+                      </span>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-white sm:text-base">
                       {SHORT_NAMES[f.id]}
                     </div>
                     <div className="select-fighter-special mt-0.5 truncate text-[10px] font-semibold text-[#fef08a] sm:text-[11px]">
-                      {f.special.shortLabel}
+                      {locked ? `UNLOCK · ${unlockCost} COINS` : f.special.shortLabel}
                     </div>
                   </div>
                 </button>
@@ -384,6 +420,7 @@ export function SelectScreen({
           <div className="flex items-center gap-1" role="group" aria-label="Select 3D Stage">
             {STAGE_LIST.map((st, idx) => {
               const selected = st.id === stageId;
+              const stageLocked = !isOnline && idx + 1 > playerProfile.highestStage;
               return (
                 <button
                   key={st.id}
@@ -393,18 +430,20 @@ export function SelectScreen({
                     if (canPickStage) onSelectStage(st.id);
                   }}
                   aria-pressed={selected}
-                  aria-label={`Stage ${idx + 1}: ${st.name}`}
+                  aria-label={`Stage ${idx + 1}: ${st.name}${stageLocked ? ' (Locked)' : ''}`}
                   title={`${st.name} — ${st.subtitle}`}
-                  className={`select-stage-btn border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wide transition-colors sm:text-sm ${
+                  className={`select-stage-btn inline-flex items-center gap-1 border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wide transition-colors sm:text-sm ${
                     selected
                       ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
                       : canPickStage
-                        ? 'cursor-pointer border-white/25 bg-[#1f1915] text-white hover:border-[#facc15]'
+                        ? stageLocked
+                          ? 'cursor-pointer border-white/15 bg-[#181310] text-white/60 hover:border-[#facc15]/60'
+                          : 'cursor-pointer border-white/25 bg-[#1f1915] text-white hover:border-[#facc15]'
                         : 'cursor-not-allowed border-white/15 bg-[#181310] text-white/45'
                   }`}
                 >
-                  {idx + 1}
-                  <span className="hidden xl:inline"> · {st.name.split(' ')[0]}</span>
+                  {stageLocked && <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />}
+                  <span>{idx + 1}</span>
                 </button>
               );
             })}
@@ -451,9 +490,31 @@ export function SelectScreen({
           </div>
         )}
 
-        {/* Right Action: FIGHT! Button (Host & Offline) or Waiting Indicator (Guest) */}
+        {/* Right Action: Unlock CTA (if locked) or FIGHT! Button (Host & Offline) or Waiting Indicator (Guest) */}
         <div className="flex shrink-0 items-center gap-2">
-          {canStartFight ? (
+          {isLocalFighterLocked ? (
+            <button
+              type="button"
+              data-testid="unlock-fighter-btn"
+              disabled={playerProfile.coins < localFighterCost}
+              onClick={() => onUnlockFighter(localSelectedId)}
+              className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-5 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:text-xl"
+            >
+              <Coins className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>UNLOCK ({localFighterCost})</span>
+            </button>
+          ) : isStageLocked && canStartFight ? (
+            <button
+              type="button"
+              data-testid="unlock-stage-btn"
+              disabled={playerProfile.coins < activeStageCost}
+              onClick={() => onUnlockStage(activeStageNum)}
+              className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-5 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:text-xl"
+            >
+              <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>UNLOCK STAGE {activeStageNum} ({activeStageCost})</span>
+            </button>
+          ) : canStartFight ? (
             <button
               type="button"
               data-start="true"

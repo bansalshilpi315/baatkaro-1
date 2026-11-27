@@ -175,7 +175,7 @@ export function AboutModal({ onClose }: ModalProps) {
               id="about-game-title"
               className="font-display text-2xl font-extrabold uppercase italic tracking-wider text-white"
             >
-              ABOUT DESI SHOWDOWN
+              ABOUT DESI DANGAL
             </h2>
           </div>
           <button
@@ -190,7 +190,7 @@ export function AboutModal({ onClose }: ModalProps) {
 
         <div className="space-y-3 p-5 text-sm leading-relaxed text-[#e7e5e4]">
           <p>
-            <strong className="text-[#facc15]">DESI SHOWDOWN: The Great Multiverse Fight</strong> is a 2.5D Indian satire arcade fighter celebrating over-the-top prime-time TV news drama, iconic desi archetypes, and fast 60 FPS arcade action.
+            <strong className="text-[#facc15]">DESI DANGAL: The Great Multiverse Fight</strong> is a 2.5D Indian satire arcade fighter celebrating over-the-top prime-time TV news drama, iconic desi archetypes, and fast 60 FPS arcade action.
           </p>
           <p className="text-xs text-[#d6d3d1]">
             Built with articulated 3D fighters, custom 3D head models, living Desi stages with cheering spectators, signature voice lines with English subtitles, and synthesized Web Audio dhol-funk music — 100% self-contained with zero external CDNs.

@@ -5,6 +5,7 @@ import { FriendRoomModal } from './components/FriendRoomModal';
 import { AboutModal, HowToPlayModal } from './components/InfoModals';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PauseModal } from './components/PauseModal';
+import { PlayerAccountModal } from './components/PlayerAccountModal';
 import { PortraitGuard } from './components/PortraitGuard';
 import { SatireNoticeModal } from './components/SatireNoticeModal';
 import { SelectScreen } from './components/SelectScreen';
@@ -18,8 +19,18 @@ import {
   recordMatchCareerStats,
   type CareerStats,
 } from './game/careerStats';
-import { preloadRealFaceTextures } from './game/characters';
+import { preloadRealFaceTextures, STAGE_LIST } from './game/characters';
 import { DesiShowdownEngine } from './game/engine';
+import {
+  applyMatchOutcomeToProfile,
+  createPlayerAccount,
+  loadActivePlayerProfile,
+  loginPlayerAccount,
+  logoutToGuest,
+  unlockFighterWithCoins,
+  unlockStageWithCoins,
+  type PlayerProfile,
+} from './game/playerAccount';
 import {
   FriendRoomManager,
   type FriendRoomStateSnapshot,
@@ -135,7 +146,7 @@ export default function App() {
   const initialP2 = autostart ? getFighterQueryParam('p2', 'billa') : 'billa';
   const initialStage = autostart ? getStageQueryParam('mohalla') : 'mohalla';
 
-  const [screen, setScreen] = useState<GameScreen>(autostart ? 'playing' : 'notice');
+  const [screen, setScreen] = useState<GameScreen>(autostart ? 'playing' : 'loading');
   const [p1Id, setP1Id] = useState<FighterId>(initialP1);
   const [p2Id, setP2Id] = useState<FighterId>(initialP2);
   const [stageId, setStageId] = useState<StageId>(initialStage);
@@ -148,6 +159,8 @@ export default function App() {
   const [graphics, setGraphics] = useState<GraphicsQuality>('high');
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [satireNoticeOpen, setSatireNoticeOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [friendRoomModalOpen, setFriendRoomModalOpen] = useState(false);
   const [friendRoomState, setFriendRoomState] =
@@ -165,6 +178,9 @@ export default function App() {
   const [callouts, setCallouts] = useState<FloatingCallout[]>([]);
   const [matchResult, setMatchResult] = useState<MatchResultSnapshot | null>(null);
   const [careerStats, setCareerStats] = useState<CareerStats>(() => loadCareerStats());
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile>(() =>
+    loadActivePlayerProfile(),
+  );
 
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<DesiShowdownEngine | null>(null);
@@ -178,6 +194,7 @@ export default function App() {
   const stageIdRef = useRef(stageId);
   const difficultyRef = useRef(difficulty);
   const onlineRoleRef = useRef<OnlineRole>('offline');
+  const playerProfileRef = useRef<PlayerProfile>(playerProfile);
 
   const activeOnlineRole: OnlineRole =
     friendRoomState.status === 'connected' ? friendRoomState.role : 'offline';
@@ -191,6 +208,7 @@ export default function App() {
   stageIdRef.current = stageId;
   difficultyRef.current = difficulty;
   onlineRoleRef.current = activeOnlineRole;
+  playerProfileRef.current = playerProfile;
 
   // Apply persisted audio mute preferences immediately on boot
   useEffect(() => {
@@ -240,19 +258,38 @@ export default function App() {
               : result.winnerSlot;
         const updatedStats = recordMatchCareerStats(localPerspectiveOutcome);
         setCareerStats(updatedStats);
+
+        const accountOutcome: 'win' | 'loss' | 'draw' =
+          localPerspectiveOutcome === 'draw'
+            ? 'draw'
+            : localPerspectiveOutcome === 0
+              ? 'win'
+              : 'loss';
+        const stageNumber = Math.max(
+          1,
+          STAGE_LIST.findIndex((s) => s.id === stageIdRef.current) + 1,
+        );
+        const progression = applyMatchOutcomeToProfile(
+          playerProfileRef.current,
+          accountOutcome,
+          stageNumber,
+        );
+        playerProfileRef.current = progression.profile;
+        setPlayerProfile(progression.profile);
+
         setMatchResult(result);
         setScreen('victory');
       },
       onSuperPreviewStateChange: (isPlaying) => {
         setPreviewSuperPlaying(isPlaying);
       },
+      deferAssetPreload: !isAutostartRequested(),
     });
     engineRef.current = engine;
 
-    void audioEngine.preloadAllSuperAudios();
-    preloadRealFaceTextures();
-
     if (isAutostartRequested()) {
+      void audioEngine.preloadAllSuperAudios();
+      preloadRealFaceTextures();
       const p1RoundsWon = getNumericQueryParam('p1rounds');
       const p2RoundsWon = getNumericQueryParam('p2rounds');
       const p1Hp = getNumericQueryParam('p1hp');
@@ -506,13 +543,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const handleDismissNotice = useCallback(() => {
-    audioEngine.unlock();
-    audioEngine.playUiClick();
-    engineRef.current?.setScreen('loading');
-    setScreen('loading');
-  }, []);
-
   const handleLoadingComplete = useCallback(() => {
     engineRef.current?.setScreen('title');
     setScreen('title');
@@ -523,8 +553,79 @@ export default function App() {
     audioEngine.playUiClick();
     setHowToPlayOpen(false);
     setAboutOpen(false);
+    setSatireNoticeOpen(false);
+    setAccountModalOpen(false);
     engineRef.current?.setScreen('select');
     setScreen('select');
+  }, []);
+
+  const handlePlayAsGuest = useCallback(() => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    if (playerProfileRef.current.mode !== 'guest') {
+      const guest = logoutToGuest();
+      playerProfileRef.current = guest;
+      setPlayerProfile(guest);
+    }
+    setAccountModalOpen(false);
+  }, []);
+
+  const handleCreateAccount = useCallback(async (username: string, password: string) => {
+    audioEngine.unlock();
+    const res = await createPlayerAccount(username, password);
+    if (res.ok && res.profile) {
+      audioEngine.playUiClick();
+      playerProfileRef.current = res.profile;
+      setPlayerProfile(res.profile);
+      setAccountModalOpen(false);
+    }
+    return res;
+  }, []);
+
+  const handleLogin = useCallback(async (username: string, password: string) => {
+    audioEngine.unlock();
+    const res = await loginPlayerAccount(username, password);
+    if (res.ok && res.profile) {
+      audioEngine.playUiClick();
+      playerProfileRef.current = res.profile;
+      setPlayerProfile(res.profile);
+      setAccountModalOpen(false);
+    }
+    return res;
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    audioEngine.playUiClick();
+    const guest = logoutToGuest();
+    playerProfileRef.current = guest;
+    setPlayerProfile(guest);
+    if (!guest.unlockedFighters.includes(p1IdRef.current)) {
+      setP1Id('sheru');
+    }
+    const stageNum = STAGE_LIST.findIndex((s) => s.id === stageIdRef.current) + 1;
+    if (stageNum > guest.highestStage) {
+      setStageId('mohalla');
+    }
+  }, []);
+
+  const handleUnlockFighter = useCallback((id: FighterId) => {
+    audioEngine.unlock();
+    const res = unlockFighterWithCoins(playerProfileRef.current, id);
+    if (res.ok) {
+      audioEngine.playUiClick();
+      playerProfileRef.current = res.profile;
+      setPlayerProfile(res.profile);
+    }
+  }, []);
+
+  const handleUnlockStage = useCallback((stageNumber: number) => {
+    audioEngine.unlock();
+    const res = unlockStageWithCoins(playerProfileRef.current, stageNumber);
+    if (res.ok) {
+      audioEngine.playUiClick();
+      playerProfileRef.current = res.profile;
+      setPlayerProfile(res.profile);
+    }
   }, []);
 
   const handleSelectP1 = useCallback(
@@ -621,6 +722,13 @@ export default function App() {
       });
       engineRef.current?.startMatch(p1Id, p2Id, stageId, 'normal', false, 0, undefined, seed);
     } else {
+      const stageNum = STAGE_LIST.findIndex((s) => s.id === stageId) + 1;
+      if (
+        !playerProfileRef.current.unlockedFighters.includes(p1Id) ||
+        stageNum > playerProfileRef.current.highestStage
+      ) {
+        return;
+      }
       engineRef.current?.startMatch(p1Id, p2Id, stageId, difficulty, false);
     }
     setScreen('playing');
@@ -859,24 +967,32 @@ export default function App() {
       />
 
       {/* Screen Overlays */}
-      {screen === 'notice' && <SatireNoticeModal onContinue={handleDismissNotice} />}
-
       {screen === 'loading' && <LoadingScreen onComplete={handleLoadingComplete} />}
 
       {screen === 'title' && (
         <TitleScreen
+          profile={playerProfile}
           globalMuted={globalMuted}
           musicMuted={musicMuted}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
-          modalOpen={howToPlayOpen || aboutOpen}
+          modalOpen={howToPlayOpen || aboutOpen || satireNoticeOpen || accountModalOpen}
           onStart={handleOpenSelect}
+          onOpenAccount={() => {
+            audioEngine.unlock();
+            audioEngine.playUiClick();
+            setAccountModalOpen(true);
+          }}
           onToggleGlobalMute={handleToggleGlobalMute}
           onToggleMusic={handleToggleMusic}
           onToggleFullscreen={toggleFullscreen}
           onOpenHowToPlay={() => {
             audioEngine.playUiClick();
             setHowToPlayOpen(true);
+          }}
+          onOpenSatireNotice={() => {
+            audioEngine.playUiClick();
+            setSatireNoticeOpen(true);
           }}
           onOpenAbout={() => {
             audioEngine.playUiClick();
@@ -893,6 +1009,7 @@ export default function App() {
           difficulty={difficulty}
           onlineRole={activeOnlineRole}
           roomCode={friendRoomState.roomCode}
+          playerProfile={playerProfile}
           globalMuted={globalMuted}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
@@ -900,6 +1017,8 @@ export default function App() {
           onSelectP2={handleSelectP2}
           onSelectStage={handleSelectStage}
           onSelectDifficulty={handleSelectDifficulty}
+          onUnlockFighter={handleUnlockFighter}
+          onUnlockStage={handleUnlockStage}
           onToggleGlobalMute={handleToggleGlobalMute}
           onToggleFullscreen={toggleFullscreen}
           onOpenHowToPlay={() => {
@@ -1034,6 +1153,27 @@ export default function App() {
           onClose={() => {
             audioEngine.playUiClick();
             setSettingsOpen(false);
+          }}
+        />
+      )}
+      {accountModalOpen && (
+        <PlayerAccountModal
+          profile={playerProfile}
+          onPlayAsGuest={handlePlayAsGuest}
+          onCreateAccount={handleCreateAccount}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          onClose={() => {
+            audioEngine.playUiClick();
+            setAccountModalOpen(false);
+          }}
+        />
+      )}
+      {satireNoticeOpen && (
+        <SatireNoticeModal
+          onContinue={() => {
+            audioEngine.playUiClick();
+            setSatireNoticeOpen(false);
           }}
         />
       )}

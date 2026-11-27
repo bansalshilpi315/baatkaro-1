@@ -38,7 +38,7 @@ export function PortraitGuard() {
           ROTATE TO LANDSCAPE
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-[#f5f5f4]">
-          Desi Showdown is a 2.5D side-scrolling arcade fighter. Please turn your phone sideways for full-screen arena action and touch controls.
+          Desi Dangal is a 2.5D side-scrolling arcade fighter. Please turn your phone sideways for full-screen arena action and touch controls.
         </p>
         <p className="mt-2 text-xs font-semibold text-[#fbbf24]">
           Phone ko aada (landscape) ghumaaiye, phir full dhishum-dhishum shuru hoga!

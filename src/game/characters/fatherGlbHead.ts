@@ -64,6 +64,7 @@ interface GlbHeadCache {
   status: 'idle' | 'loading' | 'loaded' | 'failed';
   templateScene: THREE.Group | null;
   listeners: Set<(template: THREE.Group) => void>;
+  waiters: Set<(loaded: boolean) => void>;
 }
 
 function createGlbHeadCache(): GlbHeadCache {
@@ -71,6 +72,7 @@ function createGlbHeadCache(): GlbHeadCache {
     status: 'idle',
     templateScene: null,
     listeners: new Set(),
+    waiters: new Set(),
   };
 }
 
@@ -187,13 +189,29 @@ function buildFittedGlbHead(
   return outerPivot;
 }
 
+function resolveCacheWaiters(cache: GlbHeadCache, loaded: boolean): void {
+  for (const waiter of cache.waiters) {
+    waiter(loaded);
+  }
+  cache.waiters.clear();
+}
+
 function preloadCachedGlbHead(
   url: string,
   cache: GlbHeadCache,
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
-): void {
-  if (typeof window === 'undefined' && !loaderFactory) return;
-  if (cache.status !== 'idle') return;
+): Promise<boolean> {
+  if (cache.status === 'loaded') return Promise.resolve(true);
+  if (cache.status === 'failed') return Promise.resolve(false);
+  if (typeof window === 'undefined' && !loaderFactory) return Promise.resolve(false);
+
+  const completion = new Promise<boolean>((resolve) => {
+    cache.waiters.add(resolve);
+  });
+
+  if (cache.status !== 'idle') {
+    return completion;
+  }
 
   cache.status = 'loading';
   const loader = loaderFactory
@@ -207,6 +225,7 @@ function preloadCachedGlbHead(
         if (!gltf || !gltf.scene) {
           cache.status = 'failed';
           cache.listeners.clear();
+          resolveCacheWaiters(cache, false);
           return;
         }
         stripEmbeddedLightsAndCameras(gltf.scene);
@@ -216,18 +235,23 @@ function preloadCachedGlbHead(
           listener(gltf.scene);
         }
         cache.listeners.clear();
+        resolveCacheWaiters(cache, true);
       },
       undefined,
       () => {
         // Silent graceful fallback to existing hemisphere head with zero crash
         cache.status = 'failed';
         cache.listeners.clear();
+        resolveCacheWaiters(cache, false);
       },
     );
   } catch {
     cache.status = 'failed';
     cache.listeners.clear();
+    resolveCacheWaiters(cache, false);
   }
+
+  return completion;
 }
 
 /**
@@ -280,8 +304,8 @@ export function buildFittedSamyakGlbHead(
  */
 export function preloadFatherGlbHead(
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
-): void {
-  preloadCachedGlbHead(FATHER_GLB_HEAD_URL, fatherGlbCache, loaderFactory);
+): Promise<boolean> {
+  return preloadCachedGlbHead(FATHER_GLB_HEAD_URL, fatherGlbCache, loaderFactory);
 }
 
 /**
@@ -290,8 +314,8 @@ export function preloadFatherGlbHead(
  */
 export function preloadSamyakGlbHead(
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
-): void {
-  preloadCachedGlbHead(SAMYAK_GLB_HEAD_URL, samyakGlbCache, loaderFactory);
+): Promise<boolean> {
+  return preloadCachedGlbHead(SAMYAK_GLB_HEAD_URL, samyakGlbCache, loaderFactory);
 }
 
 /**
@@ -384,10 +408,12 @@ export function clearFatherGlbHeadCacheForTests(): void {
   fatherGlbCache.status = 'idle';
   fatherGlbCache.templateScene = null;
   fatherGlbCache.listeners.clear();
+  fatherGlbCache.waiters.clear();
 }
 
 export function clearSamyakGlbHeadCacheForTests(): void {
   samyakGlbCache.status = 'idle';
   samyakGlbCache.templateScene = null;
   samyakGlbCache.listeners.clear();
+  samyakGlbCache.waiters.clear();
 }

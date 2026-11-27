@@ -97,6 +97,7 @@ export interface EngineCallbacks {
   onHeadline: (headline: string) => void;
   onMatchFinish: (result: MatchResultSnapshot) => void;
   onSuperPreviewStateChange?: (isPlaying: boolean) => void;
+  deferAssetPreload?: boolean;
 }
 
 interface ParticleSlot {
@@ -266,7 +267,7 @@ export class DesiShowdownEngine {
   private rigs: [FighterRig | null, FighterRig | null] = [null, null];
   private matchState: MatchState;
 
-  private currentScreen: GameScreen = 'notice';
+  private currentScreen: GameScreen = 'loading';
   private p1Id: FighterId = 'sheru';
   private p2Id: FighterId = 'billa';
   private stageId: StageId = 'mohalla';
@@ -627,11 +628,13 @@ export class DesiShowdownEngine {
     this.loadStage(this.stageId);
     this.loadFighters(this.p1Id, this.p2Id);
 
-    // Preload all Super Power MP3 bytes & optional real face photo textures once at startup
-    void audioEngine.preloadAllSuperAudios();
-    preloadRealFaceTextures();
-    preloadFatherGlbHead();
-    preloadSamyakGlbHead();
+    if (!this.callbacks.deferAssetPreload) {
+      // Preload all Super Power MP3 bytes & optional real face photo textures once at startup
+      void audioEngine.preloadAllSuperAudios();
+      preloadRealFaceTextures();
+      preloadFatherGlbHead();
+      preloadSamyakGlbHead();
+    }
 
     if (!this.isSoftwareGl) {
       // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes
@@ -838,7 +841,12 @@ export class DesiShowdownEngine {
     } else if (screen === 'paused') {
       this.clearInputs();
       pauseDialogueTimers(this.dialogueTracker, performance.now());
-    } else if (screen === 'select' || screen === 'title' || screen === 'notice') {
+    } else if (
+      screen === 'select' ||
+      screen === 'title' ||
+      screen === 'notice' ||
+      screen === 'loading'
+    ) {
       // Explicitly exited to menu: reset Super VFX, preview flags, mid-fight dialogues, callouts, and stop active Super audio
       this.previewPendingSuper = false;
       this.previewSuperWasActive = false;
@@ -2534,6 +2542,12 @@ export class DesiShowdownEngine {
 
   private tick = (): void => {
     if (this.disposed) return;
+
+    if (this.currentScreen === 'loading') {
+      this.lastTime = performance.now();
+      this.frameId = window.setTimeout(this.tick, 80);
+      return;
+    }
 
     const now = performance.now();
     const rawDt = (now - this.lastTime) / 1000;
