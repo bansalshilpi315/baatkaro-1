@@ -247,6 +247,22 @@ export class DesiAudioEngine {
     }
   }
 
+  public isSuperAudioDecoded(url: string): boolean {
+    return superAudioBuffers.has(url);
+  }
+
+  /**
+   * Silently wakes/resumes AudioContext on Super activation frame 0 without
+   * playing any audio yet, so the frame-locked next-rAF `playFighterSuperAudio`
+   * starts with zero wake-up jitter.
+   */
+  public prepareForSuperAudio(): void {
+    const ctx = this.ensureContext();
+    if (ctx && ctx.state === 'suspended' && !this.globalMuted && !this.audioPaused) {
+      ctx.resume().catch(() => {});
+    }
+  }
+
   /**
    * Plays a Super Power MP3 from decoded RAM AudioBuffer on the browser's audio thread.
    * Ducks BGM ONCE via setTargetAtTime(0.15, now, 0.08) and restores cleanly on source.onended.

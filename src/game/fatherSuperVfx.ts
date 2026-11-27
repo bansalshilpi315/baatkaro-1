@@ -251,17 +251,18 @@ export class FatherSuperVfx {
     this.root.visible = false;
     scene.add(this.root);
 
-    // 1. Crimson-gold overhead Spotlight & PointLight
+    // 1. Crimson-gold overhead Spotlight & PointLight (kept directly on scene with intensity=0
+    //    when idle so WebGL NUM_SPOT_LIGHTS / NUM_POINT_LIGHTS never change mid-fight!)
     this.spotTarget = new THREE.Object3D();
-    this.root.add(this.spotTarget);
+    scene.add(this.spotTarget);
 
     this.spotLight = new THREE.SpotLight(0xfef08a, 0, 26, Math.PI * 0.24, 0.55, 1.1);
     this.spotLight.position.set(0, 10.5, 3.2);
     this.spotLight.target = this.spotTarget;
-    this.root.add(this.spotLight);
+    scene.add(this.spotLight);
 
     this.auraLight = new THREE.PointLight(0xef4444, 0, 14, 1.3);
-    this.root.add(this.auraLight);
+    scene.add(this.auraLight);
 
     // Soft translucent crimson-gold vertical spotlight cone
     const beamGeo = new THREE.CylinderGeometry(0.65, 2.3, 10.2, 20, 1, true);
@@ -476,6 +477,8 @@ export class FatherSuperVfx {
 
   public setPrewarmVisible(visible: boolean): void {
     this.root.visible = visible;
+    this.spotLight.intensity = visible ? 0.001 : 0;
+    this.auraLight.intensity = visible ? 0.001 : 0;
     this.masterGroup.visible = visible;
     this.shockRing.visible = visible;
     for (const p of this.papers) {
@@ -817,6 +820,9 @@ export class FatherSuperVfx {
 
   public dispose(scene: THREE.Scene): void {
     scene.remove(this.root);
+    scene.remove(this.spotLight);
+    scene.remove(this.spotTarget);
+    scene.remove(this.auraLight);
     this.paperTex.dispose();
     this.paperGeo.dispose();
     this.paperMat.dispose();

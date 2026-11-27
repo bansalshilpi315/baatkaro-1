@@ -642,13 +642,13 @@
   }
 
   .hud-stick-base {
-    width: 5.5rem;
-    height: 5.5rem;
+    width: 6.5rem;
+    height: 6.5rem;
   }
 
   .hud-stick-knob {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
   }
 
   .hud-thumb-arc {

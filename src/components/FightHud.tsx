@@ -3,6 +3,18 @@ import { ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
 import { FIGHTER_CONFIGS } from '../game/characters';
 import type { OnlineRole } from '../game/friendRoomProtocol';
 import type { FighterId, FloatingCallout, HudSnapshot, StageId } from '../game/types';
+import {
+  clampJoystickAnchor,
+  computeJoystickOutput,
+  JOYSTICK_ACTIVE_OPACITY,
+  JOYSTICK_DEADZONE_PX,
+  JOYSTICK_IDLE_BOTTOM_PX,
+  JOYSTICK_IDLE_LEFT_PX,
+  JOYSTICK_IDLE_OPACITY,
+  JOYSTICK_MAX_RADIUS_PX,
+  JOYSTICK_TOP_EXCLUSION_PX,
+  type JoystickAnchor,
+} from '../game/virtualJoystick';
 import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
 
@@ -147,45 +159,122 @@ export function FightHud({
     hud.phase === 'ko_freeze' ||
     hud.phase === 'finished';
 
-  // Virtual Joystick State
-  const stickBaseRef = useRef<HTMLDivElement | null>(null);
+  // Dynamic Floating Left-Half Virtual Joystick State (strict pointerId multi-touch isolation)
+  const [stickActive, setStickActive] = useState(false);
+  const [stickAnchor, setStickAnchor] = useState<JoystickAnchor>({
+    x: JOYSTICK_IDLE_LEFT_PX,
+    y: 0,
+  });
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const activePointerId = useRef<number | null>(null);
+  const activeAnchorRef = useRef<JoystickAnchor>({ x: JOYSTICK_IDLE_LEFT_PX, y: 0 });
+  const lastDirRef = useRef({ left: false, right: false, up: false, down: false });
+
+  // Cache last active super banner payload so the DOM overlay stays pre-allocated in the tree
+  const lastSuperBannerRef = useRef<NonNullable<HudSnapshot['superBanner']>>({
+    slot: 0,
+    fighterId: p1Id,
+    fighterName: p1Cfg.name,
+    superName: p1Cfg.superName,
+  });
+  if (hud.superBanner) {
+    lastSuperBannerRef.current = hud.superBanner;
+  }
+
+  const emitDirectionIfChanged = useCallback(
+    (dir: { left: boolean; right: boolean; up: boolean; down: boolean }) => {
+      const prev = lastDirRef.current;
+      if (
+        prev.left === dir.left &&
+        prev.right === dir.right &&
+        prev.up === dir.up &&
+        prev.down === dir.down
+      ) {
+        return;
+      }
+      lastDirRef.current = dir;
+      onTouchDirection(dir);
+    },
+    [onTouchDirection],
+  );
 
   const resetStick = useCallback(() => {
     activePointerId.current = null;
+    setStickActive(false);
     setKnobPos({ x: 0, y: 0 });
+    lastDirRef.current = { left: false, right: false, up: false, down: false };
     onTouchDirection({ left: false, right: false, up: false, down: false });
   }, [onTouchDirection]);
 
   useEffect(() => {
-    if (controlsHidden && activePointerId.current !== null) {
+    if (controlsHidden && (activePointerId.current !== null || stickActive)) {
       resetStick();
     }
-  }, [controlsHidden, resetStick]);
+  }, [controlsHidden, stickActive, resetStick]);
 
-  const updateStickFromPoint = (clientX: number, clientY: number) => {
-    const base = stickBaseRef.current;
-    if (!base) return;
-    const rect = base.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const maxR = rect.width * 0.36;
-    let dx = clientX - cx;
-    let dy = clientY - cy;
-    const dist = Math.hypot(dx, dy);
-    if (dist > maxR) {
-      dx = (dx / dist) * maxR;
-      dy = (dy / dist) * maxR;
+  const updateStickFromPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const anchor = activeAnchorRef.current;
+      const out = computeJoystickOutput(
+        anchor.x,
+        anchor.y,
+        clientX,
+        clientY,
+        JOYSTICK_MAX_RADIUS_PX,
+        JOYSTICK_DEADZONE_PX,
+      );
+      setKnobPos({ x: out.knobX, y: out.knobY });
+      emitDirectionIfChanged({
+        left: out.left,
+        right: out.right,
+        up: out.up,
+        down: out.down,
+      });
+    },
+    [emitDirectionIfChanged],
+  );
+
+  const handleZonePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (controlsHidden) return;
+    // Ignore additional fingers on the left half while one finger already owns the stick
+    if (activePointerId.current !== null) return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Synthetic pointer events in automated browsers may not support pointer capture
     }
-    setKnobPos({ x: dx, y: dy });
-    const dead = maxR * 0.25;
-    onTouchDirection({
-      left: dx < -dead,
-      right: dx > dead,
-      up: dy < -dead * 1.15,
-      down: dy > dead * 1.15,
-    });
+    const clamped = clampJoystickAnchor(
+      e.clientX,
+      e.clientY,
+      window.innerWidth,
+      window.innerHeight,
+      JOYSTICK_MAX_RADIUS_PX,
+      JOYSTICK_TOP_EXCLUSION_PX,
+    );
+    activePointerId.current = e.pointerId;
+    activeAnchorRef.current = clamped;
+    setStickAnchor(clamped);
+    setStickActive(true);
+    updateStickFromPoint(e.clientX, e.clientY);
+  };
+
+  const handleZonePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointerId.current !== e.pointerId) return;
+    e.preventDefault();
+    updateStickFromPoint(e.clientX, e.clientY);
+  };
+
+  const handleZonePointerRelease = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointerId.current !== e.pointerId) return;
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // Ignore release errors
+    }
+    resetStick();
   };
 
   const p1SuperReady = hud.p1Shakti >= 100;
@@ -540,41 +629,54 @@ export function FightHud({
       )}
 
       {/* =================================================================
-          SLEEK DARK TRANSLUCENT HORIZONTAL SUPER POWER BANNER STRIP
+          PRE-ALLOCATED DARK TRANSLUCENT HORIZONTAL SUPER POWER BANNER STRIP
+          (Kept permanently mounted in DOM so activating Super causes zero DOM creation stall)
           ================================================================= */}
-      {hud.superBanner && (
-        <div
-          data-testid={
-            hud.superBanner.fighterId === 'sheru' ? 'sheru-super-banner' : 'super-banner'
-          }
-          className="super-strip-in pointer-events-none fixed inset-x-0 bottom-[10%] z-30 border-y-[3px] border-[#facc15] bg-[#0b0806]/90 shadow-[0_10px_36px_rgba(0,0,0,0.85)]"
-        >
+      {(() => {
+        const superBannerVisible = Boolean(hud.superBanner);
+        const bannerData = hud.superBanner ?? lastSuperBannerRef.current;
+        return (
           <div
-            className={`mx-auto flex max-w-5xl items-center gap-4 px-5 py-2 sm:gap-6 sm:px-8 sm:py-3 ${
-              hud.superBanner.slot === 1 ? 'flex-row-reverse text-right' : 'flex-row text-left'
+            aria-hidden={!superBannerVisible}
+            data-testid={
+              superBannerVisible
+                ? bannerData.fighterId === 'sheru'
+                  ? 'sheru-super-banner'
+                  : 'super-banner'
+                : 'super-banner-prewarmed'
+            }
+            data-visible={superBannerVisible ? 'true' : 'false'}
+            className={`pointer-events-none fixed inset-x-0 bottom-[10%] z-30 border-y-[3px] border-[#facc15] bg-[#0b0806]/90 shadow-[0_10px_36px_rgba(0,0,0,0.85)] transition-opacity duration-150 ${
+              superBannerVisible ? 'super-strip-in visible opacity-100' : 'invisible opacity-0'
             }`}
           >
-            <div className="hud-super-portrait relative h-14 w-14 shrink-0 overflow-hidden border-2 border-[#facc15] bg-[#16100c] shadow-[0_0_18px_rgba(250,204,21,0.55)] sm:h-20 sm:w-20">
-              <FighterPortrait
-                id={hud.superBanner.fighterId}
-                alt={hud.superBanner.fighterName}
-                className={`h-full w-full object-cover ${
-                  hud.superBanner.slot === 1 ? '-scale-x-100' : ''
-                }`}
-              />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="font-display text-xs font-extrabold uppercase tracking-[0.26em] text-[#facc15] sm:text-sm">
-                {hud.superBanner.fighterName} · SUPER POWER
+            <div
+              className={`mx-auto flex max-w-5xl items-center gap-4 px-5 py-2 sm:gap-6 sm:px-8 sm:py-3 ${
+                bannerData.slot === 1 ? 'flex-row-reverse text-right' : 'flex-row text-left'
+              }`}
+            >
+              <div className="hud-super-portrait relative h-14 w-14 shrink-0 overflow-hidden border-2 border-[#facc15] bg-[#16100c] shadow-[0_0_18px_rgba(250,204,21,0.55)] sm:h-20 sm:w-20">
+                <FighterPortrait
+                  id={bannerData.fighterId}
+                  alt={bannerData.fighterName}
+                  className={`h-full w-full object-cover ${
+                    bannerData.slot === 1 ? '-scale-x-100' : ''
+                  }`}
+                />
               </div>
-              <div className="hud-super-title news-stroke truncate font-display text-3xl font-extrabold uppercase italic leading-none tracking-wider text-white sm:text-6xl">
-                {hud.superBanner.superName}
+
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-xs font-extrabold uppercase tracking-[0.26em] text-[#facc15] sm:text-sm">
+                  {bannerData.fighterName} · SUPER POWER
+                </div>
+                <div className="hud-super-title news-stroke truncate font-display text-3xl font-extrabold uppercase italic leading-none tracking-wider text-white sm:text-6xl">
+                  {bannerData.superName}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* =================================================================
           HUGE SLANTED ARCADE CALLOUTS: ROUND 1 / DAHI KHATAM! / <NAME> WINS
@@ -598,58 +700,72 @@ export function FightHud({
       )}
 
       {/* =================================================================
-          BOTTOM ERGONOMIC TRANSLUCENT TOUCH CONTROLS (AUTO-HIDE ON CUTSCENES)
+          DYNAMIC FLOATING LEFT-HALF VIRTUAL JOYSTICK TOUCH CAPTURE ZONE
+          Covers entire left half (left: 0, width: 50%, top: 72px to bottom: 0)
+          ================================================================= */}
+      <div
+        data-testid="joystick-touch-zone"
+        aria-label="Left Half Virtual Joystick Touch Zone"
+        onPointerDown={handleZonePointerDown}
+        onPointerMove={handleZonePointerMove}
+        onPointerUp={handleZonePointerRelease}
+        onPointerCancel={handleZonePointerRelease}
+        onLostPointerCapture={handleZonePointerRelease}
+        className={`fixed bottom-0 left-0 z-20 w-1/2 touch-none select-none ${
+          controlsHidden ? 'pointer-events-none' : 'pointer-events-auto'
+        }`}
+        style={{ top: `${JOYSTICK_TOP_EXCLUSION_PX}px` }}
+      />
+
+      {/* Visual Floating Joystick Outer Ring + Glowing Golden-Orange Thumb Orb */}
+      <div
+        aria-label="Virtual Movement Joystick"
+        data-testid="virtual-joystick"
+        data-active={stickActive ? 'true' : 'false'}
+        className="hud-stick-base pointer-events-none fixed z-20 flex h-28 w-28 items-center justify-center rounded-full border-2 border-white/30 bg-black/45 shadow-[inset_0_0_24px_rgba(0,0,0,0.65),0_4px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:h-32 sm:w-32"
+        style={{
+          left: stickActive ? `${stickAnchor.x}px` : `${JOYSTICK_IDLE_LEFT_PX}px`,
+          top: stickActive ? `${stickAnchor.y}px` : undefined,
+          bottom: stickActive ? undefined : `${JOYSTICK_IDLE_BOTTOM_PX}px`,
+          transform: stickActive ? 'translate(-50%, -50%)' : 'translate(-50%, 50%)',
+          opacity: controlsHidden
+            ? 0
+            : stickActive
+              ? JOYSTICK_ACTIVE_OPACITY
+              : JOYSTICK_IDLE_OPACITY,
+          transition: stickActive ? 'none' : 'opacity 0.2s ease',
+        }}
+      >
+        {/* Subtle inner guide ring & directional pips */}
+        <div className="pointer-events-none absolute inset-4 rounded-full border border-white/15" />
+        <span className="pointer-events-none absolute top-2 h-1.5 w-1.5 rounded-full bg-white/40" />
+        <span className="pointer-events-none absolute bottom-2 h-1.5 w-1.5 rounded-full bg-white/40" />
+        <span className="pointer-events-none absolute left-2 h-1.5 w-1.5 rounded-full bg-white/40" />
+        <span className="pointer-events-none absolute right-2 h-1.5 w-1.5 rounded-full bg-white/40" />
+
+        {/* Glowing Golden-Orange Thumbstick Orb */}
+        <div
+          data-testid="virtual-joystick-knob"
+          className="hud-stick-knob pointer-events-none h-11 w-11 rounded-full border-2 border-[#fef3c7]/90 bg-gradient-to-br from-[#fef08a] via-[#f59e0b] to-[#ea580c] shadow-[0_0_20px_rgba(245,158,11,0.85),inset_0_2px_4px_rgba(255,255,255,0.65)] sm:h-12 sm:w-12"
+          style={{
+            transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
+          }}
+        />
+      </div>
+
+      {/* =================================================================
+          BOTTOM RIGHT ERGONOMIC TRANSLUCENT ACTION BUTTONS (AUTO-HIDE ON CUTSCENES)
           ================================================================= */}
       <div
         data-testid="touch-controls-layer"
         data-hidden={controlsHidden ? 'true' : 'false'}
-        className={`safe-pad-hud-controls mt-auto flex w-full items-end justify-between pb-3 transition-all duration-200 sm:pb-4 ${
+        className={`safe-pad-hud-controls relative z-20 mt-auto flex w-full items-end justify-end pb-3 transition-all duration-200 sm:pb-4 ${
           controlsHidden
             ? 'pointer-events-none translate-y-4 opacity-0'
             : 'pointer-events-none translate-y-0 opacity-100'
         }`}
       >
-        {/* Bottom-Left: Semi-Transparent Dark Circular Virtual Joystick + Glowing Golden-Orange Orb */}
-        <div
-          ref={stickBaseRef}
-          aria-label="Virtual Movement Joystick"
-          data-testid="virtual-joystick"
-          onPointerDown={(e) => {
-            if (controlsHidden) return;
-            e.currentTarget.setPointerCapture(e.pointerId);
-            activePointerId.current = e.pointerId;
-            updateStickFromPoint(e.clientX, e.clientY);
-          }}
-          onPointerMove={(e) => {
-            if (activePointerId.current !== e.pointerId) return;
-            updateStickFromPoint(e.clientX, e.clientY);
-          }}
-          onPointerUp={(e) => {
-            if (activePointerId.current !== e.pointerId) return;
-            resetStick();
-          }}
-          onPointerCancel={resetStick}
-          className={`hud-stick-base relative flex h-28 w-28 touch-none items-center justify-center rounded-full border-2 border-white/25 bg-black/40 shadow-[inset_0_0_24px_rgba(0,0,0,0.65),0_4px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:h-32 sm:w-32 ${
-            controlsHidden ? 'pointer-events-none' : 'pointer-events-auto'
-          }`}
-        >
-          {/* Subtle inner guide ring & directional pips */}
-          <div className="pointer-events-none absolute inset-4 rounded-full border border-white/12" />
-          <span className="pointer-events-none absolute top-2 h-1.5 w-1.5 rounded-full bg-white/35" />
-          <span className="pointer-events-none absolute bottom-2 h-1.5 w-1.5 rounded-full bg-white/35" />
-          <span className="pointer-events-none absolute left-2 h-1.5 w-1.5 rounded-full bg-white/35" />
-          <span className="pointer-events-none absolute right-2 h-1.5 w-1.5 rounded-full bg-white/35" />
-
-          {/* Glowing Golden-Orange Thumbstick Orb */}
-          <div
-            className="hud-stick-knob pointer-events-none h-11 w-11 rounded-full border-2 border-[#fef3c7]/90 bg-gradient-to-br from-[#fef08a] via-[#f59e0b] to-[#ea580c] shadow-[0_0_20px_rgba(245,158,11,0.85),inset_0_2px_4px_rgba(255,255,255,0.65)] sm:h-12 sm:w-12"
-            style={{
-              transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
-            }}
-          />
-        </div>
-
-          {/* Bottom-Right: 5 Translucent Circular Arcade Buttons in an Ergonomic Thumb Arc */}
+        {/* Bottom-Right: 5 Translucent Circular Arcade Buttons in an Ergonomic Thumb Arc */}
         <div
           data-testid="touch-action-arc"
           className={`hud-thumb-arc ${controlsHidden ? 'pointer-events-none' : 'pointer-events-auto'}`}

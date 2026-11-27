@@ -284,17 +284,18 @@ export class SamyakSuperVfx {
     this.root.visible = false;
     scene.add(this.root);
 
-    // 1. Golden-blue dramatic spotlight & body aura light
+    // 1. Golden-blue dramatic spotlight & body aura light (kept directly on scene with intensity=0
+    //    when idle so WebGL NUM_SPOT_LIGHTS / NUM_POINT_LIGHTS never change mid-fight!)
     this.spotTarget = new THREE.Object3D();
-    this.root.add(this.spotTarget);
+    scene.add(this.spotTarget);
 
     this.spotLight = new THREE.SpotLight(0xfef08a, 0, 26, Math.PI * 0.24, 0.55, 1.1);
     this.spotLight.position.set(0, 10.5, 3.2);
     this.spotLight.target = this.spotTarget;
-    this.root.add(this.spotLight);
+    scene.add(this.spotLight);
 
     this.auraLight = new THREE.PointLight(0x38bdf8, 0, 14, 1.3);
-    this.root.add(this.auraLight);
+    scene.add(this.auraLight);
 
     // Golden-blue vertical spotlight beam
     this.spotlightBeamMat = new THREE.MeshBasicMaterial({
@@ -636,6 +637,8 @@ export class SamyakSuperVfx {
 
   public setPrewarmVisible(visible: boolean): void {
     this.root.visible = visible;
+    this.spotLight.intensity = visible ? 0.001 : 0;
+    this.auraLight.intensity = visible ? 0.001 : 0;
     this.glintGroup.visible = visible;
     this.air1SealMesh.visible = visible;
     this.shockRing.visible = visible;
@@ -1032,6 +1035,9 @@ export class SamyakSuperVfx {
 
   public dispose(scene: THREE.Scene): void {
     scene.remove(this.root);
+    scene.remove(this.spotLight);
+    scene.remove(this.spotTarget);
+    scene.remove(this.auraLight);
     for (const tex of this.bookTextures) tex.dispose();
     for (const mat of this.bookCoverMats) mat.dispose();
     this.bookGeo.dispose();

@@ -63,6 +63,7 @@ import { SAMYAK_SUPER_BANNER } from './samyakSuper';
 import { SamyakSuperVfx } from './samyakSuperVfx';
 import { SHERU_SUPER_BANNER } from './sheruSuper';
 import { SheruSuperVfx } from './sheruSuperVfx';
+import { SuperAudioSyncController } from './superSync';
 import { buildStage, type StageInstance } from './stages';
 import {
   applyRemoteInputPacket,
@@ -345,6 +346,7 @@ export class DesiShowdownEngine {
   private fatherSuperVfx: FatherSuperVfx;
   private samyakSuperVfx: SamyakSuperVfx;
   private adiSuperVfx: AdiSuperVfx;
+  private superAudioSync = new SuperAudioSyncController();
 
   // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
   private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
@@ -705,30 +707,7 @@ export class DesiShowdownEngine {
       preloadKrishGlbHead();
     }
 
-    if (!this.isSoftwareGl) {
-      // Pre-warm all Super VFX, strike trail & shockwave shader programs during init to avoid mid-fight spikes
-      this.sheruSuperVfx.setPrewarmVisible(true);
-      this.billaSuperVfx.setPrewarmVisible(true);
-      this.netaSuperVfx.setPrewarmVisible(true);
-      this.andaSuperVfx.setPrewarmVisible(true);
-      this.mausiSuperVfx.setPrewarmVisible(true);
-      this.fatherSuperVfx.setPrewarmVisible(true);
-      this.samyakSuperVfx.setPrewarmVisible(true);
-      this.adiSuperVfx.setPrewarmVisible(true);
-      this.shockwaveRing.visible = true;
-      this.strikeTrails[0].mesh.visible = true;
-      this.renderer.compile(this.scene, this.camera);
-      this.sheruSuperVfx.setPrewarmVisible(false);
-      this.billaSuperVfx.setPrewarmVisible(false);
-      this.netaSuperVfx.setPrewarmVisible(false);
-      this.andaSuperVfx.setPrewarmVisible(false);
-      this.mausiSuperVfx.setPrewarmVisible(false);
-      this.fatherSuperVfx.setPrewarmVisible(false);
-      this.samyakSuperVfx.setPrewarmVisible(false);
-      this.adiSuperVfx.setPrewarmVisible(false);
-      this.shockwaveRing.visible = false;
-      this.strikeTrails[0].mesh.visible = false;
-    }
+    this.prewarmSuperShaders();
 
     // Input & Dynamic Viewport Resize listeners
     window.addEventListener('keydown', this.handleKeyDown);
@@ -932,7 +911,63 @@ export class DesiShowdownEngine {
     }
   }
 
+  /**
+   * Pre-uploads all Super VFX CanvasTextures and compiles every GPU shader program
+   * for the active stage + fighters before combat begins so pressing Super never stalls.
+   */
+  private prewarmSuperShaders(): void {
+    if (this.isSoftwareGl) return;
+    this.sheruSuperVfx.setPrewarmVisible(true);
+    this.billaSuperVfx.setPrewarmVisible(true);
+    this.netaSuperVfx.setPrewarmVisible(true);
+    this.andaSuperVfx.setPrewarmVisible(true);
+    this.mausiSuperVfx.setPrewarmVisible(true);
+    this.fatherSuperVfx.setPrewarmVisible(true);
+    this.samyakSuperVfx.setPrewarmVisible(true);
+    this.adiSuperVfx.setPrewarmVisible(true);
+    this.shockwaveRing.visible = true;
+    this.strikeTrails[0].mesh.visible = true;
+    if (this.impactRings[0]) {
+      this.impactRings[0].group.visible = true;
+    }
+
+    // Upload all pooled textures (including CanvasTextures on Super meshes & fighters) to GPU eagerly
+    const uploaded = new Set<THREE.Texture>();
+    this.scene.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        const m = mat as THREE.MeshStandardMaterial;
+        const textures = [m.map, m.emissiveMap, m.roughnessMap, m.bumpMap, m.normalMap, m.alphaMap];
+        for (const tex of textures) {
+          if (tex && !uploaded.has(tex)) {
+            uploaded.add(tex);
+            this.renderer.initTexture(tex);
+          }
+        }
+      }
+    });
+
+    this.renderer.compile(this.scene, this.camera);
+
+    this.sheruSuperVfx.setPrewarmVisible(false);
+    this.billaSuperVfx.setPrewarmVisible(false);
+    this.netaSuperVfx.setPrewarmVisible(false);
+    this.andaSuperVfx.setPrewarmVisible(false);
+    this.mausiSuperVfx.setPrewarmVisible(false);
+    this.fatherSuperVfx.setPrewarmVisible(false);
+    this.samyakSuperVfx.setPrewarmVisible(false);
+    this.adiSuperVfx.setPrewarmVisible(false);
+    this.shockwaveRing.visible = false;
+    this.strikeTrails[0].mesh.visible = false;
+    if (this.impactRings[0]) {
+      this.impactRings[0].group.visible = false;
+    }
+  }
+
   private resetAllSuperVfx(): void {
+    this.superAudioSync.cancel((id) => cancelAnimationFrame(id));
     this.sheruSuperVfx.reset();
     this.billaSuperVfx.reset();
     this.netaSuperVfx.reset();
@@ -997,6 +1032,7 @@ export class DesiShowdownEngine {
     this.loadFighters(p1, dummyId);
     this.clearProjectiles();
     this.resetAllSuperVfx();
+    this.prewarmSuperShaders();
     audioEngine.stopSuperAudio();
     audioEngine.stopDahiKoAudio();
     void audioEngine.preloadAllSuperAudios();
@@ -1032,6 +1068,7 @@ export class DesiShowdownEngine {
     this.loadFighters(id, dummyId);
     this.clearProjectiles();
     this.resetAllSuperVfx();
+    this.prewarmSuperShaders();
     audioEngine.stopSuperAudio();
     audioEngine.stopDahiKoAudio();
 
@@ -1123,16 +1160,8 @@ export class DesiShowdownEngine {
     }
     this.loadFighters(p1, p2);
     this.clearProjectiles();
-    this.sheruSuperVfx.reset();
-    this.billaSuperVfx.reset();
-    this.netaSuperVfx.reset();
-    this.andaSuperVfx.reset();
-    this.mausiSuperVfx.reset();
-    this.fatherSuperVfx.reset();
-    this.samyakSuperVfx.reset();
-    this.adiSuperVfx.reset();
-    this.strikeTrails[0].reset();
-    this.strikeTrails[1].reset();
+    this.resetAllSuperVfx();
+    this.prewarmSuperShaders();
     // Explicit match start/restart: stop any prior Super/KO audio and ensure buffers are preloaded
     audioEngine.stopSuperAudio();
     audioEngine.stopDahiKoAudio();
@@ -1831,18 +1860,11 @@ export class DesiShowdownEngine {
         }
       } else if (ev.type === 'super') {
         const caster = this.matchState.fighters[ev.attackerSlot];
-        if (
-          caster?.id === 'sheru' ||
-          caster?.id === 'billa' ||
-          caster?.id === 'neta' ||
-          caster?.id === 'anda' ||
-          caster?.id === 'mausi' ||
-          caster?.id === 'father' ||
-          caster?.id === 'samyak' ||
-          caster?.id === 'adi' ||
-          caster?.id === 'krish'
-        ) {
-          audioEngine.playFighterSuperAudio(caster.id);
+        if (caster) {
+          // Warm AudioContext silently without starting sound yet; voiceover launches
+          // strictly inside the immediate next requestAnimationFrame after Super visual frame 1 renders
+          audioEngine.prepareForSuperAudio();
+          this.superAudioSync.queue(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
         } else {
           audioEngine.playSuper();
@@ -3242,6 +3264,18 @@ export class DesiShowdownEngine {
 
     this.renderer.render(this.scene, this.camera);
 
+    // Frame-locked Super audio sync: trigger Super MP3 strictly on the immediate next rAF
+    // right after the first Super visual/camera/VFX frame has been submitted to the GPU
+    if (this.superAudioSync.hasQueued()) {
+      this.superAudioSync.flushAfterRender(
+        (cb) => requestAnimationFrame(cb),
+        (fighterId) => audioEngine.playFighterSuperAudio(fighterId),
+        () =>
+          !this.disposed &&
+          (this.isAnySuperSequenceActive() || this.currentScreen === 'super_preview'),
+      );
+    }
+
     if (this.isSoftwareGl) {
       this.afterDraw(this.tick);
     } else {
@@ -3255,6 +3289,7 @@ export class DesiShowdownEngine {
 
   public dispose(): void {
     this.disposed = true;
+    this.superAudioSync.cancel((id) => cancelAnimationFrame(id));
     cancelAnimationFrame(this.frameId);
     cancelAnimationFrame(this.resizeRafId);
     clearTimeout(this.frameId);
