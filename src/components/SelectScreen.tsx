@@ -282,6 +282,23 @@ export function SelectScreen({
                 </button>
               );
             })}
+
+            {/* Teaser Slot Under Last Fighter: No Profile, No Name — Coming Soon */}
+            <div
+              data-testid="p1-coming-soon-card"
+              aria-disabled="true"
+              className="select-fighter-btn flex min-h-[56px] shrink-0 cursor-not-allowed items-center gap-2 border-2 border-dashed border-white/20 bg-[#16110e]/75 px-2 py-1.5 text-left opacity-80"
+            >
+              <div
+                aria-hidden="true"
+                className="select-fighter-avatar h-10 w-10 shrink-0 border border-white/15 bg-[#0b0907] sm:h-11 sm:w-11"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[#a8a29e] sm:text-sm">
+                  COMING SOON
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="select-strip-footer mt-1.5 shrink-0 border-t border-white/15 pt-1.5 text-[10px] leading-tight text-[#e7e5e4]">
@@ -391,6 +408,23 @@ export function SelectScreen({
                 </button>
               );
             })}
+
+            {/* Teaser Slot Under Last Fighter: No Profile, No Name — Coming Soon */}
+            <div
+              data-testid="p2-coming-soon-card"
+              aria-disabled="true"
+              className="select-fighter-btn flex min-h-[56px] shrink-0 cursor-not-allowed flex-row-reverse items-center gap-2 border-2 border-dashed border-white/20 bg-[#16110e]/75 px-2 py-1.5 text-right opacity-80"
+            >
+              <div
+                aria-hidden="true"
+                className="select-fighter-avatar h-10 w-10 shrink-0 border border-white/15 bg-[#0b0907] sm:h-11 sm:w-11"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-[#a8a29e] sm:text-sm">
+                  COMING SOON
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="select-strip-footer mt-1.5 shrink-0 border-t border-white/15 pt-1.5 text-right text-[10px] leading-tight text-[#e7e5e4]">
