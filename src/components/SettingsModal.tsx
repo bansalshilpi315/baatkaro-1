@@ -1,20 +1,25 @@
-import { Music, Settings, Volume2, VolumeX, X, Zap } from 'lucide-react';
+import { Coins, Music, Settings, User, Volume2, VolumeX, X, Zap } from 'lucide-react';
+import type { PlayerProfile } from '../game/playerAccount';
 
 interface SettingsModalProps {
+  profile: PlayerProfile;
   muted: boolean;
   musicMuted: boolean;
   onToggleMute: () => void;
   onToggleMusic: () => void;
   onStartSuperPreview: () => void;
+  onOpenAccount: () => void;
   onClose: () => void;
 }
 
 export function SettingsModal({
+  profile,
   muted,
   musicMuted,
   onToggleMute,
   onToggleMusic,
   onStartSuperPreview,
+  onOpenAccount,
   onClose,
 }: SettingsModalProps) {
   return (
@@ -22,9 +27,10 @@ export function SettingsModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-modal-title"
+      data-testid="settings-modal"
       className="safe-pad-modal fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-3 backdrop-blur-sm select-none"
     >
-      <div className="relative w-full max-w-md border-2 border-[#facc15] bg-[#120d0a]/95 p-4 text-white shadow-[0_20px_50px_rgba(0,0,0,0.85),6px_6px_0_#0a0705] sm:p-5">
+      <div className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto touch-pan-y border-2 border-[#facc15] bg-[#120d0a]/95 p-4 text-white shadow-[0_20px_50px_rgba(0,0,0,0.85),6px_6px_0_#0a0705] sm:p-5">
         {/* Header */}
         <div className="mb-3 flex items-center justify-between border-b border-white/15 pb-2.5">
           <div className="flex items-center gap-2">
@@ -44,6 +50,37 @@ export function SettingsModal({
             className="flex h-8 w-8 cursor-pointer items-center justify-center border border-white/25 bg-[#1f1915] text-white/90 transition-colors hover:border-[#facc15] hover:bg-[#dc2626] hover:text-white"
           >
             <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Player Account & Login Card (shifted into Settings) */}
+        <div className="mb-3.5 flex items-center justify-between gap-3 border border-[#facc15]/40 bg-[#1a1410] px-3.5 py-2.5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#a8a29e]">
+              <User className="h-3 w-3 text-[#facc15]" aria-hidden="true" />
+              <span>PLAYER ACCOUNT</span>
+            </div>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span
+                data-testid="settings-profile-name"
+                className="truncate font-display text-lg font-extrabold uppercase tracking-wide text-white"
+              >
+                {profile.displayName}
+              </span>
+              <span className="flex items-center gap-1 font-mono-num text-xs font-extrabold text-[#facc15]">
+                <Coins className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>{profile.coins.toLocaleString()}</span>
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            data-testid="settings-account-btn"
+            onClick={onOpenAccount}
+            className="cursor-pointer whitespace-nowrap shrink-0 border-2 border-[#0f0a06] bg-[#dc2626] px-3.5 py-1.5 font-display text-sm font-extrabold uppercase tracking-wider text-white shadow-[3px_3px_0_#facc15] transition hover:bg-[#ef4444]"
+          >
+            {profile.mode === 'guest' ? 'SIGN IN / UP' : 'ACCOUNT'}
           </button>
         </div>
 

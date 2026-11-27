@@ -17,6 +17,7 @@ export type GraphicsQuality = 'high' | 'low';
 export type GameScreen =
   | 'notice'
   | 'loading'
+  | 'auth'
   | 'title'
   | 'select'
   | 'super_preview'

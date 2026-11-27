@@ -1,17 +1,15 @@
 import { useEffect } from 'react';
-import { Coins, Music, User, Volume2, VolumeX } from 'lucide-react';
-import type { PlayerProfile } from '../game/playerAccount';
+import { Music, Settings, Volume2, VolumeX } from 'lucide-react';
 import { FullscreenButton } from './FullscreenButton';
 
 interface TitleScreenProps {
-  profile: PlayerProfile;
   globalMuted: boolean;
   musicMuted: boolean;
   isFullscreen: boolean;
   fullscreenSupported: boolean;
   modalOpen?: boolean;
   onStart: () => void;
-  onOpenAccount: () => void;
+  onOpenSettings: () => void;
   onToggleGlobalMute: () => void;
   onToggleMusic: () => void;
   onToggleFullscreen: () => void;
@@ -21,14 +19,13 @@ interface TitleScreenProps {
 }
 
 export function TitleScreen({
-  profile,
   globalMuted,
   musicMuted,
   isFullscreen,
   fullscreenSupported,
   modalOpen = false,
   onStart,
-  onOpenAccount,
+  onOpenSettings,
   onToggleGlobalMute,
   onToggleMusic,
   onToggleFullscreen,
@@ -52,43 +49,25 @@ export function TitleScreen({
 
   return (
     <div className="safe-pad-screen pointer-events-none fixed inset-0 z-20 flex h-[100dvh] w-[100dvw] flex-col justify-between overflow-hidden select-none touch-none sm:p-7">
-      {/* Top Bar: Player Profile / Login Badge + Live Tag (Left) & Audio / Fullscreen Toggles (Right) */}
+      {/* Top Bar: Live Arena Badge (Left) & Settings / Audio / Fullscreen Toggles (Right) */}
       <div className="flex items-center justify-between gap-2">
-        <div className="pointer-events-auto flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="player-profile-badge"
-            onClick={onOpenAccount}
-            aria-label={`Player Profile: ${profile.displayName}, ${profile.coins} coins`}
-            className="flex cursor-pointer items-center gap-2.5 whitespace-nowrap shrink-0 border-2 border-[#facc15] bg-[#14100d]/92 px-3 py-1.5 text-left shadow-[3px_3px_0_#0f0a06] transition-colors hover:bg-[#1f1914] focus-visible:outline-2 focus-visible:outline-white"
-          >
-            <span className="flex h-6 w-6 items-center justify-center bg-[#dc2626] text-white">
-              <User className="h-3.5 w-3.5" aria-hidden="true" />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span
-                data-testid="player-badge-name"
-                className="font-display text-sm font-extrabold uppercase tracking-wider text-white sm:text-base"
-              >
-                {profile.displayName}
-              </span>
-              <span className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#fde68a]">
-                {profile.mode === 'guest' ? 'Player Profile / Login' : 'View Profile'}
-              </span>
-            </span>
-            <span className="flex items-center gap-1 border-l border-white/20 pl-2 font-mono-num text-xs font-extrabold text-[#facc15] sm:text-sm">
-              <Coins className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span data-testid="player-badge-coins">{profile.coins.toLocaleString()}</span>
-            </span>
-          </button>
-
-          <div className="hidden items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06] md:flex">
-            <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
-            <span>LIVE · DESI TV ARENA</span>
-          </div>
+        <div className="flex items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06]">
+          <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
+          <span>LIVE · DESI TV ARENA</span>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="title-settings-btn"
+            onClick={onOpenSettings}
+            aria-label="Settings and Account"
+            title="Settings & Account Login"
+            className="title-util-btn flex h-10 w-10 cursor-pointer items-center justify-center border-2 border-[#facc15] bg-[#14100d]/90 text-[#facc15] transition-colors hover:bg-[#facc15] hover:text-[#0f0a06]"
+          >
+            <Settings className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+          </button>
+
           <button
             type="button"
             data-testid="global-mute-btn"

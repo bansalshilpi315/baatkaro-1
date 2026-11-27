@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WifiOff } from 'lucide-react';
+import { AuthGateScreen } from './components/AuthGateScreen';
 import { FightHud } from './components/FightHud';
 import { FriendRoomModal } from './components/FriendRoomModal';
 import { AboutModal, HowToPlayModal } from './components/InfoModals';
@@ -544,6 +545,20 @@ export default function App() {
   }, []);
 
   const handleLoadingComplete = useCallback(() => {
+    const nextScreen: GameScreen =
+      playerProfileRef.current.mode === 'account' ? 'title' : 'auth';
+    engineRef.current?.setScreen(nextScreen);
+    setScreen(nextScreen);
+  }, []);
+
+  const handleGateGuest = useCallback(() => {
+    audioEngine.unlock();
+    audioEngine.playUiClick();
+    if (playerProfileRef.current.mode !== 'guest') {
+      const guest = logoutToGuest();
+      playerProfileRef.current = guest;
+      setPlayerProfile(guest);
+    }
     engineRef.current?.setScreen('title');
     setScreen('title');
   }, []);
@@ -555,6 +570,7 @@ export default function App() {
     setAboutOpen(false);
     setSatireNoticeOpen(false);
     setAccountModalOpen(false);
+    setSettingsOpen(false);
     engineRef.current?.setScreen('select');
     setScreen('select');
   }, []);
@@ -578,6 +594,10 @@ export default function App() {
       playerProfileRef.current = res.profile;
       setPlayerProfile(res.profile);
       setAccountModalOpen(false);
+      if (screenRef.current === 'auth') {
+        engineRef.current?.setScreen('title');
+        setScreen('title');
+      }
     }
     return res;
   }, []);
@@ -590,6 +610,10 @@ export default function App() {
       playerProfileRef.current = res.profile;
       setPlayerProfile(res.profile);
       setAccountModalOpen(false);
+      if (screenRef.current === 'auth') {
+        engineRef.current?.setScreen('title');
+        setScreen('title');
+      }
     }
     return res;
   }, []);
@@ -969,19 +993,28 @@ export default function App() {
       {/* Screen Overlays */}
       {screen === 'loading' && <LoadingScreen onComplete={handleLoadingComplete} />}
 
+      {screen === 'auth' && (
+        <AuthGateScreen
+          onSignIn={handleLogin}
+          onSignUp={handleCreateAccount}
+          onSignInAsGuest={handleGateGuest}
+        />
+      )}
+
       {screen === 'title' && (
         <TitleScreen
-          profile={playerProfile}
           globalMuted={globalMuted}
           musicMuted={musicMuted}
           isFullscreen={isFullscreen}
           fullscreenSupported={fullscreenSupported}
-          modalOpen={howToPlayOpen || aboutOpen || satireNoticeOpen || accountModalOpen}
+          modalOpen={
+            howToPlayOpen || aboutOpen || satireNoticeOpen || accountModalOpen || settingsOpen
+          }
           onStart={handleOpenSelect}
-          onOpenAccount={() => {
+          onOpenSettings={() => {
             audioEngine.unlock();
             audioEngine.playUiClick();
-            setAccountModalOpen(true);
+            setSettingsOpen(true);
           }}
           onToggleGlobalMute={handleToggleGlobalMute}
           onToggleMusic={handleToggleMusic}
@@ -1143,13 +1176,19 @@ export default function App() {
       )}
 
       {/* Settings, How to Play & About Modals */}
-      {settingsOpen && screen === 'select' && (
+      {settingsOpen && (screen === 'title' || screen === 'select') && (
         <SettingsModal
+          profile={playerProfile}
           muted={globalMuted || muted}
           musicMuted={globalMuted || musicMuted}
           onToggleMute={handleToggleMute}
           onToggleMusic={handleToggleMusic}
           onStartSuperPreview={handleStartSuperPreview}
+          onOpenAccount={() => {
+            audioEngine.playUiClick();
+            setSettingsOpen(false);
+            setAccountModalOpen(true);
+          }}
           onClose={() => {
             audioEngine.playUiClick();
             setSettingsOpen(false);

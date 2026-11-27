@@ -412,12 +412,12 @@ export function SelectScreen({
       {/* BOTTOM DOCKED CONTROL BAR: Stage Pills | CPU Difficulty (Offline only) | FIGHT! CTA */}
       <footer className="select-footer pointer-events-auto mx-auto flex w-full max-w-6xl shrink-0 flex-wrap items-center justify-between gap-2 border-2 border-white/20 bg-[#120d0a]/92 px-3 py-2 shadow-[0_6px_0_#0a0705]">
         {/* Stage Compact Selector */}
-        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
           <div className="flex shrink-0 items-center gap-1 text-xs font-extrabold uppercase tracking-wider text-[#facc15]">
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">STAGE:</span>
+            <span className="hidden md:inline">STAGE:</span>
           </div>
-          <div className="flex items-center gap-1" role="group" aria-label="Select 3D Stage">
+          <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Select 3D Stage">
             {STAGE_LIST.map((st, idx) => {
               const selected = st.id === stageId;
               const stageLocked = !isOnline && idx + 1 > playerProfile.highestStage;
@@ -432,7 +432,7 @@ export function SelectScreen({
                   aria-pressed={selected}
                   aria-label={`Stage ${idx + 1}: ${st.name}${stageLocked ? ' (Locked)' : ''}`}
                   title={`${st.name} — ${st.subtitle}`}
-                  className={`select-stage-btn inline-flex items-center gap-1 border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wide transition-colors sm:text-sm ${
+                  className={`select-stage-btn inline-flex shrink-0 items-center gap-1 border px-2 py-1 font-display text-xs font-extrabold uppercase tracking-wide transition-colors sm:px-2.5 sm:text-sm ${
                     selected
                       ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
                       : canPickStage
@@ -448,7 +448,7 @@ export function SelectScreen({
               );
             })}
           </div>
-          <span className="hidden max-w-[190px] truncate text-xs font-bold text-[#fde68a] lg:inline">
+          <span className="hidden max-w-[165px] truncate text-xs font-bold text-[#fde68a] xl:inline">
             {activeStage.name}
             {!isOnline && (
               <span className="ml-1.5 font-mono-num text-[10px] text-[#facc15]">
@@ -466,7 +466,7 @@ export function SelectScreen({
             role="group"
             aria-label="CPU Difficulty"
           >
-            <span className="font-display text-xs font-extrabold uppercase tracking-wider text-[#a8a29e]">
+            <span className="hidden font-display text-xs font-extrabold uppercase tracking-wider text-[#a8a29e] md:inline">
               CPU:
             </span>
             {DIFFICULTIES.map((d) => {
@@ -477,7 +477,7 @@ export function SelectScreen({
                   type="button"
                   onClick={() => onSelectDifficulty(d.id)}
                   aria-pressed={active}
-                  className={`select-diff-btn cursor-pointer border px-2.5 py-1 font-display text-xs font-extrabold uppercase tracking-wider transition-colors sm:text-sm ${
+                  className={`select-diff-btn cursor-pointer shrink-0 border px-2 py-1 font-display text-xs font-extrabold uppercase tracking-wider transition-colors sm:px-2.5 sm:text-sm ${
                     active
                       ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
                       : 'border-white/25 bg-[#1f1915] text-white hover:border-white/60'
@@ -498,7 +498,9 @@ export function SelectScreen({
               data-testid="unlock-fighter-btn"
               disabled={playerProfile.coins < localFighterCost}
               onClick={() => onUnlockFighter(localSelectedId)}
-              className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-5 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:text-xl"
+              aria-label={`Unlock ${p1Cfg.name} for ${localFighterCost} coins`}
+              title={`Unlock ${p1Cfg.name} for ${localFighterCost} coins`}
+              className="select-fight-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-4 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:px-5 sm:text-xl"
             >
               <Coins className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>UNLOCK ({localFighterCost})</span>
@@ -509,10 +511,12 @@ export function SelectScreen({
               data-testid="unlock-stage-btn"
               disabled={playerProfile.coins < activeStageCost}
               onClick={() => onUnlockStage(activeStageNum)}
-              className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-5 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:text-xl"
+              aria-label={`Unlock Stage ${activeStageNum} for ${activeStageCost} coins`}
+              title={`Unlock Stage ${activeStageNum} for ${activeStageCost} coins`}
+              className="select-fight-btn flex cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 border-3 border-[#0f0a06] bg-[#facc15] px-4 py-1.5 font-display text-lg font-extrabold uppercase tracking-wider text-[#0f0a06] shadow-[4px_4px_0_#dc2626] hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-55 sm:px-5 sm:text-xl"
             >
               <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>UNLOCK STAGE {activeStageNum} ({activeStageCost})</span>
+              <span>UNLOCK S{activeStageNum} ({activeStageCost})</span>
             </button>
           ) : canStartFight ? (
             <button

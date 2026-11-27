@@ -118,14 +118,23 @@ test('createPlayerAccount hashes password with SHA-256, checks uniqueness, and m
   assert.equal(goodLogin.profile?.highestStage, 2);
 });
 
-test('coin unlocking unlocks Principal Man, Samyak, and higher stages safely', async () => {
+test('coin unlocking unlocks Laddoo Mausi (100 coins), Principal Man, Samyak, and higher stages safely', async () => {
   const storage = createMemoryStorage();
+  assert.equal(STARTER_FIGHTERS.includes('mausi'), false);
   const created = await createPlayerAccount('coin_hero', 'pass1234', storage, null);
   assert.equal(created.ok, true);
   let profile = created.profile!;
+  assert.equal(profile.unlockedFighters.includes('mausi'), false);
 
-  // Give enough coins via wins
-  for (let i = 0; i < 4; i++) {
+  // Unlock Laddoo Mausi with initial 100 coins
+  const unlockMausi = unlockFighterWithCoins(profile, 'mausi', storage, null);
+  assert.equal(unlockMausi.ok, true);
+  profile = unlockMausi.profile;
+  assert.equal(profile.coins, 0);
+  assert.ok(profile.unlockedFighters.includes('mausi'));
+
+  // Earn coins via wins to unlock Principal Man and Stage 2
+  for (let i = 0; i < 5; i++) {
     profile = applyMatchOutcomeToProfile(profile, 'win', 1, storage, null).profile;
   }
   assert.ok(profile.coins >= 400);

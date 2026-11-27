@@ -845,7 +845,8 @@ export class DesiShowdownEngine {
       screen === 'select' ||
       screen === 'title' ||
       screen === 'notice' ||
-      screen === 'loading'
+      screen === 'loading' ||
+      screen === 'auth'
     ) {
       // Explicitly exited to menu: reset Super VFX, preview flags, mid-fight dialogues, callouts, and stop active Super audio
       this.previewPendingSuper = false;
