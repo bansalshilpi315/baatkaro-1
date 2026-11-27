@@ -155,7 +155,7 @@ test('creator account rejects incorrect password and keeps all fighters count co
   const rejected = await loginPlayerAccount(CREATOR_ACCOUNT_ID, 'incorrect_pw', storage, null);
   assert.equal(rejected.ok, false);
   assert.equal(rejected.error, 'Invalid username or password.');
-  assert.equal(ALL_FIGHTER_IDS.length, 8);
+  assert.equal(ALL_FIGHTER_IDS.length, 9);
 });
 
 test('optional cloud adapter syncs account records and checks remote uniqueness', async () => {

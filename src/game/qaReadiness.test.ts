@@ -196,12 +196,13 @@ describe('Poki & CrazyGames QA Readiness', () => {
         'Line seedhi karo — discipline pehle, baaki baad mein!',
         'Article 21 tera defense suspend kar diya!',
         'Last bench se direct knockout dene aaya hoon!',
+        'Backbench se aaya hoon, aaj desk bhi hilega!',
       ];
       for (const line of sampleLines) {
         const sub = getEnglishSubtitle(line);
         assert.ok(sub && sub.length > 5, `Missing English subtitle for: "${line}"`);
       }
-      assert.equal(FIGHTER_LIST.length, 8);
+      assert.equal(FIGHTER_LIST.length, 9);
     });
 
     it('keeps all 5 main stage display names clear and readable for global players', () => {

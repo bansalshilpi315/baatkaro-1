@@ -4,6 +4,7 @@ import { audioEngine } from './audio';
 import {
   preloadAdiGlbHead,
   preloadFatherGlbHead,
+  preloadKrishGlbHead,
   preloadSamyakGlbHead,
 } from './characters/fatherGlbHead';
 import { preloadRealFaceTextures } from './characters/photoFaceLoader';
@@ -91,6 +92,7 @@ export async function preloadStartupAssets(
       preloadFatherGlbHead(createGltfLoader),
       preloadSamyakGlbHead(createGltfLoader),
       preloadAdiGlbHead(createGltfLoader),
+      preloadKrishGlbHead(createGltfLoader),
       preloadRealFaceTextures(createTexLoader),
     ]).then(() => {
       threeDone = true;

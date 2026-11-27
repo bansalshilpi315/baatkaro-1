@@ -14,10 +14,9 @@ interface FighterPortraitProps {
 }
 
 /**
- * Renders real face photos (/textures/faces/principal_man.png & /textures/faces/samyak.png)
- * with crisp framed cropping for Principal Man & Samyak, gracefully falling back
- * to their procedural Canvas portraits if the image fails to load. All other fighters
- * use their Canvas portraits directly.
+ * Renders real face photos (/textures/faces/principal_man.png, samyak.png, adi.png, krish.png)
+ * with crisp framed cropping, gracefully falling back to procedural Canvas portraits if the
+ * image fails to load or is empty. All other fighters use their Canvas portraits directly.
  */
 export function FighterPortrait({ id, alt, className }: FighterPortraitProps) {
   const realUrl = getRealFacePhotoUrl(id);
@@ -36,6 +35,12 @@ export function FighterPortrait({ id, alt, className }: FighterPortraitProps) {
     <img
       src={src}
       alt={alt}
+      onLoad={(e) => {
+        if (realUrl && !useFallback && e.currentTarget.naturalWidth === 0) {
+          markPortraitPhotoFailed(realUrl);
+          setUseFallback(true);
+        }
+      }}
       onError={() => {
         if (realUrl && !useFallback) {
           markPortraitPhotoFailed(realUrl);

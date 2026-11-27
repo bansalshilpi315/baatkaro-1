@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import type { FighterId } from '../types';
 
-export type PhotoFaceFighterId = 'father' | 'samyak';
+export type PhotoFaceFighterId = 'father' | 'samyak' | 'adi' | 'krish';
 
 export const REAL_FACE_PHOTO_URLS: Record<PhotoFaceFighterId, string> = {
   father: '/textures/faces/principal_man.png',
   samyak: '/textures/faces/samyak.png',
+  adi: '/textures/faces/adi.png',
+  krish: '/textures/faces/krish.png',
 };
 
 /** Natural oval head proportions for the D-shaped hemisphere + flat front face plate */
@@ -53,6 +55,20 @@ export const PHOTO_FACE_CROP_SPECS: Record<PhotoFaceFighterId, PhotoFaceCropSpec
     sw: 0.58,
     sh: 0.745,
     skinHex: 0xa67452,
+  },
+  adi: {
+    sx: 0.14,
+    sy: 0.08,
+    sw: 0.72,
+    sh: 0.80,
+    skinHex: 0xc28a64,
+  },
+  krish: {
+    sx: 0.14,
+    sy: 0.08,
+    sw: 0.72,
+    sh: 0.80,
+    skinHex: 0xbc8662,
   },
 };
 
@@ -156,13 +172,27 @@ const cache: Record<PhotoFaceFighterId, CachedPhotoEntry> = {
     listeners: new Set(),
     waiters: new Set(),
   },
+  adi: {
+    status: 'idle',
+    rawTexture: null,
+    croppedTexture: null,
+    listeners: new Set(),
+    waiters: new Set(),
+  },
+  krish: {
+    status: 'idle',
+    rawTexture: null,
+    croppedTexture: null,
+    listeners: new Set(),
+    waiters: new Set(),
+  },
 };
 
 const failedPortraitUrls = new Set<string>();
 let sharedTextureLoader: THREE.TextureLoader | null = null;
 
 export function isPhotoFaceFighter(id: FighterId): id is PhotoFaceFighterId {
-  return id === 'father' || id === 'samyak';
+  return id === 'father' || id === 'samyak' || id === 'adi' || id === 'krish';
 }
 
 export function getRealFacePhotoUrl(id: FighterId): string | null {
@@ -310,6 +340,8 @@ export function preloadRealFaceTextures(
   return Promise.all([
     loadSinglePhotoFace('father', loaderFactory),
     loadSinglePhotoFace('samyak', loaderFactory),
+    loadSinglePhotoFace('adi', loaderFactory),
+    loadSinglePhotoFace('krish', loaderFactory),
   ]).then(() => undefined);
 }
 

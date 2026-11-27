@@ -385,9 +385,11 @@ export function animateFighterRig(
             ? 1.07
             : state.id === 'adi'
               ? 1.04
-              : rig.isEggBody
-                ? 0.68
-                : 0.92;
+              : state.id === 'krish'
+                ? 1.02
+                : rig.isEggBody
+                  ? 0.68
+                  : 0.92;
   const pose = computeCombatPose(state, elapsed, basePelvisY, rig.isEggBody);
 
   let pelvisX = pose.pelvisX;
@@ -1740,6 +1742,97 @@ export function animateFighterRig(
       lShZ = -0.32;
       lElbX = -1.42;
     }
+  } else if (state.id === 'krish') {
+    if (state.action === 'special') {
+      // BACKBENCH DESK SLAM: Heavy overhead double-fist raise -> explosive downward brawler slam!
+      const isWindup = atkProgress < 0.28;
+      const wind = isWindup ? atkProgress / 0.28 : 1;
+      const slam = isWindup ? 0 : Math.min(1, (atkProgress - 0.28) / 0.28);
+      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
+      const impact = slam * (1 - settle * 0.45);
+
+      pelvisX = 0.2 * impact;
+      pelvisY = basePelvisY + (isWindup ? 0.05 * wind : -0.1 * impact);
+      torsoRotX = isWindup ? -0.18 * wind : 0.34 * impact;
+      torsoRotY = 0;
+      headRotX = isWindup ? -0.1 * wind : 0.14 * impact;
+      // Both fists raised high overhead on windup, then smashed down together!
+      lShX = isWindup ? -2.45 * wind - 0.3 : -2.6 + 1.85 * impact;
+      lShZ = isWindup ? -0.32 : -0.18;
+      lElbX = isWindup ? -0.65 * wind : -0.25;
+      rShX = isWindup ? -2.45 * wind - 0.3 : -2.6 + 1.85 * impact;
+      rShZ = isWindup ? 0.32 : 0.18;
+      rElbX = isWindup ? -0.65 * wind : -0.25;
+      lHipX = -0.32;
+      lKneeX = 0.44;
+      rHipX = 0.28;
+      rKneeX = 0.32;
+    } else if (state.action === 'super') {
+      // KRISH BACKBENCH RUSH (placeholder standard 33%-capped Super Power):
+      // 0.00-0.42s: Power-up brawler shoulder-strap brace & crouch charge
+      // 0.42-0.82s: Explosive forward heavyweight shoulder-rush & haymaker slam
+      // 0.82-1.60s: Confident brawler chest-out recovery
+      const t = state.actionTimer;
+      if (t < 0.42) {
+        const charge = Math.min(1, t / 0.35);
+        pelvisY = basePelvisY - 0.09 * charge;
+        pelvisRotY = -0.32 * state.facing * charge;
+        torsoRotX = 0.14 * charge;
+        headRotY = 0.2 * state.facing * charge;
+        lShX = -0.95 * charge;
+        lShZ = -0.72 * charge;
+        lElbX = -1.48 * charge;
+        rShX = -0.95 * charge;
+        rShZ = 0.72 * charge;
+        rElbX = -1.48 * charge;
+        lHipX = -0.38 * charge;
+        lKneeX = 0.56 * charge;
+        rHipX = 0.26 * charge;
+        rKneeX = 0.36 * charge;
+      } else if (t < 0.88) {
+        jointAlpha = 1 - Math.exp(-28 * Math.max(dt, 0.008));
+        const rush = Math.min(1, (t - 0.42) / 0.22);
+        pelvisX = 0.24 * rush;
+        pelvisY = basePelvisY - 0.06;
+        torsoRotX = 0.28 * rush;
+        torsoRotY = -0.58 * rush;
+        headRotY = 0.36 * rush;
+        rShX = -1.68 * rush;
+        rShZ = 0.12;
+        rElbX = -0.14;
+        lShX = -0.35;
+        lShZ = -0.55;
+        lElbX = -1.25;
+        lHipX = -0.42;
+        lKneeX = 0.52;
+        rHipX = 0.36;
+        rKneeX = 0.28;
+      } else {
+        const settle = Math.min(1, (t - 0.88) / 0.55);
+        pelvisY = basePelvisY + 0.03 * (1 - settle);
+        torsoRotX = -0.1 * (1 - settle);
+        rShX = -2.25 * (1 - settle) + pose.rShX * settle;
+        rShZ = 0.32 * (1 - settle) + pose.rShZ * settle;
+        rElbX = -0.42 * (1 - settle) + pose.rElbX * settle;
+        lShX = -0.65 * (1 - settle) + pose.lShX * settle;
+        lShZ = -0.32 * (1 - settle) + pose.lShZ * settle;
+        lElbX = -1.15 * (1 - settle) + pose.lElbX * settle;
+      }
+    } else if (state.action === 'victory') {
+      // Confident heavyweight backbench victory: left hand hooks backpack strap / hip, right fist pumps!
+      const pump = Math.sin(elapsed * 4.4);
+      pelvisY = basePelvisY + Math.abs(pump) * 0.04;
+      pelvisRotY = -0.4 * state.facing;
+      torsoRotX = -0.08;
+      torsoRotY = -0.1 * state.facing;
+      headRotY = 0.1 * state.facing;
+      rShX = -2.32 + pump * 0.14;
+      rShZ = 0.34;
+      rElbX = -0.34;
+      lShX = -0.55;
+      lShZ = -0.44;
+      lElbX = -1.32;
+    }
   }
 
   // Opponent flattened horizontally on the arena floor underneath Anda Bhai's ANDA SQUASH!
@@ -1782,7 +1875,7 @@ export function animateFighterRig(
 
   // Keep 3D GLB & photo-face heads angled ~25-35 deg toward front camera (+Z) for crisp 2.5D readability
   if (
-    (isPhotoFaceFighter(state.id) || state.id === 'adi') &&
+    isPhotoFaceFighter(state.id) &&
     state.squashedTimer <= 0 &&
     state.action !== 'knockdown' &&
     state.action !== 'ko'

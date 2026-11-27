@@ -19,11 +19,11 @@ import {
 } from './fatherSuper';
 import type { FighterId } from './types';
 
-test('Principal Man (id: father) & School Assembly Ground are registered in the 8-fighter roster and 6 stages', () => {
-  assert.equal(FIGHTER_LIST.length, 8, 'Roster must have 8 unique fighters including Adi at the end');
+test('Principal Man (id: father) & School Assembly Ground are registered in the 9-fighter roster and 6 stages', () => {
+  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 unique fighters including Krish at the end');
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi'],
+    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi', 'krish'],
   );
   assert.equal(STAGE_LIST.length, 6);
 

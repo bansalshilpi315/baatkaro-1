@@ -2231,6 +2231,9 @@ export function paintFighterFace(
     case 'adi':
       paintAdiFace(ctx, expression);
       return;
+    case 'krish':
+      paintKrishFace(ctx, expression);
+      return;
   }
 }
 
@@ -2369,10 +2372,145 @@ function paintAdiFace(ctx: CanvasRenderingContext2D, expression: FaceExpression)
   }
 }
 
+function paintKrishFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+
+  // Warm rounded Indian skin tone with soft brawler shading
+  const skinGrad = ctx.createRadialGradient(cx, h * 0.46, w * 0.06, cx, h * 0.5, w * 0.54);
+  skinGrad.addColorStop(0, '#C68D67');
+  skinGrad.addColorStop(0.62, '#B07854');
+  skinGrad.addColorStop(1, '#8A583A');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Fuller friendly cheeks
+  const cheekY = h * 0.585;
+  [-1, 1].forEach((side) => {
+    const chX = cx + side * w * 0.125;
+    const g = ctx.createRadialGradient(chX, cheekY, 4, chX, cheekY, w * 0.075);
+    g.addColorStop(0, 'rgba(176, 86, 62, 0.24)');
+    g.addColorStop(1, 'rgba(176, 86, 62, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(chX, cheekY, w * 0.075, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Short neat dark hair hairline along forehead
+  ctx.fillStyle = '#161416';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.32);
+  ctx.quadraticCurveTo(w * 0.72, h * 0.25, cx, h * 0.27);
+  ctx.quadraticCurveTo(w * 0.28, h * 0.25, 0, h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+
+  // Thick expressive eyebrows
+  const eyeY = h * 0.49;
+  const eyeSpan = w * 0.082;
+  ctx.strokeStyle = '#181415';
+  ctx.lineWidth = Math.max(7, w * 0.022);
+  ctx.lineCap = 'round';
+  const browTilt =
+    expression === 'attack' ? 12 : expression === 'hit' || expression === 'ko' ? -9 : 4;
+  [-1, 1].forEach((side) => {
+    const bx = cx + side * eyeSpan;
+    ctx.beginPath();
+    ctx.moveTo(bx - side * w * 0.056, eyeY - h * 0.078 - browTilt * 0.45);
+    ctx.quadraticCurveTo(bx, eyeY - h * 0.098, bx + side * w * 0.052, eyeY - h * 0.066 + browTilt * 0.55);
+    ctx.stroke();
+  });
+
+  // Expressive eyes
+  if (expression === 'ko') {
+    ctx.strokeStyle = '#181415';
+    ctx.lineWidth = Math.max(7, w * 0.02);
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeSpan;
+      ctx.beginPath();
+      ctx.moveTo(ex - 16, eyeY - 14);
+      ctx.lineTo(ex + 16, eyeY + 14);
+      ctx.moveTo(ex + 16, eyeY - 14);
+      ctx.lineTo(ex - 16, eyeY + 14);
+      ctx.stroke();
+    });
+  } else {
+    const eyeH = expression === 'hit' ? h * 0.044 : expression === 'block' ? h * 0.02 : h * 0.032;
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeSpan;
+      ctx.fillStyle = '#F8FAFC';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, w * 0.042, eyeH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1E1512';
+      ctx.lineWidth = 3.6;
+      ctx.stroke();
+
+      ctx.fillStyle = '#231712';
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, w * 0.022, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(ex - 5, eyeY - 5, w * 0.009, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // Soft nose contour
+  ctx.strokeStyle = 'rgba(84, 44, 24, 0.55)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(cx, eyeY + h * 0.03);
+  ctx.lineTo(cx - 5, h * 0.60);
+  ctx.quadraticCurveTo(cx + 2, h * 0.64, cx + 15, h * 0.61);
+  ctx.stroke();
+
+  // Confident brawler grin / battle shout
+  const mouthY = h * 0.725;
+  ctx.strokeStyle = '#4A1F18';
+  ctx.lineWidth = 6.5;
+  ctx.lineCap = 'round';
+  if (expression === 'attack') {
+    ctx.fillStyle = '#521515';
+    ctx.beginPath();
+    ctx.roundRect(cx - 36, mouthY - 12, 72, 30, 12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillRect(cx - 28, mouthY - 10, 56, 9);
+  } else if (expression === 'hit' || expression === 'ko') {
+    ctx.fillStyle = '#451212';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 4, 24, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (expression === 'victory') {
+    ctx.fillStyle = '#F8FAFC';
+    ctx.beginPath();
+    ctx.arc(cx, mouthY - 4, 36, 0.08 * Math.PI, 0.92 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(cx - 30, mouthY + 2);
+    ctx.quadraticCurveTo(cx, mouthY + 16, cx + 32, mouthY - 4);
+    ctx.stroke();
+  }
+}
+
 export function createDynamicFace(id: FighterId): DynamicFace {
   const canvas = document.createElement('canvas');
   const size =
-    id === 'anda' || id === 'father' || id === 'samyak' || id === 'adi' ? 512 : 256;
+    id === 'anda' || id === 'father' || id === 'samyak' || id === 'adi' || id === 'krish'
+      ? 512
+      : 256;
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
@@ -4056,6 +4194,121 @@ function paintAdiPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function paintKrishPortrait(ctx: CanvasRenderingContext2D): void {
+  // Warm olive-charcoal studio backdrop with energetic olive-gold rim glow
+  const bg = ctx.createRadialGradient(80, 66, 12, 80, 82, 108);
+  bg.addColorStop(0, '#4d5c32');
+  bg.addColorStop(0.55, '#27272a');
+  bg.addColorStop(1, '#0c0d10');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  const rim = ctx.createRadialGradient(80, 82, 16, 80, 80, 74);
+  rim.addColorStop(0, 'rgba(132, 204, 22, 0.28)');
+  rim.addColorStop(1, 'rgba(132, 204, 22, 0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Stockier Olive-Green Crew-Neck Sweatshirt shoulders (#4f5939 / #586340)
+  ctx.fillStyle = '#4f5939';
+  ctx.strokeStyle = '#1f2416';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(10, 160);
+  ctx.quadraticCurveTo(18, 110, 56, 102);
+  ctx.lineTo(104, 102);
+  ctx.quadraticCurveTo(142, 110, 150, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Ribbed crew-neck collar + front V-stitch detail
+  ctx.strokeStyle = '#363e26';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(80, 104, 18, 0.14 * Math.PI, 0.86 * Math.PI);
+  ctx.stroke();
+  ctx.strokeStyle = '#2d341f';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(73, 121);
+  ctx.lineTo(80, 134);
+  ctx.lineTo(87, 121);
+  ctx.stroke();
+
+  // Dark padded backpack strap running over Krish's right shoulder (viewer's left side)
+  ctx.fillStyle = '#1f2228';
+  ctx.strokeStyle = '#090a0d';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(42, 106);
+  ctx.lineTo(56, 104);
+  ctx.lineTo(48, 160);
+  ctx.lineTo(32, 160);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Neck
+  ctx.fillStyle = '#a4704d';
+  ctx.fillRect(66, 88, 28, 18);
+
+  // Slightly fuller rounded head
+  ctx.fillStyle = '#c28b67';
+  ctx.strokeStyle = '#4a2b18';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(80, 64, 30, 34, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Neat short dark hair
+  ctx.fillStyle = '#151417';
+  ctx.beginPath();
+  ctx.moveTo(49, 58);
+  ctx.quadraticCurveTo(48, 22, 80, 20);
+  ctx.quadraticCurveTo(112, 22, 111, 58);
+  ctx.quadraticCurveTo(102, 41, 80, 39);
+  ctx.quadraticCurveTo(58, 41, 49, 58);
+  ctx.closePath();
+  ctx.fill();
+
+  // Thick brows & expressive eyes
+  ctx.strokeStyle = '#181415';
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(58, 53);
+  ctx.lineTo(74, 55);
+  ctx.moveTo(102, 53);
+  ctx.lineTo(86, 55);
+  ctx.stroke();
+
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 12.5;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.ellipse(ex, 62, 5.8, 3.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#231712';
+    ctx.beginPath();
+    ctx.arc(ex, 62, 2.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(ex - 0.8, 61, 1, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Confident brawler grin
+  ctx.strokeStyle = '#4a1f18';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(67, 81);
+  ctx.quadraticCurveTo(80, 88, 93, 79);
+  ctx.stroke();
+}
+
 export function getFighterPortraitDataUrl(id: FighterId): string {
   const cached = portraitCache.get(id);
   if (cached) return cached;
@@ -4090,6 +4343,9 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
       break;
     case 'adi':
       paintAdiPortrait(ctx);
+      break;
+    case 'krish':
+      paintKrishPortrait(ctx);
       break;
   }
 

@@ -304,6 +304,18 @@ export const DIALOGUE_ENGLISH_SUBTITLES: Record<string, string> = {
   'Zero syllabus, hundred percent swag combo!': 'Zero syllabus, hundred percent swagger combo!',
   'Last bench se seedha top score — game over!': 'Straight from the back bench to top score — game over!',
   'Notebook band, opponent flat — Adi on top!': 'Notebook closed, opponent flattened — Adi on top!',
+
+  // Krish
+  'Backbench se aaya hoon, aaj desk bhi hilega!': 'Straight from the backbench — even the desks will shake today!',
+  'Bag shoulder pe, combo ready — aaja bhid le!': 'Backpack on my shoulder, combos loaded — bring it on!',
+  'Heavyweight swagger, zero tension — start karo match!': 'Heavyweight swagger, zero stress — start the match!',
+  'Arre mera bag strap kharab mat kar!': 'Hey, do not mess up my backpack strap!',
+  'Sweatshirt jhaad li, ab asli rush dekhna!': 'Dusted off my sweatshirt — now watch the real rush!',
+  'Ye le Backbench Desk Slam seedha floor pe!': 'Feel this Backbench Desk Slam straight to the floor!',
+  'Last row ka power halka mat samajhna!': 'Do not underestimate back-row heavyweight power!',
+  'Full brawler energy — ab tera guard gaya!': 'Full brawler energy — your guard just broke!',
+  'Backbench rush complete — class dismissed!': 'Backbench rush complete — class dismissed!',
+  'Heavyweight swag from the last row — Krish wins!': 'Heavyweight swagger from the last row — Krish wins!',
 };
 
 export function getEnglishSubtitle(text: string): string | undefined {

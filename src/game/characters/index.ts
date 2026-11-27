@@ -10,7 +10,9 @@ export {
 } from './photoFaceLoader';
 export {
   ADI_GLB_HEAD_CONFIG,
+  KRISH_GLB_HEAD_CONFIG,
   preloadAdiGlbHead,
   preloadFatherGlbHead,
+  preloadKrishGlbHead,
   preloadSamyakGlbHead,
 } from './fatherGlbHead';

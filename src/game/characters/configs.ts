@@ -303,6 +303,45 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       'NOTES BHI SOLID, COMBO BHI SOLID — ADI ON TOP!',
     ],
   },
+  krish: {
+    id: 'krish',
+    name: 'Krish',
+    tagline: 'Backbench Brawler · Olive Crewneck & Charcoal Joggers',
+    titleBadge: 'BACKBENCH TITAN',
+    maxHp: 125,
+    attackPowerMultiplier: 1.12,
+    walkSpeed: 4.55,
+    jumpVelocity: 10.6,
+    punchDamage: 10,
+    kickDamage: 13,
+    grabDamage: 16,
+    accentHex: '#65A30D',
+    secondaryHex: '#4F5939',
+    skinHex: '#BC8662',
+    special: {
+      id: 'desk_slam',
+      name: 'Backbench Desk Slam',
+      shortLabel: 'DESK SLAM',
+      iconKey: 'desk',
+      description:
+        'Lunges forward with stocky brawler weight and crashes both fists down in a floor-shaking Backbench Desk Slam.',
+      cooldown: 3.5,
+      damage: 15,
+      range: 2.35,
+      knockbackX: 6.8,
+      knockbackY: 3.2,
+      windup: 0.16,
+      active: 0.18,
+      recovery: 0.25,
+      stunDuration: 0.44,
+      accentColor: '#84CC16',
+    },
+    superName: 'KRISH BACKBENCH RUSH',
+    victoryQuotes: [
+      'BACKBENCH RUSH COMPLETE — CLASS DISMISSED!',
+      'HEAVYWEIGHT SWAG FROM THE LAST ROW!',
+    ],
+  },
 };
 
 export const FIGHTER_LIST: FighterConfig[] = [
@@ -314,6 +353,7 @@ export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.father,
   FIGHTER_CONFIGS.samyak,
   FIGHTER_CONFIGS.adi,
+  FIGHTER_CONFIGS.krish,
 ];
 
 export const STAGE_CONFIGS: Record<StageId, StageConfig> = {

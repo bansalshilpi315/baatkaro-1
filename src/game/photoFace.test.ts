@@ -13,10 +13,12 @@ import {
   REAL_FACE_PHOTO_URLS,
 } from './characters/photoFaceLoader';
 
-test('Principal Man (id: father) uses /textures/faces/principal_man.png and Samyak uses samyak.png with tight face crop rects', () => {
+test('Principal Man, Samyak, Adi, and Krish map to their real 2D portrait PNGs with tight face crop rects', () => {
   assert.equal(REAL_FACE_PHOTO_URLS.father, '/textures/faces/principal_man.png');
   assert.equal(REAL_FACE_PHOTO_URLS.samyak, '/textures/faces/samyak.png');
-  for (const id of ['father', 'samyak'] as const) {
+  assert.equal(REAL_FACE_PHOTO_URLS.adi, '/textures/faces/adi.png');
+  assert.equal(REAL_FACE_PHOTO_URLS.krish, '/textures/faces/krish.png');
+  for (const id of ['father', 'samyak', 'adi', 'krish'] as const) {
     assert.equal(isPhotoFaceFighter(id), true);
     assert.ok(REAL_FACE_PHOTO_URLS[id].endsWith('.png'));
     const spec = PHOTO_FACE_CROP_SPECS[id];

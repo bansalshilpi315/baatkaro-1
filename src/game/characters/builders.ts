@@ -11,7 +11,13 @@ import {
   PHOTO_HEAD_OVAL_SCALE,
   type PhotoFaceFighterId,
 } from './photoFaceLoader';
-import { attachAdiGlbHead, attachFatherGlbHead, attachSamyakGlbHead } from './fatherGlbHead';
+import {
+  attachAdiGlbHead,
+  attachFatherGlbHead,
+  attachKrishGlbHead,
+  attachSamyakGlbHead,
+  KRISH_GLB_HEAD_CONFIG,
+} from './fatherGlbHead';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 
 /**
@@ -4324,7 +4330,7 @@ function buildAdiFallbackHead(rig: FighterRig, skinMat: THREE.MeshStandardMateri
   const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.165, 22, 18), faceMat);
   cranium.scale.set(0.94, 1.06, 0.96);
   cranium.rotation.y = -Math.PI / 2;
-  cranium.position.set(0, 0.175, 0);
+  cranium.position.set(0, 0.032, 0);
   cranium.castShadow = true;
   fallbackHeadGroup.add(cranium);
 
@@ -4334,14 +4340,14 @@ function buildAdiFallbackHead(rig: FighterRig, skinMat: THREE.MeshStandardMateri
     hairMat,
   );
   hairBack.scale.set(0.97, 1.02, 1.02);
-  hairBack.position.set(0, 0.195, -0.026);
+  hairBack.position.set(0, 0.052, -0.026);
   hairBack.rotation.x = -0.38;
   hairBack.castShadow = true;
   fallbackHeadGroup.add(hairBack);
 
   const hairCrest = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.11, 6, 10), hairMat);
   hairCrest.rotation.z = Math.PI * 0.44;
-  hairCrest.position.set(0.01, 0.345, 0.025);
+  hairCrest.position.set(0.01, 0.2, 0.025);
   hairCrest.castShadow = true;
   fallbackHeadGroup.add(hairCrest);
 
@@ -4349,13 +4355,13 @@ function buildAdiFallbackHead(rig: FighterRig, skinMat: THREE.MeshStandardMateri
   [-1, 1].forEach((side) => {
     const ear = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), skinMat);
     ear.scale.set(0.55, 1.15, 0.8);
-    ear.position.set(side * 0.152, 0.17, -0.008);
+    ear.position.set(side * 0.152, 0.025, -0.008);
     fallbackHeadGroup.add(ear);
   });
 
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.044, 8), skinMat);
   nose.rotation.x = Math.PI * 0.42;
-  nose.position.set(0, 0.155, 0.16);
+  nose.position.set(0, 0.012, 0.16);
   fallbackHeadGroup.add(nose);
 
   rig.head.add(fallbackHeadGroup);
@@ -4366,8 +4372,8 @@ function buildAdi(rig: FighterRig): void {
   // === 1. AGILE ATHLETIC ARCADE PROPORTIONS (~1.42x HEAD SCALE MATCHING SAMYAK/PRINCIPAL) ===
   rig.pelvis.position.set(0, 1.04, 0);
   rig.torso.position.set(0, 0.09, 0);
-  // Seated directly atop Adi's neck top (y=0.775) so both fallback & Box3-grounded GLB head sit flush
-  rig.head.position.set(0, 0.775, 0);
+  // Matches Principal Man & Samyak (y=0.905 with NECK_PIVOT_Y=-0.145 -> 0.905 - 0.145*1.42 = 0.699 on neck!)
+  rig.head.position.set(0, 0.905, 0);
   rig.head.scale.setScalar(1.42);
 
   const shoulderX = 0.325;
@@ -4659,6 +4665,490 @@ function buildAdi(rig: FighterRig): void {
   });
 }
 
+function createKrishSweatshirtTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Rich olive-green cotton fleece sweatshirt base (#4f5939 -> #586340)
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#586340');
+  grad.addColorStop(0.52, '#4f5939');
+  grad.addColorStop(1, '#3f482d');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle cotton fleece knit horizontal grain
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+  for (let y = 0; y < 512; y += 4) {
+    ctx.fillRect(0, y, 512, 1.5);
+  }
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.045)';
+  for (let x = 0; x < 512; x += 6) {
+    ctx.fillRect(x, 0, 1.5, 512);
+  }
+
+  // Front athletic crew-neck V-stitch gusset right below collar (centered at u = 0.5 -> +Z front)
+  ctx.fillStyle = '#444e30';
+  ctx.beginPath();
+  ctx.moveTo(222, 22);
+  ctx.lineTo(290, 22);
+  ctx.lineTo(256, 86);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#2f3621';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(222, 24);
+  ctx.lineTo(256, 86);
+  ctx.lineTo(290, 24);
+  ctx.stroke();
+
+  // Subtle raglan shoulder seam lines & ribbed bottom waistband hem
+  ctx.fillStyle = '#3c452b';
+  ctx.fillRect(0, 444, 512, 68);
+  ctx.fillStyle = 'rgba(20, 24, 14, 0.25)';
+  for (let x = 0; x < 512; x += 10) {
+    ctx.fillRect(x, 444, 3, 68);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createKrishJoggersTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Charcoal / heather-grey knit joggers base
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#3a3d42');
+  grad.addColorStop(0.5, '#474b52');
+  grad.addColorStop(1, '#31343a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle heather-grey knit flecks
+  for (let y = 0; y < 512; y += 6) {
+    for (let x = 0; x < 512; x += 12) {
+      const shade = ((x * 7 + y * 13) % 3 === 0) ? 'rgba(220,224,230,0.06)' : 'rgba(15,17,20,0.08)';
+      ctx.fillStyle = shade;
+      ctx.fillRect(x, y, 6, 2);
+    }
+  }
+
+  // Side seam lines
+  ctx.strokeStyle = 'rgba(20, 22, 26, 0.45)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(128, 0);
+  ctx.lineTo(128, 512);
+  ctx.moveTo(384, 0);
+  ctx.lineTo(384, 512);
+  ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function buildKrishFallbackHead(
+  rig: FighterRig,
+  skinMat: THREE.MeshStandardMaterial,
+): THREE.Group {
+  const fallbackHeadGroup = new THREE.Group();
+  fallbackHeadGroup.name = 'krish_fallback_head';
+
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x151417,
+    roughness: 0.78,
+    metalness: 0.04,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(hairMat);
+
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: rig.face.texture,
+    color: 0xffffff,
+    roughness: 0.68,
+    metalness: 0.0,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveMap: rig.face.texture,
+    emissiveIntensity: 0.06,
+  });
+  faceMat.userData.baseEmissiveIntensity = 0.06;
+  rig.flashMaterials.push(faceMat);
+
+  // Slightly fuller rounded head sphere facing +Z
+  const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.168, 22, 18), faceMat);
+  cranium.scale.set(1.01, 1.04, 0.99);
+  cranium.rotation.y = -Math.PI / 2;
+  cranium.position.set(0, 0.032, 0);
+  cranium.castShadow = true;
+  fallbackHeadGroup.add(cranium);
+
+  // Short neat hair dome (high & back so eyes & brows remain 100% open & readable)
+  const hairBack = new THREE.Mesh(
+    new THREE.SphereGeometry(0.173, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.38),
+    hairMat,
+  );
+  hairBack.scale.set(1.03, 1.0, 1.03);
+  hairBack.position.set(0, 0.052, -0.025);
+  hairBack.rotation.x = -0.38;
+  hairBack.castShadow = true;
+  fallbackHeadGroup.add(hairBack);
+
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), skinMat);
+    ear.scale.set(0.55, 1.12, 0.8);
+    ear.position.set(side * 0.166, 0.024, -0.008);
+    fallbackHeadGroup.add(ear);
+  });
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.019, 0.042, 8), skinMat);
+  nose.rotation.x = Math.PI * 0.42;
+  nose.position.set(0, 0.012, 0.166);
+  fallbackHeadGroup.add(nose);
+
+  rig.head.add(fallbackHeadGroup);
+  return fallbackHeadGroup;
+}
+
+// Re-export easy one-line tweak constants right above Krish's builder for rapid alignment tuning
+export { KRISH_GLB_HEAD_CONFIG };
+
+function buildKrish(rig: FighterRig): void {
+  // === 1. STOCKIER, SLIGHTLY ROUNDED BRAWLER PROPORTIONS (~1.42x HEAD SCALE) ===
+  rig.pelvis.position.set(0, 1.02, 0);
+  rig.torso.position.set(0, 0.085, 0);
+  // Matches Principal Man, Samyak & Adi (y=0.905 with KRISH_NECK_PIVOT_Y=-0.145 -> 0.699 on neck!)
+  rig.head.position.set(0, 0.905, 0);
+  rig.head.scale.setScalar(1.42);
+
+  const shoulderX = 0.37;
+  const shoulderY = 0.595;
+  rig.leftShoulder.position.set(-shoulderX, shoulderY, 0);
+  rig.rightShoulder.position.set(shoulderX, shoulderY, 0);
+  rig.leftElbow.position.set(0, -0.33, 0);
+  rig.rightElbow.position.set(0, -0.33, 0);
+
+  rig.leftHip.position.set(-0.148, -0.02, 0);
+  rig.rightHip.position.set(0.148, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.465, 0);
+  rig.rightKnee.position.set(0, -0.465, 0);
+  rig.contactShadow.scale.set(1.12, 1.12, 1);
+
+  // === 2. GROUNDED PBR MATERIALS ===
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xbc8662,
+    roughness: 0.62,
+    metalness: 0.0,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(skinMat);
+
+  const sweatshirtTex = createKrishSweatshirtTexture();
+  const sweatshirtMat = new THREE.MeshStandardMaterial({
+    map: sweatshirtTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.0,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sweatshirtMat);
+
+  const ribTrimMat = new THREE.MeshStandardMaterial({
+    color: 0x3b442b,
+    roughness: 0.9,
+    metalness: 0.0,
+    envMapIntensity: 0.14,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(ribTrimMat);
+
+  const strapMat = new THREE.MeshStandardMaterial({
+    color: 0x1e2025,
+    roughness: 0.78,
+    metalness: 0.06,
+    envMapIntensity: 0.2,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(strapMat);
+
+  const strapBuckleMat = makeMat(0x52525b, 0.42, 0.55);
+
+  const wristbandMat = new THREE.MeshStandardMaterial({
+    color: 0x3f434a,
+    roughness: 0.85,
+    metalness: 0.02,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(wristbandMat);
+
+  const joggersTex = createKrishJoggersTexture();
+  const joggersMat = new THREE.MeshStandardMaterial({
+    map: joggersTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    metalness: 0.0,
+    envMapIntensity: 0.15,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(joggersMat);
+
+  const joggerCuffMat = makeMat(0x2a2d32, 0.9, 0.0);
+
+  const shoeUpperMat = new THREE.MeshStandardMaterial({
+    color: 0x181a1f,
+    roughness: 0.62,
+    metalness: 0.06,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(shoeUpperMat);
+
+  const shoeSoleMat = new THREE.MeshStandardMaterial({
+    color: 0x3f434c,
+    roughness: 0.68,
+    metalness: 0.04,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(shoeSoleMat);
+
+  // === 3. CUSTOM 3D GLB HEAD (/models/krish_head.glb) WITH EXACT BOX3 MATH & FALLBACK ===
+  const fallbackHeadGroup = buildKrishFallbackHead(rig, skinMat);
+  attachKrishGlbHead(
+    rig.head,
+    fallbackHeadGroup,
+    rig.flashMaterials,
+    () => rig.isDisposed,
+  );
+
+  // === 4. STOCKIER OLIVE-GREEN CREW-NECK SWEATSHIRT + RIGHT-SHOULDER BACKPACK STRAP ===
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.098, 0.155, 14), skinMat);
+  neck.position.set(0, 0.695, 0);
+  rig.torso.add(neck);
+
+  // Thick ribbed olive crew-neck collar
+  const crewCollar = new THREE.Mesh(
+    new THREE.TorusGeometry(0.108, 0.025, 10, 20),
+    ribTrimMat,
+  );
+  crewCollar.rotation.x = Math.PI / 2;
+  crewCollar.position.set(0, 0.618, 0.008);
+  rig.torso.add(crewCollar);
+
+  // Stockier, fuller sweatshirt torso core with slightly rounded midsection
+  const torsoMain = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.268, 0.252, 0.605, 22),
+    sweatshirtMat,
+  );
+  torsoMain.scale.set(1.16, 1, 0.88);
+  torsoMain.rotation.y = Math.PI; // Maps u = 0.5 (front V-stitch) cleanly onto +Z front!
+  torsoMain.position.set(0, 0.325, 0);
+  torsoMain.castShadow = true;
+  rig.torso.add(torsoMain);
+
+  // Softly rounded belly/lower-sweatshirt fullness
+  const torsoMid = new THREE.Mesh(
+    new THREE.SphereGeometry(0.275, 18, 14),
+    sweatshirtMat,
+  );
+  torsoMid.scale.set(1.12, 0.72, 0.88);
+  torsoMid.position.set(0, 0.25, 0.025);
+  torsoMid.castShadow = true;
+  rig.torso.add(torsoMid);
+
+  // Ribbed elastic sweatshirt waist hem
+  const waistHem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.254, 0.244, 0.075, 20),
+    ribTrimMat,
+  );
+  waistHem.scale.set(1.16, 1, 0.88);
+  waistHem.position.set(0, 0.032, 0);
+  waistHem.castShadow = true;
+  rig.torso.add(waistHem);
+
+  // Dark padded backpack strap over Krish's RIGHT shoulder (+X is right side when facing +Z)
+  // Top padded shoulder wrap
+  const strapTop = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.052, 0.26), strapMat);
+  strapTop.position.set(0.225, 0.625, 0.0);
+  strapTop.rotation.z = -0.18;
+  strapTop.castShadow = true;
+  rig.torso.add(strapTop);
+
+  // Front padded chest strap descending along right pectoral down toward right waist
+  const strapFront = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.48, 0.034), strapMat);
+  strapFront.position.set(0.215, 0.37, 0.205);
+  strapFront.rotation.z = 0.08;
+  strapFront.rotation.x = -0.06;
+  strapFront.rotation.y = 0.28;
+  strapFront.castShadow = true;
+  rig.torso.add(strapFront);
+
+  // Small strap adjuster buckle on lower front right chest
+  const strapBuckle = new THREE.Mesh(new THREE.BoxGeometry(0.084, 0.036, 0.042), strapBuckleMat);
+  strapBuckle.position.set(0.208, 0.22, 0.225);
+  strapBuckle.rotation.y = 0.28;
+  rig.torso.add(strapBuckle);
+
+  // Lower side-underarm strap tether connecting front strap around right waist to back
+  const strapSide = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.055, 0.34), strapMat);
+  strapSide.position.set(0.285, 0.135, 0.02);
+  strapSide.rotation.z = 0.12;
+  rig.torso.add(strapSide);
+
+  // Back strap running cleanly down right back of sweatshirt (subtle single-strap backpack silhouette)
+  const strapBack = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.49, 0.036), strapMat);
+  strapBack.position.set(0.215, 0.365, -0.195);
+  strapBack.rotation.y = -0.26;
+  strapBack.castShadow = true;
+  rig.torso.add(strapBack);
+
+  // === 5. 2-BONE ARMS: FULL OLIVE SWEATSHIRT SLEEVES + RIBBED CUFFS + RIGHT-WRIST DARK GREY WRISTBAND ===
+  const upperSleeveGeo = new THREE.CapsuleGeometry(0.098, 0.20, 8, 12);
+  const lowerSleeveGeo = new THREE.CapsuleGeometry(0.084, 0.19, 8, 12);
+  const ribCuffGeo = new THREE.CylinderGeometry(0.072, 0.066, 0.062, 12);
+  const fistGeo = new THREE.BoxGeometry(0.088, 0.092, 0.078);
+
+  const armSpecs: Array<{ shoulder: THREE.Group; elbow: THREE.Group; isLeft: boolean }> = [
+    { shoulder: rig.leftShoulder, elbow: rig.leftElbow, isLeft: true },
+    { shoulder: rig.rightShoulder, elbow: rig.rightElbow, isLeft: false },
+  ];
+
+  for (const { shoulder, elbow, isLeft } of armSpecs) {
+    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.114, 14, 10), sweatshirtMat);
+    shoulderCap.castShadow = true;
+    shoulder.add(shoulderCap);
+
+    const upperSleeve = new THREE.Mesh(upperSleeveGeo, sweatshirtMat);
+    upperSleeve.position.y = -0.165;
+    upperSleeve.castShadow = true;
+    shoulder.add(upperSleeve);
+
+    const lowerSleeve = new THREE.Mesh(lowerSleeveGeo, sweatshirtMat);
+    lowerSleeve.position.y = -0.135;
+    lowerSleeve.castShadow = true;
+    elbow.add(lowerSleeve);
+
+    // Ribbed olive sweatshirt wrist cuff
+    const cuff = new THREE.Mesh(ribCuffGeo, ribTrimMat);
+    cuff.position.y = -0.245;
+    cuff.castShadow = true;
+    elbow.add(cuff);
+
+    // Subtle bare wrist strip between cuff and fist
+    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.048, 0.068, 10), skinMat);
+    wrist.position.y = -0.295;
+    elbow.add(wrist);
+
+    // Dark grey fabric wristband on Krish's RIGHT wrist (distinct detail from reference image)
+    if (!isLeft) {
+      const wristband = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.058, 0.057, 0.046, 14),
+        wristbandMat,
+      );
+      wristband.position.y = -0.292;
+      wristband.castShadow = true;
+      elbow.add(wristband);
+    }
+
+    const fist = new THREE.Mesh(fistGeo, skinMat);
+    fist.position.set(0, -0.355, 0.01);
+    fist.castShadow = true;
+    elbow.add(fist);
+
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.017, 0.036, 5, 8), skinMat);
+    thumb.position.set(isLeft ? 0.042 : -0.042, -0.348, 0.036);
+    thumb.rotation.z = isLeft ? -0.42 : 0.42;
+    elbow.add(thumb);
+  }
+
+  // === 6. STOCKIER CHARCOAL / HEATHER-GREY JOGGER PANTS + ELASTIC ANKLE CUFFS + DARK ATHLETIC SHOES ===
+  const joggersPelvis = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.242, 0.252, 0.22, 20),
+    joggersMat,
+  );
+  joggersPelvis.scale.set(1.16, 1, 0.86);
+  joggersPelvis.position.set(0, 0.01, 0);
+  joggersPelvis.castShadow = true;
+  rig.pelvis.add(joggersPelvis);
+
+  const thighGeo = new THREE.CapsuleGeometry(0.118, 0.31, 8, 12);
+  const calfGeo = new THREE.CapsuleGeometry(0.088, 0.31, 8, 12);
+  const ankleCuffGeo = new THREE.CylinderGeometry(0.072, 0.064, 0.072, 12);
+
+  [
+    { hip: rig.leftHip, knee: rig.leftKnee },
+    { hip: rig.rightHip, knee: rig.rightKnee },
+  ].forEach(({ hip, knee }) => {
+    const thigh = new THREE.Mesh(thighGeo, joggersMat);
+    thigh.position.y = -0.23;
+    thigh.castShadow = true;
+    hip.add(thigh);
+
+    const shin = new THREE.Mesh(calfGeo, joggersMat);
+    shin.position.y = -0.22;
+    shin.castShadow = true;
+    knee.add(shin);
+
+    // Tapered elastic ribbed jogger ankle cuff
+    const ankleCuff = new THREE.Mesh(ankleCuffGeo, joggerCuffMat);
+    ankleCuff.position.y = -0.415;
+    ankleCuff.castShadow = true;
+    knee.add(ankleCuff);
+
+    // Dark athletic running/training shoes seated cleanly at ground level
+    const shoeGroup = new THREE.Group();
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.146, 0.044, 0.34), shoeSoleMat);
+    sole.position.set(0, 0.022, 0.056);
+    sole.castShadow = true;
+
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.136, 0.09, 0.18), shoeUpperMat);
+    upper.position.set(0, 0.082, -0.02);
+    upper.castShadow = true;
+
+    const toe = new THREE.Mesh(new THREE.CapsuleGeometry(0.064, 0.132, 6, 10), shoeUpperMat);
+    toe.rotation.x = Math.PI / 2;
+    toe.scale.set(1.05, 1, 0.72);
+    toe.position.set(0, 0.068, 0.105);
+    toe.castShadow = true;
+
+    const accentStripe = new THREE.Mesh(new THREE.BoxGeometry(0.142, 0.018, 0.12), shoeSoleMat);
+    accentStripe.position.set(0, 0.064, 0.02);
+
+    shoeGroup.add(sole, upper, toe, accentStripe);
+    shoeGroup.position.set(0, -0.535, 0);
+    knee.add(shoeGroup);
+  });
+}
+
 export function buildFighterRig(id: FighterId): FighterRig {
   const face = createDynamicFace(id);
   const isEggBody = id === 'anda';
@@ -4720,6 +5210,13 @@ export function buildFighterRig(id: FighterId): FighterRig {
       rig.rightFistAnchor.position.set(0, -0.355, 0.02);
       rig.leftFootAnchor.position.set(0, -0.465, 0.10);
       rig.rightFootAnchor.position.set(0, -0.465, 0.10);
+      break;
+    case 'krish':
+      buildKrish(rig);
+      rig.leftFistAnchor.position.set(0, -0.355, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.355, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.455, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.455, 0.10);
       break;
   }
 

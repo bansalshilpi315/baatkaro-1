@@ -24,6 +24,7 @@ const CHIP_SHORT_NAMES: Record<FighterId, string> = {
   father: 'PRINCIPAL',
   samyak: 'SAMYAK',
   adi: 'ADI',
+  krish: 'KRISH',
 };
 
 export function SuperPreviewBar({
@@ -142,9 +143,9 @@ export function SuperPreviewBar({
         }`}
       >
         <div className="flex flex-col gap-1.5 border-2 border-[#facc15]/85 bg-[#120d0a]/92 px-2.5 py-2 shadow-[0_8px_28px_rgba(0,0,0,0.8)] backdrop-blur-sm">
-          {/* Row 1: All 8 Fighter Quick-Select Chips */}
+          {/* Row 1: All 9 Fighter Quick-Select Chips */}
           <div
-            className="grid grid-cols-4 gap-1 sm:grid-cols-8"
+            className="grid grid-cols-3 gap-1 sm:grid-cols-9"
             role="group"
             aria-label="Preview fighter selector"
           >

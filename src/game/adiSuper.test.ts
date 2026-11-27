@@ -25,11 +25,11 @@ import {
 } from './combat';
 import type { FighterId } from './types';
 
-test('Adi is appended at the end of the 8-fighter roster with balanced agile stats, NOTEBOOK SMASH, and ADI LAST-BENCH STRIKE', () => {
-  assert.equal(FIGHTER_LIST.length, 8, 'Roster must have 8 playable fighters with Adi at the end');
+test('Adi is registered at index 7 of the 9-fighter roster with balanced agile stats, NOTEBOOK SMASH, and ADI LAST-BENCH STRIKE', () => {
+  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 playable fighters with Krish at the end');
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi'],
+    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak', 'adi', 'krish'],
   );
 
   const adi = FIGHTER_CONFIGS.adi;

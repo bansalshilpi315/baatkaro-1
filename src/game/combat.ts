@@ -102,6 +102,7 @@ const COMBO_FINISHER_CALLOUTS: Record<FighterId, string> = {
   father: 'DISCIPLINE CHOP!',
   samyak: 'BEAST UPPERCUT!',
   adi: 'LAST-BENCH HOOK!',
+  krish: 'BACKBENCH HOOK!',
 };
 
 const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
@@ -113,6 +114,7 @@ const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
   father: 'PRINCIPAL DISMISSAL!',
   samyak: 'BENCH-PRESS SLAM!',
   adi: 'BACK-BENCH TOSS!',
+  krish: 'DESK FLIP SLAM!',
 };
 
 export function createFighterState(slot: 0 | 1, id: FighterId): FighterState {
@@ -670,6 +672,19 @@ function startAction(
         word: 'PAISA FLEX!',
         moveCallout: 'PAISA FLEX!',
         color: '#FACC15',
+      });
+    } else if (cfg.special.id === 'desk_slam') {
+      // Stocky forward brawler lunge into double-fist Backbench Desk Slam!
+      fighter.vx = fighter.facing * 5.2;
+      events.push({
+        type: 'special',
+        attackerSlot: fighter.slot,
+        x: fighter.x + fighter.facing * 0.55,
+        y: fighter.y + 1.35,
+        damage: 0,
+        word: 'DESK SLAM!',
+        moveCallout: 'DESK SLAM!',
+        color: '#84CC16',
       });
     } else {
       events.push({
@@ -2516,6 +2531,11 @@ const WINNER_SATIRE_HEADLINES: Record<FighterId, string[]> = {
     'LAST-BENCH LEGEND: ADI CLOSES THE NOTEBOOK ON OPPOSITION!',
     'ZERO ATTENDANCE, 100% COMBO — ADI STEALS THE DESI DANGAL CROWN!',
   ],
+  krish: [
+    'KRISH SHAKES THE ARENA WITH BACKBENCH RUSH!',
+    'HEAVYWEIGHT SWAG FROM THE LAST ROW — KRISH TAKES THE CROWN!',
+    'DESK SLAM LANDSLIDE: KRISH FLATTENS OPPOSITION IN STYLE!',
+  ],
 };
 
 const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
@@ -2550,6 +2570,10 @@ const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
   adi: [
     '"Out-of-syllabus combo! Give me five minutes to check my last-bench notes!" — Team Adi',
     '"Wait till I roll up my plaid sleeves properly in the rematch!" — Last-Bench Crew',
+  ],
+  krish: [
+    '"My backpack strap got caught mid-combo — rematch right after recess!" — Team Krish',
+    '"Wait till I put my bag down next round, then see the real Backbench Rush!" — Backbench Crew',
   ],
 };
 

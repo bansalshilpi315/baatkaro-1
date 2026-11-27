@@ -7,7 +7,7 @@ import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
 import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
 
-export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak' | 'adi';
+export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak' | 'adi' | 'krish';
 
 export type StageId = 'mohalla' | 'school' | 'studio' | 'shaadi' | 'railway' | 'assembly';
 
@@ -56,13 +56,14 @@ export type SpecialMoveKind =
   | 'belan_throw'
   | 'diary_note'
   | 'laxmikant_slam'
-  | 'notebook_smash';
+  | 'notebook_smash'
+  | 'desk_slam';
 
 export interface SpecialMoveConfig {
   id: SpecialMoveKind;
   name: string;
   shortLabel: string;
-  iconKey: 'notes' | 'swatter' | 'shield' | 'drop' | 'belan' | 'diary' | 'polity' | 'notebook';
+  iconKey: 'notes' | 'swatter' | 'shield' | 'drop' | 'belan' | 'diary' | 'polity' | 'notebook' | 'desk';
   description: string;
   cooldown: number;
   damage: number;

@@ -15,6 +15,7 @@ import {
   FIGHTER_CONFIGS,
   preloadAdiGlbHead,
   preloadFatherGlbHead,
+  preloadKrishGlbHead,
   preloadRealFaceTextures,
   preloadSamyakGlbHead,
   type FighterRig,
@@ -185,6 +186,11 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Attendance kam hai, par combo 100 percent hai!',
     'Checked shirt press hai, ab tera test hai!',
   ],
+  krish: [
+    'Backbench se aaya hoon, aaj desk bhi hilega!',
+    'Bag shoulder pe, combo ready — aaja bhid le!',
+    'Heavyweight swagger, zero tension — start karo match!',
+  ],
 };
 
 const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
@@ -196,6 +202,7 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   father: ['This is gross indiscipline!', 'Wait till I sign your diary!'],
   samyak: ['Arre mera pre-workout gir gaya!', 'Prelims mein jhatka, Mains mein phod dunga!'],
   adi: ['Arre meri checked shirt pe dhool mat daal!', 'Back-bencher hoon, abhi comeback dekhna!'],
+  krish: ['Arre mera bag strap kharab mat kar!', 'Sweatshirt jhaad li, ab asli rush dekhna!'],
 };
 
 const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
@@ -239,6 +246,11 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Proxy lagwa di, ab tera defense gayab!',
     'Zero syllabus, hundred percent swag combo!',
   ],
+  krish: [
+    'Ye le Backbench Desk Slam seedha floor pe!',
+    'Last row ka power halka mat samajhna!',
+    'Full brawler energy — ab tera guard gaya!',
+  ],
 };
 
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
@@ -250,6 +262,7 @@ const VICTORY_QUIPS: Record<FighterId, string[]> = {
   father: ['Assembly dismissed! Maintain pin-drop silence.', 'Rustication order stands — bring your parents!'],
   samyak: ['First attempt mein hi knockout — AIR 1 confirmed!', 'Gym pump bhi solid, Polity bhi solid!'],
   adi: ['Last bench se seedha top score — game over!', 'Notebook band, opponent flat — Adi on top!'],
+  krish: ['Backbench rush complete — class dismissed!', 'Heavyweight swag from the last row — Krish wins!'],
 };
 
 function detectSoftwareWebGL(): boolean {
@@ -689,6 +702,7 @@ export class DesiShowdownEngine {
       preloadFatherGlbHead();
       preloadSamyakGlbHead();
       preloadAdiGlbHead();
+      preloadKrishGlbHead();
     }
 
     if (!this.isSoftwareGl) {
@@ -1718,6 +1732,14 @@ export class DesiShowdownEngine {
           this.spawnParticles(ev.x, ev.y, 14, 0x84cc16, 6.2);
           this.spawnParticles(ev.x, ev.y, 10, 0xfefce8, 5.4);
           this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 6.0);
+        } else if (ev.type === 'heavy_hit' && attacker?.id === 'krish' && ev.moveCallout === 'DESK SLAM!') {
+          audioEngine.playHeavyHit();
+          this.shockwaveRing.position.set(ev.x, 0.055, 0);
+          this.shockwaveRing.scale.set(0.7, 0.7, 1);
+          this.shockwaveRing.visible = true;
+          this.shockwaveTimer = this.shockwaveDuration;
+          this.spawnParticles(ev.x, ev.y, 14, 0x65a30d, 6.2);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.6);
         } else if (ev.type === 'dharna_counter') {
           audioEngine.playHeavyHit();
           this.shockwaveRing.position.set(ev.x, 0.06, 0);
@@ -1800,6 +1822,10 @@ export class DesiShowdownEngine {
           // Olive-lime & chalk-gold sparks on NOTEBOOK SMASH launch
           this.spawnParticles(ev.x, ev.y, 12, 0x84cc16, 5.6);
           this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 4.8);
+        } else if (caster?.id === 'krish') {
+          // Olive-gold brawler burst on Backbench Desk Slam lunge
+          this.spawnParticles(ev.x, ev.y, 12, 0x65a30d, 5.8);
+          this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 5.0);
         } else {
           this.spawnParticles(ev.x, ev.y, 12, 0xf97316, 4.8);
         }
@@ -1813,7 +1839,8 @@ export class DesiShowdownEngine {
           caster?.id === 'mausi' ||
           caster?.id === 'father' ||
           caster?.id === 'samyak' ||
-          caster?.id === 'adi'
+          caster?.id === 'adi' ||
+          caster?.id === 'krish'
         ) {
           audioEngine.playFighterSuperAudio(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
@@ -1840,7 +1867,9 @@ export class DesiShowdownEngine {
                       ? 0x38bdf8
                       : caster?.id === 'adi'
                         ? 0x84cc16
-                        : 0xfde047;
+                        : caster?.id === 'krish'
+                          ? 0x65a30d
+                          : 0xfde047;
         this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -1962,6 +1991,7 @@ export class DesiShowdownEngine {
       father: 2.26,
       samyak: 2.28,
       adi: 2.24,
+      krish: 2.22,
     };
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
