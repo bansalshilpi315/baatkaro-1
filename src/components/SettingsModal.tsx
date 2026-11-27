@@ -59,7 +59,7 @@ export function SettingsModal({
             <span>TEST SUPERS BEFORE FIGHTING</span>
           </button>
           <p className="mt-1.5 text-center text-[11px] font-medium text-[#d6d3d1]">
-            Preview all 8 fighters&apos; full 3D Super Power cinematics &amp; custom audio live on stage.
+            Preview all 7 fighters&apos; full 3D Super Power cinematics &amp; custom audio live on stage.
           </p>
         </div>
 

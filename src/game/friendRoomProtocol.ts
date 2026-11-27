@@ -4,7 +4,6 @@ import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
 import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
 import type { MausiSuperBeatSignal, MausiSuperState } from './mausiSuper';
 import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
-import type { PrincipalSuperBeatSignal, PrincipalSuperState } from './principalSuper';
 import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
 import type {
@@ -86,7 +85,6 @@ export interface SyncedSuperStates {
   mausi?: MausiSuperState | null;
   father?: FatherSuperState | null;
   samyak?: SamyakSuperState | null;
-  principal?: PrincipalSuperState | null;
 }
 
 export interface SyncedSuperSignals {
@@ -97,7 +95,6 @@ export interface SyncedSuperSignals {
   mausi?: MausiSuperBeatSignal[];
   father?: FatherSuperBeatSignal[];
   samyak?: SamyakSuperBeatSignal[];
-  principal?: PrincipalSuperBeatSignal[];
 }
 
 export interface StateSnapshotPacket {
@@ -315,8 +312,7 @@ export function packMatchStateSnapshot(state: MatchState, seq: number): StateSna
     state.andaSuper ||
     state.mausiSuper ||
     state.fatherSuper ||
-    state.samyakSuper ||
-    state.principalSuper
+    state.samyakSuper
   ) {
     supers = {};
     if (state.sheruSuper) supers.sheru = state.sheruSuper;
@@ -326,7 +322,6 @@ export function packMatchStateSnapshot(state: MatchState, seq: number): StateSna
     if (state.mausiSuper) supers.mausi = state.mausiSuper;
     if (state.fatherSuper) supers.father = state.fatherSuper;
     if (state.samyakSuper) supers.samyak = state.samyakSuper;
-    if (state.principalSuper) supers.principal = state.principalSuper;
   }
 
   return {
@@ -458,5 +453,4 @@ export function applyStateSnapshotToGuest(
   state.mausiSuper = snap.supers?.mausi ?? null;
   state.fatherSuper = snap.supers?.father ?? null;
   state.samyakSuper = snap.supers?.samyak ?? null;
-  state.principalSuper = snap.supers?.principal ?? null;
 }

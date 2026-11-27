@@ -302,7 +302,7 @@ export function stepFatherSuper(
       color: '#EF4444',
       headline:
         defender.hp <= 0
-          ? 'RUSTICATED FOR LIFE! FATHER ROY DOLPHUS SEALS THE DISCIPLINARY KO!'
+          ? 'RUSTICATED FOR LIFE! PRINCIPAL MAN SEALS THE DISCIPLINARY KO!'
           : 'OFFICIAL RUSTICATION ORDER DELIVERED! OPPONENT FLATTENED ON ASSEMBLY GROUND!',
     });
   }

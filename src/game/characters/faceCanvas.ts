@@ -2223,13 +2223,10 @@ export function paintFighterFace(
       paintMausiFace(ctx, expression);
       return;
     case 'father':
-      paintFatherFace(ctx, expression);
+      paintPrincipalFace(ctx, expression);
       return;
     case 'samyak':
       paintSamyakFace(ctx, expression);
-      return;
-    case 'principal':
-      paintPrincipalFace(ctx, expression);
       return;
   }
 }
@@ -2237,7 +2234,7 @@ export function paintFighterFace(
 export function createDynamicFace(id: FighterId): DynamicFace {
   const canvas = document.createElement('canvas');
   const size =
-    id === 'anda' || id === 'father' || id === 'samyak' || id === 'principal' ? 512 : 256;
+    id === 'anda' || id === 'father' || id === 'samyak' ? 512 : 256;
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
@@ -3797,13 +3794,10 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
       paintMausiPortrait(ctx);
       break;
     case 'father':
-      paintFatherPortrait(ctx);
+      paintPrincipalPortrait(ctx);
       break;
     case 'samyak':
       paintSamyakPortrait(ctx);
-      break;
-    case 'principal':
-      paintPrincipalPortrait(ctx);
       break;
   }
 

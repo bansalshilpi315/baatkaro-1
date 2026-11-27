@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import type { FighterId } from '../types';
 
-export type PhotoFaceFighterId = 'father' | 'samyak' | 'principal';
+export type PhotoFaceFighterId = 'father' | 'samyak';
 
 export const REAL_FACE_PHOTO_URLS: Record<PhotoFaceFighterId, string> = {
-  father: '/textures/faces/father.png',
+  father: '/textures/faces/principal_man.png',
   samyak: '/textures/faces/samyak.png',
-  principal: '/textures/faces/principal_man.png',
 };
 
 /** Natural oval head proportions for the D-shaped hemisphere + flat front face plate */
@@ -42,11 +41,11 @@ export interface PhotoFaceCropSpec {
  */
 export const PHOTO_FACE_CROP_SPECS: Record<PhotoFaceFighterId, PhotoFaceCropSpec> = {
   father: {
-    sx: 0.195,
-    sy: 0.115,
-    sw: 0.61,
-    sh: 0.765,
-    skinHex: 0xa87654,
+    sx: 0.105,
+    sy: 0.085,
+    sw: 0.79,
+    sh: 0.835,
+    skinHex: 0xb67a54,
   },
   samyak: {
     sx: 0.21,
@@ -54,13 +53,6 @@ export const PHOTO_FACE_CROP_SPECS: Record<PhotoFaceFighterId, PhotoFaceCropSpec
     sw: 0.58,
     sh: 0.745,
     skinHex: 0xa67452,
-  },
-  principal: {
-    sx: 0.105,
-    sy: 0.085,
-    sw: 0.79,
-    sh: 0.835,
-    skinHex: 0xb67a54,
   },
 };
 
@@ -161,19 +153,13 @@ const cache: Record<PhotoFaceFighterId, CachedPhotoEntry> = {
     croppedTexture: null,
     listeners: new Set(),
   },
-  principal: {
-    status: 'idle',
-    rawTexture: null,
-    croppedTexture: null,
-    listeners: new Set(),
-  },
 };
 
 const failedPortraitUrls = new Set<string>();
 let sharedTextureLoader: THREE.TextureLoader | null = null;
 
 export function isPhotoFaceFighter(id: FighterId): id is PhotoFaceFighterId {
-  return id === 'father' || id === 'samyak' || id === 'principal';
+  return id === 'father' || id === 'samyak';
 }
 
 export function getRealFacePhotoUrl(id: FighterId): string | null {
@@ -286,7 +272,6 @@ function loadSinglePhotoFace(id: PhotoFaceFighterId): void {
 export function preloadRealFaceTextures(): void {
   loadSinglePhotoFace('father');
   loadSinglePhotoFace('samyak');
-  loadSinglePhotoFace('principal');
 }
 
 /**

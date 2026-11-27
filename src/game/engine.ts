@@ -53,8 +53,6 @@ import { MAUSI_SUPER_BANNER } from './mausiSuper';
 import { MausiSuperVfx } from './mausiSuperVfx';
 import { NETA_SUPER_BANNER } from './netaSuper';
 import { NetaSuperVfx } from './netaSuperVfx';
-import { PRINCIPAL_SUPER_BANNER } from './principalSuper';
-import { PrincipalSuperVfx } from './principalSuperVfx';
 import { SAMYAK_SUPER_BANNER } from './samyakSuper';
 import { SamyakSuperVfx } from './samyakSuperVfx';
 import { SHERU_SUPER_BANNER } from './sheruSuper';
@@ -138,7 +136,6 @@ const _andaFlashColor = new THREE.Color(0xdbeafe);
 const _mausiFestiveDimColor = new THREE.Color(0x2d1404);
 const _fatherCrimsonDimColor = new THREE.Color(0x1f0709);
 const _samyakBlueGoldDimColor = new THREE.Color(0x071324);
-const _principalOrangeDimColor = new THREE.Color(0x231003);
 
 const INTRO_TAUNTS: Record<FighterId, string[]> = {
   sheru: [
@@ -176,11 +173,6 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Body bhi hai aur dimaag bhi — ab dekh IAS ki power!',
     '18 ghante padhai aur 2 ghante gym — aaj teri Prelims fail!',
   ],
-  principal: [
-    'Chashm-e-Baddoor! Discipline se khelo warna diary note milega!',
-    'Mere school mein NO fighting! Seedha Principal office aao!',
-    'Tie kahan hai?! Kal parents ko leke assembly ground mein aana!',
-  ],
 };
 
 const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
@@ -191,7 +183,6 @@ const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
   father: ['This is gross indiscipline!', 'Wait till I sign your diary!'],
   samyak: ['Arre mera pre-workout gir gaya!', 'Prelims mein jhatka, Mains mein phod dunga!'],
-  principal: ['Arre meri Nehru jacket gandi kar di!', 'Ye rule violation hai — ab dekh Rustication!'],
 };
 
 const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
@@ -230,11 +221,6 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Article 21 tera defense suspend kar diya!',
     'No pain, no AIR 1 — full beast mode ON!',
   ],
-  principal: [
-    'Ruk! Laal ink se DIARY NOTE sign kar diya!',
-    'Assembly line mein seedha khada ho ja beta!',
-    'No discipline? Seedha parent-teacher meeting!',
-  ],
 };
 
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
@@ -245,7 +231,6 @@ const VICTORY_QUIPS: Record<FighterId, string[]> = {
   mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai kya?'],
   father: ['Assembly dismissed! Maintain pin-drop silence.', 'Rustication order stands — bring your parents!'],
   samyak: ['First attempt mein hi knockout — AIR 1 confirmed!', 'Gym pump bhi solid, Polity bhi solid!'],
-  principal: ['School discipline zindabad! Kal uniform check hoga!', 'Rusticated! Ab seedha ghar jao aur padhai karo!'],
 };
 
 function detectSoftwareWebGL(): boolean {
@@ -319,7 +304,7 @@ export class DesiShowdownEngine {
   private impactInnerGeo: THREE.RingGeometry;
   private impactOuterGeo: THREE.RingGeometry;
 
-  // Pre-pooled 3D Super Power VFX managers (all 8 fighters)
+  // Pre-pooled 3D Super Power VFX managers (all 7 fighters)
   private sheruSuperVfx: SheruSuperVfx;
   private billaSuperVfx: BillaSuperVfx;
   private netaSuperVfx: NetaSuperVfx;
@@ -327,7 +312,6 @@ export class DesiShowdownEngine {
   private mausiSuperVfx: MausiSuperVfx;
   private fatherSuperVfx: FatherSuperVfx;
   private samyakSuperVfx: SamyakSuperVfx;
-  private principalSuperVfx: PrincipalSuperVfx;
 
   // Pooled glowing white-to-gold curved motion trail ribbons (1 per fighter, 18 tris each)
   private strikeTrails: [StrikeTrailRibbon, StrikeTrailRibbon];
@@ -548,7 +532,6 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx = new MausiSuperVfx(this.scene);
     this.fatherSuperVfx = new FatherSuperVfx(this.scene);
     this.samyakSuperVfx = new SamyakSuperVfx(this.scene);
-    this.principalSuperVfx = new PrincipalSuperVfx(this.scene);
 
     this.strikeTrails = [new StrikeTrailRibbon(), new StrikeTrailRibbon()];
     this.scene.add(this.strikeTrails[0].mesh);
@@ -656,7 +639,6 @@ export class DesiShowdownEngine {
       this.mausiSuperVfx.setPrewarmVisible(true);
       this.fatherSuperVfx.setPrewarmVisible(true);
       this.samyakSuperVfx.setPrewarmVisible(true);
-      this.principalSuperVfx.setPrewarmVisible(true);
       this.shockwaveRing.visible = true;
       this.strikeTrails[0].mesh.visible = true;
       this.renderer.compile(this.scene, this.camera);
@@ -667,7 +649,6 @@ export class DesiShowdownEngine {
       this.mausiSuperVfx.setPrewarmVisible(false);
       this.fatherSuperVfx.setPrewarmVisible(false);
       this.samyakSuperVfx.setPrewarmVisible(false);
-      this.principalSuperVfx.setPrewarmVisible(false);
       this.shockwaveRing.visible = false;
       this.strikeTrails[0].mesh.visible = false;
     }
@@ -875,7 +856,6 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.fatherSuperVfx.reset();
     this.samyakSuperVfx.reset();
-    this.principalSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
   }
@@ -891,7 +871,6 @@ export class DesiShowdownEngine {
         this.matchState.mausiSuper?.active ||
         this.matchState.fatherSuper?.active ||
         this.matchState.samyakSuper?.active ||
-        this.matchState.principalSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -1065,7 +1044,6 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.reset();
     this.fatherSuperVfx.reset();
     this.samyakSuperVfx.reset();
-    this.principalSuperVfx.reset();
     this.strikeTrails[0].reset();
     this.strikeTrails[1].reset();
     // Explicit match start/restart: stop any prior Super/KO audio and ensure buffers are preloaded
@@ -1587,7 +1565,7 @@ export class DesiShowdownEngine {
           this.spawnParticles(ev.x, ev.y, 10, 0xfef08a, 5.8);
         } else if (
           ev.type === 'heavy_hit' &&
-          (attacker?.id === 'father' || attacker?.id === 'principal') &&
+          attacker?.id === 'father' &&
           ev.moveCallout === 'DIARY NOTE!'
         ) {
           audioEngine.playHeavyHit();
@@ -1668,7 +1646,7 @@ export class DesiShowdownEngine {
           // Golden flour & laddoo sparkle burst on Belan Throw launch!
           this.spawnParticles(ev.x, ev.y, 12, 0xf0c420, 5.6);
           this.spawnParticles(ev.x, ev.y + 0.08, 10, 0xfff5d6, 4.6);
-        } else if (caster?.id === 'father' || caster?.id === 'principal') {
+        } else if (caster?.id === 'father') {
           // Crimson stamp & crisp paper burst on DIARY NOTE launch
           this.spawnParticles(ev.x, ev.y, 10, 0xef4444, 5.4);
           this.spawnParticles(ev.x, ev.y + 0.08, 8, 0xfef2f2, 4.4);
@@ -1688,8 +1666,7 @@ export class DesiShowdownEngine {
           caster?.id === 'anda' ||
           caster?.id === 'mausi' ||
           caster?.id === 'father' ||
-          caster?.id === 'samyak' ||
-          caster?.id === 'principal'
+          caster?.id === 'samyak'
         ) {
           audioEngine.playFighterSuperAudio(caster.id);
           this.trauma = Math.min(1, this.trauma + 0.45);
@@ -1714,9 +1691,7 @@ export class DesiShowdownEngine {
                     ? 0xef4444
                     : caster?.id === 'samyak'
                       ? 0x38bdf8
-                      : caster?.id === 'principal'
-                        ? 0xf59e0b
-                        : 0xfde047;
+                      : 0xfde047;
         this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -1837,7 +1812,6 @@ export class DesiShowdownEngine {
       mausi: 2.18,
       father: 2.26,
       samyak: 2.28,
-      principal: 2.27,
     };
     const headTopY = f.action === 'knockdown' ? 0.92 : standingHeadTopY[f.id];
     const w = Math.max(this.container.clientWidth, 320);
@@ -1945,7 +1919,6 @@ export class DesiShowdownEngine {
         this.matchState.mausiSuper?.active ||
         this.matchState.fatherSuper?.active ||
         this.matchState.samyakSuper?.active ||
-        this.matchState.principalSuper?.active ||
         p1.action === 'super' ||
         p2.action === 'super',
     );
@@ -2071,24 +2044,21 @@ export class DesiShowdownEngine {
       const isMausi = caster.id === 'mausi';
       const isFather = caster.id === 'father';
       const isSamyak = caster.id === 'samyak';
-      const isPrincipal = caster.id === 'principal';
       const bannerWindow = isSheru
         ? 1.85
         : isSamyak
           ? 1.75
-          : isPrincipal
-            ? 1.7
-            : isFather
-              ? 1.65
-              : isMausi
-                ? 1.6
-                : isNeta
-                  ? 1.55
-                  : isAnda
-                    ? 1.45
-                    : isBilla
-                      ? 1.4
-                      : 1.15;
+          : isFather
+            ? 1.65
+            : isMausi
+              ? 1.6
+              : isNeta
+                ? 1.55
+                : isAnda
+                  ? 1.45
+                  : isBilla
+                    ? 1.4
+                    : 1.15;
       if (this.matchState.activeSuperElapsed < bannerWindow) {
         const cfg = FIGHTER_CONFIGS[caster.id];
         superBanner = {
@@ -2108,9 +2078,7 @@ export class DesiShowdownEngine {
                       ? FATHER_SUPER_BANNER
                       : isSamyak
                         ? SAMYAK_SUPER_BANNER
-                        : isPrincipal
-                          ? PRINCIPAL_SUPER_BANNER
-                          : cfg.superName,
+                        : cfg.superName,
           slot: caster.slot,
         };
       }
@@ -2245,9 +2213,7 @@ export class DesiShowdownEngine {
                     ? 'father'
                     : attacker.id === 'samyak'
                       ? 'samyak'
-                      : attacker.id === 'principal'
-                        ? 'principal'
-                        : 'generic';
+                      : 'generic';
       target = computeSuperCameraTarget(
         this.matchState.activeSuperElapsed,
         this.matchState.activeSuperDuration,
@@ -2556,39 +2522,6 @@ export class DesiShowdownEngine {
       }
     }
 
-    const principalSignals = bundle.principal;
-    if (principalSignals && principalSignals.length > 0) {
-      anySignal = true;
-      this.principalSuperVfx.handleBeatSignals(principalSignals, this.graphics === 'low');
-      for (const sig of principalSignals) {
-        if (sig.kind === 'levitate_start') {
-          this.trauma = Math.min(1, this.trauma + 0.25);
-          this.stage?.triggerExcitement(1.6);
-        } else if (sig.kind === 'papers_summon') {
-          this.trauma = Math.min(1, this.trauma + 0.34);
-          this.spawnImpactRing(sig.x, sig.y, false);
-          this.spawnParticles(sig.x, sig.y, 16, 0xf59e0b, 6.2);
-          this.stage?.triggerExcitement(1.9);
-        } else if (sig.kind === 'barrage_start') {
-          this.stage?.triggerExcitement(2.1);
-        } else if (sig.kind === 'paper_hit') {
-          this.trauma = Math.min(1, this.trauma + 0.28);
-          this.spawnImpactRing(sig.x, sig.y, false);
-          this.spawnStarburstSparks(sig.x, sig.y, false);
-          this.spawnParticles(sig.x, sig.y, 10, 0xef4444, 6.0);
-        } else if (sig.kind === 'master_notice_impact') {
-          this.trauma = 1.0;
-          this.spawnImpactRing(sig.x, sig.y, true);
-          this.spawnStarburstSparks(sig.x, sig.y, true);
-          this.spawnParticles(sig.x, sig.y, 28, 0xdc2626, 9.4);
-          this.spawnParticles(sig.x, sig.y + 0.2, 16, 0xfacc15, 7.6);
-          this.stage?.triggerExcitement(2.7);
-        } else if (sig.kind === 'super_end') {
-          audioEngine.notifySuperAnimationEnd();
-        }
-      }
-    }
-
     return anySignal;
   }
 
@@ -2756,9 +2689,6 @@ export class DesiShowdownEngine {
           if (this.matchState.samyakSuperSignals.length > 0) {
             signalBundle.samyak = this.matchState.samyakSuperSignals;
           }
-          if (this.matchState.principalSuperSignals.length > 0) {
-            signalBundle.principal = this.matchState.principalSuperSignals;
-          }
 
           const anySignal = this.processSuperSignals(signalBundle);
           forceHud = events.length > 0 || anySignal;
@@ -2809,8 +2739,7 @@ export class DesiShowdownEngine {
           this.matchState.andaSuper?.active ||
           this.matchState.mausiSuper?.active ||
           this.matchState.fatherSuper?.active ||
-          this.matchState.samyakSuper?.active ||
-          this.matchState.principalSuper?.active
+          this.matchState.samyakSuper?.active
         ) {
           clearAllMidFightDialogues(this.dialogueTracker);
         } else {
@@ -2993,21 +2922,6 @@ export class DesiShowdownEngine {
         samyakDef?.x ?? 2,
       );
 
-      const principalSuper = this.matchState.principalSuper;
-      const principalSlot = principalSuper?.attackerSlot ?? 0;
-      const principalDefSlot = principalSuper?.defenderSlot ?? 1;
-      const principalFighter = this.matchState.fighters[principalSlot];
-      const principalDef = this.matchState.fighters[principalDefSlot];
-      const principalDim = this.principalSuperVfx.update(
-        dt,
-        this.elapsed,
-        principalSuper,
-        principalFighter?.x ?? 0,
-        principalFighter?.y ?? 0,
-        principalFighter?.facing ?? 1,
-        principalDef?.x ?? 2,
-      );
-
       const dimFactor = Math.max(
         sheruDim,
         billaDim,
@@ -3016,7 +2930,6 @@ export class DesiShowdownEngine {
         mausiDim,
         fatherDim,
         samyakDim,
-        principalDim,
       );
       if (this.stage) {
         const lightningFlash = andaVfxResult.skyFlash;
@@ -3025,13 +2938,11 @@ export class DesiShowdownEngine {
             ? _andaStormDimColor
             : samyakDim > 0.01
               ? _samyakBlueGoldDimColor
-              : principalDim > 0.01
-                ? _principalOrangeDimColor
-                : fatherDim > 0.01
-                  ? _fatherCrimsonDimColor
-                  : mausiDim > 0.01
-                    ? _mausiFestiveDimColor
-                    : _superDimColor;
+              : fatherDim > 0.01
+                ? _fatherCrimsonDimColor
+                : mausiDim > 0.01
+                  ? _mausiFestiveDimColor
+                  : _superDimColor;
 
         this.keyLight.intensity =
           this.stage.keyLightIntensity * (1 - dimFactor * 0.82) + lightningFlash * 2.4;
@@ -3104,7 +3015,6 @@ export class DesiShowdownEngine {
     this.mausiSuperVfx.dispose(this.scene);
     this.fatherSuperVfx.dispose(this.scene);
     this.samyakSuperVfx.dispose(this.scene);
-    this.principalSuperVfx.dispose(this.scene);
     for (const trail of this.strikeTrails) {
       this.scene.remove(trail.mesh);
       trail.dispose();

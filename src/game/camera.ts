@@ -144,7 +144,6 @@ export type SuperCameraKind =
   | 'mausi'
   | 'father'
   | 'samyak'
-  | 'principal'
   | 'generic';
 
 /**
@@ -432,12 +431,12 @@ export function computeSuperCameraTarget(
     };
   }
 
-  // FATHER ROY DOLPHUS ("RUSTICATION ORDER!", 5.2s):
-  // 0.0-1.5s: Smooth cinematic low-angle orbit/sweep upward around levitating Father (y -> 2.4)
+  // PRINCIPAL MAN ("RUSTICATION ORDER!", 5.2s):
+  // 0.0-1.5s: Smooth cinematic low-angle orbit/sweep upward around levitating Principal Man (y -> 2.4)
   // 1.5-2.8s: Framed dramatic mid-orbit showcasing the 14 swirling glowing red "RUSTICATE" papers
-  // 2.8-4.65s: Dynamic wide 3D perspective framing hovering Father + opponent below during barrage & Master Notice slam
-  // 4.65-5.2s: Smooth restore to standard 2.5D fighting camera as Father descends to floor
-  if (kind === 'father' || kind === 'principal') {
+  // 2.8-4.65s: Dynamic wide 3D perspective framing hovering Principal Man + opponent below during barrage & Master Notice slam
+  // 4.65-5.2s: Smooth restore to standard 2.5D fighting camera as Principal Man descends to floor
+  if (kind === 'father') {
     const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
 
     if (elapsed < 1.5) {

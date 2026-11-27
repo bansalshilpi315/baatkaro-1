@@ -3,11 +3,10 @@ import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
 import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
 import type { MausiSuperBeatSignal, MausiSuperState } from './mausiSuper';
 import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
-import type { PrincipalSuperBeatSignal, PrincipalSuperState } from './principalSuper';
 import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
 
-export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak' | 'principal';
+export type FighterId = 'sheru' | 'billa' | 'neta' | 'anda' | 'mausi' | 'father' | 'samyak';
 
 export type StageId = 'mohalla' | 'school' | 'studio' | 'shaadi' | 'railway' | 'assembly';
 
@@ -261,8 +260,6 @@ export interface MatchState {
   fatherSuperSignals: FatherSuperBeatSignal[];
   samyakSuper: SamyakSuperState | null;
   samyakSuperSignals: SamyakSuperBeatSignal[];
-  principalSuper: PrincipalSuperState | null;
-  principalSuperSignals: PrincipalSuperBeatSignal[];
 }
 
 export interface FloatingCallout {

@@ -188,7 +188,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
   },
   father: {
     id: 'father',
-    name: 'Father Roy Dolphus',
+    name: 'Principal Man',
     tagline: 'Strict School Principal · White Cassock & Nehru Vest',
     titleBadge: 'PRINCIPAL SIR',
     maxHp: 130,
@@ -221,7 +221,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
     },
     superName: 'RUSTICATION ORDER',
     victoryQuotes: [
-      'FATHER ROY DOLPHUS RUSTICATES THE COMPETITION!',
+      'PRINCIPAL MAN RUSTICATES THE COMPETITION!',
       'DISCIPLINE RESTORED — CALL YOUR PARENTS TOMORROW MORNING!',
     ],
   },
@@ -264,45 +264,6 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       'PRELIMS, MAINS, AUR RING — SAB MEIN AIR 1!',
     ],
   },
-  principal: {
-    id: 'principal',
-    name: 'Principal Man',
-    tagline: 'Strict Caricature Principal · Blue Vest & White Cassock',
-    titleBadge: 'RUSTICATION BOSS',
-    maxHp: 130,
-    attackPowerMultiplier: 1.15,
-    walkSpeed: 4.55,
-    jumpVelocity: 10.7,
-    punchDamage: 10,
-    kickDamage: 13,
-    grabDamage: 16,
-    accentHex: '#F97316',
-    secondaryHex: '#7EC4E6',
-    skinHex: '#B57853',
-    special: {
-      id: 'diary_note',
-      name: 'Diary Note',
-      shortLabel: 'DIARY NOTE',
-      iconKey: 'diary',
-      description:
-        'Snaps a stern "Ruk!" pointing flick firing a fast-spinning red-stamped School Diary Warning Slip with paper trails.',
-      cooldown: 3.5,
-      damage: 14,
-      range: 5.6,
-      knockbackX: 6.2,
-      knockbackY: 2.6,
-      windup: 0.14,
-      active: 0.16,
-      recovery: 0.24,
-      stunDuration: 0.42,
-      accentColor: '#EF4444',
-    },
-    superName: 'RUSTICATION ORDER',
-    victoryQuotes: [
-      'CHASM-E-BADDOOR! DISCIPLINE SE KHELO — PRINCIPAL MAN ON TOP!',
-      'MERE SCHOOL MEIN NO FIGHTING — RUSTICATION ORDER SEALED!',
-    ],
-  },
 };
 
 export const FIGHTER_LIST: FighterConfig[] = [
@@ -313,7 +274,6 @@ export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.mausi,
   FIGHTER_CONFIGS.father,
   FIGHTER_CONFIGS.samyak,
-  FIGHTER_CONFIGS.principal,
 ];
 
 export const STAGE_CONFIGS: Record<StageId, StageConfig> = {

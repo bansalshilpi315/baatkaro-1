@@ -215,7 +215,7 @@ test('Explicit stopSuperAudio stops active source cleanly; missing MP3 fails sil
   }
 });
 
-test('All 8 Super MP3s (sheru, billa, neta, anda, mausi, father, samyak, principal) share Web Audio AudioBuffer cache & ducking', async () => {
+test('All 7 fighter Super MP3s (sheru, billa, neta, anda, mausi, father, samyak) + dahi.mp3 share Web Audio AudioBuffer cache & ducking', async () => {
   clearSuperAudioCacheForTests();
   const fetchedUrls: string[] = [];
 
@@ -279,13 +279,13 @@ test('All 8 Super MP3s (sheru, billa, neta, anda, mausi, father, samyak, princip
     env.sources[3].onended?.();
     assert.equal(engine.isSuperAudioPlaying(), false);
 
-    // Father Roy Dolphus Super audio (/audio/supers/father.mp3) plays from RAM cache and finishes naturally
+    // Principal Man (id: father) Super audio (/audio/supers/father.mp3) plays from RAM cache and finishes naturally
     engine.playFighterSuperAudio('father');
     assert.equal(engine.isSuperAudioPlaying(), true);
     assert.equal(env.sources.length, 5);
     assert.deepEqual(env.sources[4].startedAt, [0]);
     engine.notifySuperAnimationEnd();
-    assert.equal(env.sources[4].stoppedCount, 0, 'Father Super MP3 must never be cut off early');
+    assert.equal(env.sources[4].stoppedCount, 0, 'Principal Man Super MP3 must never be cut off early');
     env.sources[4].onended?.();
     assert.equal(engine.isSuperAudioPlaying(), false);
 
@@ -299,18 +299,7 @@ test('All 8 Super MP3s (sheru, billa, neta, anda, mausi, father, samyak, princip
     env.sources[5].onended?.();
     assert.equal(engine.isSuperAudioPlaying(), false);
 
-    // Principal Man Super audio reuses cached /audio/supers/father.mp3 AudioBuffer and finishes naturally
-    engine.playFighterSuperAudio('principal');
-    assert.equal(engine.isSuperAudioPlaying(), true);
-    assert.equal(env.sources.length, 7);
-    assert.equal(env.sources[6].buffer, env.sources[4].buffer, 'Principal Man must share exact cached father.mp3 AudioBuffer');
-    assert.deepEqual(env.sources[6].startedAt, [0]);
-    engine.notifySuperAnimationEnd();
-    assert.equal(env.sources[6].stoppedCount, 0, 'Principal Super MP3 must never be cut off early');
-    env.sources[6].onended?.();
-    assert.equal(engine.isSuperAudioPlaying(), false);
-
-    assert.equal(fetchedUrls.length, 8, 'Preloaded buffers must never trigger duplicate fetches or fetch principal.mp3');
+    assert.equal(fetchedUrls.length, 8, 'Preloaded buffers must never trigger duplicate fetches');
   } finally {
     env.restore();
     clearSuperAudioCacheForTests();

@@ -19,31 +19,38 @@ import {
 } from './fatherSuper';
 import type { FighterId } from './types';
 
-test('Father Roy Dolphus & School Assembly Ground are registered as the 6th fighter and 6th stage', () => {
-  assert.ok(FIGHTER_LIST.length >= 6);
-  assert.equal(FIGHTER_LIST[5].id, 'father');
+test('Principal Man (id: father) & School Assembly Ground are registered in the consolidated 7-fighter roster and 6 stages', () => {
+  assert.equal(FIGHTER_LIST.length, 7, 'Consolidated roster must have exactly 7 unique fighters');
+  assert.deepEqual(
+    FIGHTER_LIST.map((f) => f.id),
+    ['sheru', 'billa', 'neta', 'anda', 'mausi', 'father', 'samyak'],
+  );
   assert.equal(STAGE_LIST.length, 6);
 
   const father = FIGHTER_CONFIGS.father;
-  assert.equal(father.name, 'Father Roy Dolphus');
-  assert.equal(father.maxHp, 130, 'Father Roy Dolphus must have boss-tier 130 HP (strongest)');
-  assert.equal(father.attackPowerMultiplier, 1.15, 'Father Roy Dolphus must have 1.15x attack power');
+  assert.equal(father.name, 'Principal Man');
+  assert.ok(
+    FIGHTER_LIST.every((f) => !/father roy|dolphus/i.test(f.name)),
+    'No fighter display name may contain leftover Father Roy Dolphus text',
+  );
+  assert.equal(father.maxHp, 130, 'Principal Man must have boss-tier 130 HP (strongest)');
+  assert.equal(father.attackPowerMultiplier, 1.15, 'Principal Man must have 1.15x attack power');
   assert.ok(
     father.maxHp > FIGHTER_CONFIGS.samyak.maxHp,
-    'Father Roy Dolphus must have highest maxHp in roster',
+    'Principal Man must have highest maxHp in roster',
   );
   const cmpState = createMatchState('father', 'sheru', true);
   cmpState.fighters[0].action = 'punch';
   cmpState.fighters[1].action = 'punch';
   assert.ok(
     getAttackTiming(cmpState.fighters[0]).damage > getAttackTiming(cmpState.fighters[1]).damage,
-    'Father Roy Dolphus punches must deal ~15% boosted boss damage',
+    'Principal Man punches must deal ~15% boosted boss damage',
   );
   cmpState.fighters[0].action = 'kick';
   cmpState.fighters[1].action = 'kick';
   assert.ok(
     getAttackTiming(cmpState.fighters[0]).damage > getAttackTiming(cmpState.fighters[1]).damage,
-    'Father Roy Dolphus kicks must deal ~15% boosted boss damage',
+    'Principal Man kicks must deal ~15% boosted boss damage',
   );
   assert.equal(father.special.shortLabel, 'DIARY NOTE');
   assert.equal(father.special.id, 'diary_note');

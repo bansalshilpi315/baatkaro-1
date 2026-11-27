@@ -14,8 +14,8 @@ interface FighterPortraitProps {
 }
 
 /**
- * Renders real face photos (/textures/faces/father.png & /textures/faces/samyak.png)
- * with crisp framed cropping for Father Roy Dolphus & Samyak, gracefully falling back
+ * Renders real face photos (/textures/faces/principal_man.png & /textures/faces/samyak.png)
+ * with crisp framed cropping for Principal Man & Samyak, gracefully falling back
  * to their procedural Canvas portraits if the image fails to load. All other fighters
  * use their Canvas portraits directly.
  */
