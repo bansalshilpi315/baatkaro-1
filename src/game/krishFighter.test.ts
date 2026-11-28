@@ -23,11 +23,11 @@ import {
 } from './combat';
 import type { FighterId } from './types';
 
-test('Krish is registered in the 9-playable roster with 140 HP, DESK SLAM, and KRISH BACKBENCH RUSH', () => {
-  assert.equal(FIGHTER_LIST.length, 9);
+test('Krish is registered in the 10-playable roster with 140 HP, DESK SLAM, and KRISH BACKBENCH RUSH', () => {
+  assert.equal(FIGHTER_LIST.length, 10);
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
+    ['sheru', 'billa', 'utkarsh', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
   );
 
   const krish = FIGHTER_CONFIGS.krish;

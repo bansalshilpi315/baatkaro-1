@@ -192,11 +192,17 @@ const INTRO_TAUNTS: Record<FighterId, string[]> = {
     'Bag shoulder pe, combo ready — aaja!',
     'Heavyweight swag, zero tension — fight!',
   ],
+  utkarsh: [
+    'Speed check kar — pakad nahi payega!',
+    'Sleeves rolled up, footwork on fire!',
+    'Quick-Step Rush ke liye ready ho ja!',
+  ],
 };
 
 const KNOCKDOWN_QUIPS: Record<FighterId, string[]> = {
   sheru: ['Arre mera Armani suit!', 'Audit karwaunga iska!'],
   billa: ['Meow!! Yeh cheating hai!', 'Mera swatter kidhar gaya?!'],
+  utkarsh: ['Lucky hit tha — ab speed dekh!', 'Trackpants jhaad li, ab rush dekh!'],
   neta: ['Yeh janta pe atyachaar hai!', 'Chashma bach gaya!'],
   anda: ['Arre shell bachao!', 'Farsh pe tel kisne giraya!'],
   mausi: ['Haye meri kamar! Ab dekh!', 'Belan se double badla lungi!'],
@@ -216,6 +222,11 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
     'Phatak! Machhar jaise uda diya!',
     'Meow! Swatter ka swaad kaisa laga?',
     'Chai thandi, thappad garam!',
+  ],
+  utkarsh: [
+    'Blink kiya aur combo lag gaya!',
+    'Swift Combo — guard slow pad gaya!',
+    'Too fast, zero chance — quick-step!',
   ],
   neta: [
     'Janta ka faisla seedha mukke se!',
@@ -257,6 +268,7 @@ const MID_FIGHT_ROASTS: Record<FighterId, string[]> = {
 const VICTORY_QUIPS: Record<FighterId, string[]> = {
   sheru: ['Full paisa vasool, bhai!', 'Market closed — Sheru on top!'],
   billa: ['Swatter supremacy! Meow!', 'Clean sweep — ekdum jhakaas!'],
+  utkarsh: ['Too fast to catch — Utkarsh wins!', 'Quick-Step Rush complete — GG!'],
   neta: ['Janta ki jeet! Cutting chai lao!', 'Jhola-chaap power zindabad!'],
   anda: ['Hard-boiled champion, boss!', 'Shell intact, opposition cracked!'],
   mausi: ['Ab ja aur garma-garam laddoo kha!', 'Belan ke aage koi tikta hai?'],
@@ -1769,6 +1781,10 @@ export class DesiShowdownEngine {
           this.shockwaveTimer = this.shockwaveDuration;
           this.spawnParticles(ev.x, ev.y, 14, 0x65a30d, 6.2);
           this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.6);
+        } else if (ev.type === 'heavy_hit' && attacker?.id === 'utkarsh' && ev.moveCallout === 'SWIFT COMBO!') {
+          audioEngine.playHeavyHit();
+          this.spawnParticles(ev.x, ev.y, 14, 0xef4444, 6.4);
+          this.spawnParticles(ev.x, ev.y, 10, 0xfacc15, 5.8);
         } else if (ev.type === 'dharna_counter') {
           audioEngine.playHeavyHit();
           this.shockwaveRing.position.set(ev.x, 0.06, 0);
@@ -1855,6 +1871,10 @@ export class DesiShowdownEngine {
           // Olive-gold brawler burst on Backbench Desk Slam lunge
           this.spawnParticles(ev.x, ev.y, 12, 0x65a30d, 5.8);
           this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 5.0);
+        } else if (caster?.id === 'utkarsh') {
+          // Crimson-gold agile dash sparks on Utkarsh Swift Combo!
+          this.spawnParticles(ev.x, ev.y, 12, 0xef4444, 6.0);
+          this.spawnParticles(ev.x, ev.y + 0.1, 10, 0xfacc15, 5.2);
         } else {
           this.spawnParticles(ev.x, ev.y, 12, 0xf97316, 4.8);
         }
@@ -1877,21 +1897,23 @@ export class DesiShowdownEngine {
         const superBurstColor =
           caster?.id === 'billa'
             ? 0x4ade80
-            : caster?.id === 'neta'
-              ? 0xf97316
-              : caster?.id === 'anda'
-                ? 0x38bdf8
-                : caster?.id === 'mausi'
-                  ? 0xfbbf24
-                  : caster?.id === 'father'
-                    ? 0xef4444
-                    : caster?.id === 'samyak'
-                      ? 0x38bdf8
-                      : caster?.id === 'adi'
-                        ? 0x84cc16
-                        : caster?.id === 'krish'
-                          ? 0x65a30d
-                          : 0xfde047;
+            : caster?.id === 'utkarsh'
+              ? 0xef4444
+              : caster?.id === 'neta'
+                ? 0xf97316
+                : caster?.id === 'anda'
+                  ? 0x38bdf8
+                  : caster?.id === 'mausi'
+                    ? 0xfbbf24
+                    : caster?.id === 'father'
+                      ? 0xef4444
+                      : caster?.id === 'samyak'
+                        ? 0x38bdf8
+                        : caster?.id === 'adi'
+                          ? 0x84cc16
+                          : caster?.id === 'krish'
+                            ? 0x65a30d
+                            : 0xfde047;
         this.spawnParticles(ev.x, ev.y, 24, superBurstColor, 8.0);
       } else if (ev.type === 'ko') {
         audioEngine.playKo();
@@ -2007,6 +2029,7 @@ export class DesiShowdownEngine {
     const standingHeadTopY: Record<FighterId, number> = {
       sheru: 2.28,
       billa: 2.12,
+      utkarsh: 2.16,
       neta: 2.24,
       anda: 2.22,
       mausi: 2.18,

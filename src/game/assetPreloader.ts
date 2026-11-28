@@ -13,12 +13,14 @@ import {
   NETA_SUPER_AUDIO_URL,
   SAMYAK_SUPER_AUDIO_URL,
   SHERU_SUPER_AUDIO_URL,
+  UTKARSH_SUPER_AUDIO_URL,
 } from './audio';
 import {
   preloadAdiGlbHead,
   preloadFatherGlbHead,
   preloadKrishGlbHead,
   preloadSamyakGlbHead,
+  preloadUtkarshGlbHead,
 } from './characters/fatherGlbHead';
 import { preloadRealFaceTextures } from './characters/photoFaceLoader';
 
@@ -31,11 +33,13 @@ export const PRELOAD_GLB_URLS: readonly string[] = [
   '/models/samyak_head.glb',
   '/models/adi_head.glb',
   '/models/krish_head.glb',
+  '/models/utkarsh_head.glb',
 ];
 
 export const PRELOAD_PORTRAIT_URLS: readonly string[] = [
   '/textures/faces/sheru.png',
   '/textures/faces/billa.png',
+  '/textures/faces/utkarsh.png',
   '/textures/faces/anda.png',
   '/textures/faces/krish.png',
   '/textures/faces/adi.png',
@@ -49,6 +53,7 @@ export const PRELOAD_AUDIO_URLS: readonly string[] = [
   BGM_AUDIO_URL,
   SHERU_SUPER_AUDIO_URL,
   BILLA_SUPER_AUDIO_URL,
+  UTKARSH_SUPER_AUDIO_URL,
   NETA_SUPER_AUDIO_URL,
   ANDA_SUPER_AUDIO_URL,
   MAUSI_SUPER_AUDIO_URL,
@@ -245,6 +250,7 @@ export async function preloadStartupAssets(
       trackTask(preloadSamyakGlbHead(createGltfLoader, maxRetries, retryBackoffMs)),
       trackTask(preloadAdiGlbHead(createGltfLoader, maxRetries, retryBackoffMs)),
       trackTask(preloadKrishGlbHead(createGltfLoader, maxRetries, retryBackoffMs)),
+      trackTask(preloadUtkarshGlbHead(createGltfLoader, maxRetries, retryBackoffMs)),
     ];
 
     const portraitTasks = PRELOAD_PORTRAIT_URLS.map((url) =>

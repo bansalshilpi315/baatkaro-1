@@ -415,10 +415,11 @@ test('Kick 3-hit combo executes Front Snap Kick -> Side/Roundhouse Kick -> Jumpi
   assert.equal(state3.fighters[1].action, 'knockdown', '3rd kick finisher should launch opponent into knockdown');
 });
 
-test('All 9 fighters have custom named Signature Moves (never SPECIAL), 3.5s cooldown, and 11%-13% HP damage tier', () => {
+test('All 10 fighters have custom named Signature Moves (never SPECIAL), 3.5s cooldown, and 11%-13% HP damage tier', () => {
   const expectedLabels: Record<string, string> = {
     sheru: 'PAISA FLEX',
     billa: 'SWATTER THROW',
+    utkarsh: 'SWIFT COMBO',
     neta: 'DHARNA SHIELD',
     anda: 'ANDA SQUASH',
     mausi: 'BELAN THROW',
@@ -428,7 +429,7 @@ test('All 9 fighters have custom named Signature Moves (never SPECIAL), 3.5s coo
     krish: 'DESK SLAM',
   };
 
-  assert.equal(FIGHTER_LIST.length, 9);
+  assert.equal(FIGHTER_LIST.length, 10);
   for (const cfg of FIGHTER_LIST) {
     const id = cfg.id;
     assert.equal(cfg.special.shortLabel, expectedLabels[id], `${id} shortLabel mismatch`);

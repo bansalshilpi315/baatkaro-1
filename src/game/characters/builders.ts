@@ -16,7 +16,9 @@ import {
   attachFatherGlbHead,
   attachKrishGlbHead,
   attachSamyakGlbHead,
+  attachUtkarshGlbHead,
   KRISH_GLB_HEAD_CONFIG,
+  UTKARSH_GLB_HEAD_CONFIG,
 } from './fatherGlbHead';
 import { createBaseRigSkeleton, type FighterRig } from './rig';
 import {
@@ -30,6 +32,9 @@ import {
   getKrishRibbedTrimTextures,
   getKrishSweatshirtTextures,
   getKrishWristbandTextures,
+  getUtkarshPlaidShirtTextures,
+  getUtkarshPocketBiasPlaidTextures,
+  getUtkarshTrackpantsTextures,
 } from './adiKrishMaterials';
 
 /**
@@ -5036,21 +5041,10 @@ function buildKrish(rig: FighterRig): void {
   );
 
   // === 4. HEAVY OLIVE-GREEN FLEECE CREW-NECK SWEATSHIRT (SCULPTED FULLER LATHE SILHOUETTE) ===
-  const neck = new THREE.Mesh(
-    createSculptedLatheGeometry(
-      [
-        [0.114, 0.0],
-        [0.098, 0.075],
-        [0.09, 0.165],
-      ],
-      16,
-    ),
-    skinMat,
-  );
-  neck.position.set(0, 0.614, 0);
-  rig.torso.add(neck);
+  // NO procedural neck mesh: /models/krish_head.glb includes Krish's sculpted 3D neck,
+  // which seats cleanly inside krish_ribbed_collar via KRISH_NECK_PIVOT_Y.
 
-  // Thick textured 3D ribbed olive crew-neck collar ring hugging neck base cleanly
+  // Thick textured 3D ribbed olive crew-neck collar ring hugging GLB neck base cleanly
   const crewCollar = new THREE.Mesh(new THREE.TorusGeometry(0.116, 0.029, 12, 26), ribTrimMat);
   crewCollar.name = 'krish_ribbed_collar';
   crewCollar.rotation.x = Math.PI / 2;
@@ -5377,6 +5371,565 @@ function buildKrish(rig: FighterRig): void {
   });
 }
 
+function buildUtkarshFallbackHead(
+  rig: FighterRig,
+  skinMat: THREE.MeshStandardMaterial,
+): THREE.Group {
+  const fallbackHeadGroup = new THREE.Group();
+  fallbackHeadGroup.name = 'utkarsh_fallback_head';
+
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x171516,
+    roughness: 0.78,
+    metalness: 0.02,
+    envMapIntensity: 0.16,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(hairMat);
+
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: rig.face.texture,
+    color: 0xffffff,
+    roughness: 0.68,
+    metalness: 0.0,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveMap: rig.face.texture,
+    emissiveIntensity: 0.06,
+  });
+  faceMat.userData.baseEmissiveIntensity = 0.06;
+  rig.flashMaterials.push(faceMat);
+
+  // Youthful lean oval head sphere facing +Z (used ONLY while /models/utkarsh_head.glb loads or fails)
+  const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.154, 22, 18), faceMat);
+  cranium.scale.set(0.95, 1.06, 0.96);
+  cranium.rotation.y = -Math.PI / 2;
+  cranium.position.set(0, 0.04, 0);
+  cranium.castShadow = true;
+  fallbackHeadGroup.add(cranium);
+
+  // Short neatly tapered dark hair cap
+  const hairTop = new THREE.Mesh(
+    new THREE.SphereGeometry(0.159, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.42),
+    hairMat,
+  );
+  hairTop.scale.set(0.98, 1.0, 1.0);
+  hairTop.position.set(0, 0.056, -0.018);
+  hairTop.rotation.x = -0.32;
+  hairTop.castShadow = true;
+  fallbackHeadGroup.add(hairTop);
+
+  [-1, 1].forEach((side) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), skinMat);
+    ear.scale.set(0.55, 1.12, 0.78);
+    ear.position.set(side * 0.148, 0.032, -0.008);
+    fallbackHeadGroup.add(ear);
+  });
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.036, 8), skinMat);
+  nose.rotation.x = Math.PI * 0.42;
+  nose.position.set(0, 0.02, 0.148);
+  fallbackHeadGroup.add(nose);
+
+  rig.head.add(fallbackHeadGroup);
+  return fallbackHeadGroup;
+}
+
+// Re-export easy one-line tweak constants right above Utkarsh's builder for rapid alignment tuning
+export { UTKARSH_GLB_HEAD_CONFIG };
+
+function buildUtkarsh(rig: FighterRig): void {
+  // === 1. SLIM, LEAN, AGILE TEENAGE STRIKER PROPORTIONS (MATCHING UTKARSH REFERENCE PHOTO) ===
+  rig.pelvis.position.set(0, 0.98, 0);
+  rig.torso.position.set(0, 0.08, 0);
+  rig.head.position.set(0, 0.865, 0);
+  rig.head.scale.setScalar(1.38);
+
+  // Noticeably narrower shoulders & leaner frame than Adi (0.325) and Krish (0.382)
+  const shoulderX = 0.256;
+  const shoulderY = 0.532;
+  rig.leftShoulder.position.set(-shoulderX, shoulderY, 0);
+  rig.rightShoulder.position.set(shoulderX, shoulderY, 0);
+  rig.leftElbow.position.set(0, -0.31, 0);
+  rig.rightElbow.position.set(0, -0.31, 0);
+
+  rig.leftHip.position.set(-0.116, -0.02, 0);
+  rig.rightHip.position.set(0.116, -0.02, 0);
+  rig.leftKnee.position.set(0, -0.45, 0);
+  rig.rightKnee.position.set(0, -0.45, 0);
+  rig.contactShadow.scale.set(0.96, 0.96, 1);
+
+  // === 2. HIGH-CRAFT ANTI-PLASTIC PBR MATERIALS (512x512 DIFFUSE + BUMP MAPS) ===
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xc5906a,
+    roughness: 0.64,
+    metalness: 0.0,
+    envMapIntensity: 0.22,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(skinMat);
+
+  const plaidShirtMat = createClothPbrMaterial(
+    getUtkarshPlaidShirtTextures(),
+    { fallbackColor: 0x1b1d20, roughness: 0.88, bumpScale: 0.02, envMapIntensity: 0.16 },
+    rig.flashMaterials,
+  );
+  const biasPocketMat = createClothPbrMaterial(
+    getUtkarshPocketBiasPlaidTextures(),
+    {
+      fallbackColor: 0x202226,
+      roughness: 0.88,
+      bumpScale: 0.022,
+      envMapIntensity: 0.16,
+      polygonOffset: true,
+    },
+    rig.flashMaterials,
+  );
+  const trackpantsMat = createClothPbrMaterial(
+    getUtkarshTrackpantsTextures(),
+    { fallbackColor: 0x6c7077, roughness: 0.9, bumpScale: 0.022, envMapIntensity: 0.15 },
+    rig.flashMaterials,
+  );
+
+  // Folded dark charcoal-black inner shirt cuff fabric
+  const rolledCuffMat = new THREE.MeshStandardMaterial({
+    color: 0x141619,
+    roughness: 0.9,
+    metalness: 0.0,
+    envMapIntensity: 0.14,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(rolledCuffMat);
+
+  // Subtle heather-grey undershirt triangle peek inside open V-neck
+  const undershirtMat = new THREE.MeshStandardMaterial({
+    color: 0x878b91,
+    roughness: 0.91,
+    metalness: 0.0,
+    envMapIntensity: 0.14,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(undershirtMat);
+
+  const buttonMat = makeMat(0x282c32, 0.48, 0.12);
+  const collarPipingMat = makeMat(0xb85832, 0.85, 0.0);
+  const drawstringMat = makeMat(0xe5e7eb, 0.88, 0.0);
+  const drawstringAgletMat = makeMat(0x374151, 0.45, 0.15);
+
+  // Sacred red-and-yellow wrist thread (kalava) materials
+  const kalavaRedMat = new THREE.MeshStandardMaterial({
+    color: 0xdc2626,
+    roughness: 0.82,
+    metalness: 0.0,
+    envMapIntensity: 0.15,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  const kalavaYellowMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    roughness: 0.82,
+    metalness: 0.0,
+    envMapIntensity: 0.15,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(kalavaRedMat, kalavaYellowMat);
+
+  // Dark navy-black casual sneakers with contrasting crisp light-grey/white rubber outsoles
+  const sneakerUpperMat = new THREE.MeshStandardMaterial({
+    color: 0x1a2233,
+    roughness: 0.8,
+    metalness: 0.0,
+    envMapIntensity: 0.18,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  const sneakerMidsoleMat = new THREE.MeshStandardMaterial({
+    color: 0xdbe0e6,
+    roughness: 0.72,
+    metalness: 0.0,
+    envMapIntensity: 0.2,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+  });
+  rig.flashMaterials.push(sneakerUpperMat, sneakerMidsoleMat);
+  const sneakerOutsoleMat = makeMat(0xbfc6cf, 0.82, 0.0);
+  const sneakerLaceMat = makeMat(0x263148, 0.82, 0.0);
+  const sneakerAccentMat = makeMat(0x111827, 0.76, 0.0);
+
+  // === 3. CUSTOM 3D GLB HEAD (/models/utkarsh_head.glb) WITH EXACT BOX3 MATH & ZERO PROCEDURAL NECK ===
+  // CRITICAL: Do NOT add ANY procedural cylinder/cone/lathe neck mesh to rig.torso or rig.head!
+  // /models/utkarsh_head.glb already includes Utkarsh's sculpted 3D neck.
+  const fallbackHeadGroup = buildUtkarshFallbackHead(rig, skinMat);
+  attachUtkarshGlbHead(
+    rig.head,
+    fallbackHeadGroup,
+    rig.flashMaterials,
+    () => rig.isDisposed,
+  );
+
+  // === 4. CHARCOAL-BLACK PLAID BUTTON-DOWN SHIRT (SLIM LATHE TORSO + OPEN V-NECK + 45° BIAS POCKET) ===
+  const utkarshTorsoGeo = createSculptedLatheGeometry(
+    [
+      [0.001, 0.01],
+      [0.198, 0.022], // Untucked hem softly hugging waist
+      [0.208, 0.075], // Gentle shirt tuck/gather over grey waistband
+      [0.204, 0.205], // Slim lean midsection
+      [0.218, 0.365], // Lean athletic chest
+      [0.222, 0.495], // Slim upper chest & clavicle
+      [0.168, 0.568], // Lean trapezius slope
+      [0.095, 0.595], // Clean open collar seat for GLB neck
+      [0.001, 0.595],
+    ],
+    26,
+  );
+  const plaidTorso = new THREE.Mesh(utkarshTorsoGeo, plaidShirtMat);
+  plaidTorso.name = 'utkarsh_plaid_torso';
+  plaidTorso.scale.set(1.06, 1.0, 0.78);
+  plaidTorso.rotation.y = Math.PI;
+  plaidTorso.castShadow = true;
+  rig.torso.add(plaidTorso);
+
+  // Open V-neck chest skin cutout triangle (flat chest panel, NOT a neck cylinder) + subtle grey undershirt peek
+  const vNeckSkinShape = new THREE.Shape();
+  vNeckSkinShape.moveTo(-0.072, 0.088);
+  vNeckSkinShape.lineTo(0.072, 0.088);
+  vNeckSkinShape.lineTo(0.0, -0.078);
+  vNeckSkinShape.closePath();
+  const vNeckSkinMesh = new THREE.Mesh(new THREE.ShapeGeometry(vNeckSkinShape), skinMat);
+  vNeckSkinMesh.name = 'utkarsh_vneck_chest_open';
+  vNeckSkinMesh.position.set(0, 0.518, 0.167);
+  vNeckSkinMesh.rotation.x = -0.26;
+  rig.torso.add(vNeckSkinMesh);
+
+  // Subtle heather-grey undershirt triangle peeking at the lower base of the open V-neck
+  const undershirtShape = new THREE.Shape();
+  undershirtShape.moveTo(-0.032, 0.028);
+  undershirtShape.lineTo(0.032, 0.028);
+  undershirtShape.lineTo(0.0, -0.032);
+  undershirtShape.closePath();
+  const undershirtPeek = new THREE.Mesh(new THREE.ShapeGeometry(undershirtShape), undershirtMat);
+  undershirtPeek.name = 'utkarsh_undershirt_peek';
+  undershirtPeek.position.set(0, 0.478, 0.174);
+  undershirtPeek.rotation.x = -0.18;
+  rig.torso.add(undershirtPeek);
+
+  // Sculpted 3D open spread button-down collar framing the GLB neck cleanly
+  const openCollarGroup = new THREE.Group();
+  openCollarGroup.name = 'utkarsh_open_collar';
+
+  // Back collar band curving smoothly behind the neck opening
+  const backCollarBand = new THREE.Mesh(
+    new THREE.TorusGeometry(0.1, 0.017, 10, 20, Math.PI * 1.15),
+    plaidShirtMat,
+  );
+  backCollarBand.rotation.x = Math.PI / 2;
+  backCollarBand.rotation.z = -Math.PI * 0.075;
+  backCollarBand.position.set(0, 0.598, -0.008);
+  backCollarBand.castShadow = true;
+  openCollarGroup.add(backCollarBand);
+
+  // Left & right folded spread collar leaves + subtle open V-neck lapel strips
+  ([-1, 1] as const).forEach((side) => {
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.074, 0.048, 0.016), plaidShirtMat);
+    leaf.position.set(side * 0.088, 0.576, 0.114);
+    leaf.rotation.y = side * -0.52;
+    leaf.rotation.z = side * -0.28;
+    leaf.rotation.x = -0.18;
+    leaf.castShadow = true;
+    openCollarGroup.add(leaf);
+
+    // Subtle warm terracotta/orange inner collar stitch accent visible in reference photo
+    const stitchTick = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.016, 0.008), collarPipingMat);
+    stitchTick.position.set(side * 0.068, 0.562, 0.136);
+    stitchTick.rotation.z = side * -0.35;
+    openCollarGroup.add(stitchTick);
+
+    // Open V-neck diagonal placket edge borders framing the unbuttoned top
+    const vEdge = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.145, 0.014), plaidShirtMat);
+    vEdge.position.set(side * 0.04, 0.512, 0.168);
+    vEdge.rotation.z = side * -0.34;
+    vEdge.rotation.x = -0.22;
+    vEdge.castShadow = true;
+    openCollarGroup.add(vEdge);
+  });
+  rig.torso.add(openCollarGroup);
+
+  // Vertical center-front button placket below open V-neck with 4 dark 3D horn buttons
+  const placketGroup = new THREE.Group();
+  placketGroup.name = 'utkarsh_button_placket';
+  const placketStrip = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.42, 0.014), plaidShirtMat);
+  placketStrip.position.set(0, 0.24, 0.172);
+  placketStrip.castShadow = true;
+  placketGroup.add(placketStrip);
+
+  [0.425, 0.315, 0.205, 0.095].forEach((by, idx) => {
+    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.007, 10), buttonMat);
+    btn.name = `utkarsh_shirt_button_${idx}`;
+    btn.rotation.x = Math.PI / 2;
+    btn.position.set(0, by, 0.181);
+    placketGroup.add(btn);
+  });
+  rig.torso.add(placketGroup);
+
+  // 45° Bias-Cut Diagonal Plaid Left Chest Patch Pocket (+X = anatomical left = viewer's right in photo!)
+  const pocketShape = new THREE.Shape();
+  pocketShape.moveTo(-0.056, 0.062);
+  pocketShape.lineTo(0.056, 0.062);
+  pocketShape.lineTo(0.056, -0.038);
+  pocketShape.lineTo(0.0, -0.064);
+  pocketShape.lineTo(-0.056, -0.038);
+  pocketShape.closePath();
+
+  const pocketGeo = new THREE.ExtrudeGeometry(pocketShape, {
+    depth: 0.008,
+    bevelEnabled: true,
+    bevelThickness: 0.0025,
+    bevelSize: 0.002,
+    bevelSegments: 2,
+  });
+  // Normalize UVs onto [0, 1] so the 45° bias plaid texture maps sharply edge-to-edge across the patch pocket
+  const posAttr = pocketGeo.attributes.position;
+  const uvArr = new Float32Array(posAttr.count * 2);
+  for (let i = 0; i < posAttr.count; i++) {
+    uvArr[i * 2] = (posAttr.getX(i) + 0.058) / 0.116;
+    uvArr[i * 2 + 1] = (posAttr.getY(i) + 0.066) / 0.13;
+  }
+  pocketGeo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+
+  const chestPocket = new THREE.Mesh(pocketGeo, biasPocketMat);
+  chestPocket.name = 'utkarsh_chest_pocket';
+  chestPocket.position.set(0.104, 0.376, 0.157);
+  chestPocket.rotation.y = 0.28;
+  chestPocket.rotation.x = -0.04;
+  chestPocket.castShadow = true;
+  rig.torso.add(chestPocket);
+
+  // === 5. 2-BONE ARMS: ROLLED-UP MID-FOREARM PLAID SLEEVES + DARK CUFFS + RIGHT-WRIST KALAVA ===
+  const upperSleeveGeo = createSculptedLatheGeometry(
+    [
+      [0.064, -0.31],
+      [0.068, -0.19],
+      [0.071, -0.08],
+      [0.068, 0.0],
+    ],
+    16,
+  );
+  const forearmSleeveGeo = createSculptedLatheGeometry(
+    [
+      [0.056, -0.145],
+      [0.061, -0.085],
+      [0.064, -0.015],
+      [0.062, 0.02],
+    ],
+    16,
+  );
+  // Dark charcoal-black folded-up 3D rolled cuff at mid-forearm (slightly wider folded fabric silhouette)
+  const rolledCuffGeo = createSculptedLatheGeometry(
+    [
+      [0.068, -0.188],
+      [0.074, -0.158],
+      [0.067, -0.128],
+    ],
+    16,
+  );
+  const lowerForearmSkinGeo = createSculptedLatheGeometry(
+    [
+      [0.038, -0.315],
+      [0.042, -0.255],
+      [0.049, -0.195],
+      [0.051, -0.165],
+    ],
+    14,
+  );
+
+  const armSpecs: Array<{ shoulder: THREE.Group; elbow: THREE.Group; isLeft: boolean }> = [
+    { shoulder: rig.leftShoulder, elbow: rig.leftElbow, isLeft: true },
+    { shoulder: rig.rightShoulder, elbow: rig.rightElbow, isLeft: false },
+  ];
+
+  for (const { shoulder, elbow, isLeft } of armSpecs) {
+    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.071, 14, 10), plaidShirtMat);
+    shoulderCap.scale.set(1.02, 0.94, 0.98);
+    shoulderCap.castShadow = true;
+    shoulder.add(shoulderCap);
+
+    const upperSleeve = new THREE.Mesh(upperSleeveGeo, plaidShirtMat);
+    upperSleeve.name = isLeft ? 'utkarsh_left_upper_sleeve' : 'utkarsh_right_upper_sleeve';
+    upperSleeve.castShadow = true;
+    shoulder.add(upperSleeve);
+
+    const forearmSleeve = new THREE.Mesh(forearmSleeveGeo, plaidShirtMat);
+    forearmSleeve.castShadow = true;
+    elbow.add(forearmSleeve);
+
+    // Rolled-up dark charcoal folded cuff at mid-forearm (matching reference photo!)
+    const cuffGroup = new THREE.Group();
+    cuffGroup.name = isLeft ? 'utkarsh_rolled_cuff_left' : 'utkarsh_rolled_cuff_right';
+    const cuffOuter = new THREE.Mesh(rolledCuffGeo, rolledCuffMat);
+    cuffOuter.castShadow = true;
+    cuffGroup.add(cuffOuter);
+
+    const cuffFoldLip = new THREE.Mesh(
+      new THREE.TorusGeometry(0.068, 0.0095, 8, 16),
+      rolledCuffMat,
+    );
+    cuffFoldLip.rotation.x = Math.PI / 2;
+    cuffFoldLip.position.y = -0.184;
+    cuffGroup.add(cuffFoldLip);
+    elbow.add(cuffGroup);
+
+    // Slim exposed warm-tan lower forearm & wrist
+    const lowerForearm = new THREE.Mesh(lowerForearmSkinGeo, skinMat);
+    lowerForearm.castShadow = true;
+    elbow.add(lowerForearm);
+
+    // Thin red-and-yellow sacred wrist thread (kalava) on Utkarsh's anatomical RIGHT wrist (-X = rig.leftElbow)
+    if (isLeft) {
+      const kalavaGroup = new THREE.Group();
+      kalavaGroup.name = 'utkarsh_kalava_wrist_thread';
+      kalavaGroup.position.y = -0.268;
+
+      const redStrand = new THREE.Mesh(
+        new THREE.TorusGeometry(0.0445, 0.0046, 8, 18),
+        kalavaRedMat,
+      );
+      redStrand.rotation.x = Math.PI / 2 + 0.08;
+      redStrand.position.y = 0.003;
+
+      const yellowStrand = new THREE.Mesh(
+        new THREE.TorusGeometry(0.0445, 0.0042, 8, 18),
+        kalavaYellowMat,
+      );
+      yellowStrand.rotation.x = Math.PI / 2 - 0.08;
+      yellowStrand.position.y = -0.003;
+
+      const kalavaKnot = new THREE.Mesh(new THREE.SphereGeometry(0.0068, 8, 6), kalavaRedMat);
+      kalavaKnot.position.set(-0.044, 0, 0.014);
+
+      kalavaGroup.add(redStrand, yellowStrand, kalavaKnot);
+      elbow.add(kalavaGroup);
+    }
+
+    const fist = buildArticulatedFist(skinMat, isLeft, 0.92);
+    fist.position.set(0, -0.335, 0.012);
+    elbow.add(fist);
+  }
+
+  // === 6. LOWER BODY: HEATHER-GREY DRAWSTRING COTTON TRACKPANTS + DARK NAVY-BLACK CASUAL SNEAKERS ===
+  const trackpantsPelvis = new THREE.Mesh(
+    createSculptedLatheGeometry(
+      [
+        [0.001, -0.11],
+        [0.192, -0.092],
+        [0.204, 0.0],
+        [0.198, 0.085],
+        [0.19, 0.118],
+      ],
+      22,
+    ),
+    trackpantsMat,
+  );
+  trackpantsPelvis.name = 'utkarsh_trackpants_pelvis';
+  trackpantsPelvis.scale.set(1.06, 1.0, 0.8);
+  trackpantsPelvis.rotation.y = Math.PI;
+  trackpantsPelvis.castShadow = true;
+  rig.pelvis.add(trackpantsPelvis);
+
+  // Two crisp white/light-grey hanging drawstring cords tied at front center elastic waist (+Z)
+  const drawstringGroup = new THREE.Group();
+  drawstringGroup.name = 'utkarsh_drawstrings';
+
+  const centerKnot = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 8), drawstringMat);
+  centerKnot.position.set(0, 0.086, 0.162);
+  drawstringGroup.add(centerKnot);
+
+  ([-1, 1] as const).forEach((side) => {
+    const cordCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side * 0.005, 0.084, 0.164),
+      new THREE.Vector3(side * 0.018, 0.044, 0.172),
+      new THREE.Vector3(side * 0.024, -0.012, 0.169),
+      new THREE.Vector3(side * 0.022, -0.056, 0.166),
+    ]);
+    const cordMesh = new THREE.Mesh(
+      new THREE.TubeGeometry(cordCurve, 12, 0.0052, 6, false),
+      drawstringMat,
+    );
+    cordMesh.castShadow = true;
+    drawstringGroup.add(cordMesh);
+
+    const aglet = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0056, 0.0052, 0.018, 6),
+      drawstringAgletMat,
+    );
+    aglet.position.set(side * 0.022, -0.064, 0.166);
+    drawstringGroup.add(aglet);
+  });
+  rig.pelvis.add(drawstringGroup);
+
+  // Slim-tapered relaxed cotton trackpant legs with soft ankle drape stack
+  const trackpantThighGeo = createSculptedLatheGeometry(
+    [
+      [0.08, -0.45],
+      [0.092, -0.29],
+      [0.104, -0.14],
+      [0.108, -0.01],
+      [0.086, 0.04],
+    ],
+    16,
+  );
+  const trackpantCalfGeo = createSculptedLatheGeometry(
+    [
+      [0.064, -0.425],
+      [0.076, -0.375], // Soft trackpant hem drape right above sneakers
+      [0.074, -0.22],
+      [0.08, -0.05],
+      [0.072, 0.02],
+    ],
+    16,
+  );
+
+  [
+    { hip: rig.leftHip, knee: rig.leftKnee, tag: 'left' },
+    { hip: rig.rightHip, knee: rig.rightKnee, tag: 'right' },
+  ].forEach(({ hip, knee, tag }) => {
+    const thigh = new THREE.Mesh(trackpantThighGeo, trackpantsMat);
+    thigh.name = `utkarsh_trackpant_thigh_${tag}`;
+    thigh.rotation.y = Math.PI;
+    thigh.castShadow = true;
+    hip.add(thigh);
+
+    const shin = new THREE.Mesh(trackpantCalfGeo, trackpantsMat);
+    shin.name = `utkarsh_trackpant_shin_${tag}`;
+    shin.rotation.y = Math.PI;
+    shin.castShadow = true;
+    knee.add(shin);
+
+    // Subtle soft trackpant cuff fold lip resting over casual sneakers
+    const hemFold = new THREE.Mesh(new THREE.TorusGeometry(0.067, 0.011, 8, 14), trackpantsMat);
+    hemFold.rotation.x = Math.PI / 2;
+    hemFold.position.y = -0.412;
+    knee.add(hemFold);
+
+    // Dark navy-black casual sneakers with contrasting light-grey/white rubber outsoles
+    const sneaker = buildDetailedSneaker(
+      sneakerUpperMat,
+      sneakerMidsoleMat,
+      sneakerOutsoleMat,
+      sneakerLaceMat,
+      sneakerAccentMat,
+      0.95,
+      `utkarsh_sneaker_${tag}`,
+    );
+    sneaker.position.set(0, -0.51, 0);
+    knee.add(sneaker);
+  });
+}
+
 export function buildFighterRig(id: FighterId): FighterRig {
   const face = createDynamicFace(id);
   const isEggBody = id === 'anda';
@@ -5396,6 +5949,13 @@ export function buildFighterRig(id: FighterId): FighterRig {
       rig.rightFistAnchor.position.set(0, -0.38, 0.03);
       rig.leftFootAnchor.position.set(0, -0.31, 0.12);
       rig.rightFootAnchor.position.set(0, -0.31, 0.12);
+      break;
+    case 'utkarsh':
+      buildUtkarsh(rig);
+      rig.leftFistAnchor.position.set(0, -0.335, 0.02);
+      rig.rightFistAnchor.position.set(0, -0.335, 0.02);
+      rig.leftFootAnchor.position.set(0, -0.445, 0.10);
+      rig.rightFootAnchor.position.set(0, -0.445, 0.10);
       break;
     case 'neta':
       buildGaribSenaNeta(rig);

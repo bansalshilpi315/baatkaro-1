@@ -24,6 +24,9 @@ interface FabricCache {
   krishJoggers?: ProceduralFabricTexturePair;
   krishBackpack?: ProceduralFabricTexturePair;
   krishWristband?: ProceduralFabricTexturePair;
+  utkarshPlaidShirt?: ProceduralFabricTexturePair;
+  utkarshPocketBiasPlaid?: ProceduralFabricTexturePair;
+  utkarshTrackpants?: ProceduralFabricTexturePair;
 }
 
 const fabricCache: FabricCache = {};
@@ -1013,5 +1016,260 @@ export function getKrishWristbandTextures(): ProceduralFabricTexturePair {
     THREE.ClampToEdgeWrapping,
   );
   fabricCache.krishWristband = result;
+  return result;
+}
+
+function paintUtkarshCharcoalPlaid(
+  diffCtx: CanvasRenderingContext2D,
+  bumpCtx: CanvasRenderingContext2D,
+  seed: number,
+): void {
+  const rand = createHash(seed);
+
+  // Deep charcoal-black woven cotton shirt base (#1b1d20) matching Utkarsh reference photo
+  diffCtx.fillStyle = '#1b1d20';
+  diffCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+
+  bumpCtx.fillStyle = '#808080';
+  bumpCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+
+  const cell = 128; // 4 full plaid checks across 512px
+  for (let i = 0; i < TEX_SIZE; i += cell) {
+    // Broad muted charcoal-slate bands
+    diffCtx.fillStyle = 'rgba(42, 46, 52, 0.56)';
+    diffCtx.fillRect(i + 12, 0, 44, TEX_SIZE);
+    diffCtx.fillRect(0, i + 12, TEX_SIZE, 44);
+
+    // Subtle deep slate-grey check double-lines (#3a3f46 / #565d67)
+    diffCtx.fillStyle = 'rgba(84, 92, 102, 0.58)';
+    diffCtx.fillRect(i + 64, 0, 6, TEX_SIZE);
+    diffCtx.fillRect(0, i + 64, TEX_SIZE, 6);
+    diffCtx.fillRect(i + 74, 0, 3, TEX_SIZE);
+    diffCtx.fillRect(0, i + 74, TEX_SIZE, 3);
+
+    // Signature thin muted rust-red / terracotta double plaid grid lines (#6e473b / #8e5a4b)
+    diffCtx.fillStyle = 'rgba(134, 84, 70, 0.78)';
+    diffCtx.fillRect(i + 26, 0, 4, TEX_SIZE);
+    diffCtx.fillRect(0, i + 26, TEX_SIZE, 4);
+    diffCtx.fillRect(i + 35, 0, 3, TEX_SIZE);
+    diffCtx.fillRect(0, i + 35, TEX_SIZE, 3);
+
+    // Secondary subtle warm terracotta hairline crossing inside dark squares
+    diffCtx.fillStyle = 'rgba(110, 71, 59, 0.65)';
+    diffCtx.fillRect(i + 102, 0, 3, TEX_SIZE);
+    diffCtx.fillRect(0, i + 102, TEX_SIZE, 3);
+    diffCtx.fillRect(i + 110, 0, 2, TEX_SIZE);
+    diffCtx.fillRect(0, i + 110, TEX_SIZE, 2);
+
+    // Fine pale grey highlight thread framing rust lines
+    diffCtx.fillStyle = 'rgba(156, 162, 170, 0.28)';
+    diffCtx.fillRect(i + 31, 0, 1.5, TEX_SIZE);
+    diffCtx.fillRect(0, i + 31, TEX_SIZE, 1.5);
+  }
+
+  // Woven cotton shirting warp/weft crosshatch micro-texture on diffuse + bump
+  for (let y = 0; y < TEX_SIZE; y += 4) {
+    diffCtx.fillStyle = y % 8 === 0 ? 'rgba(255,255,255,0.032)' : 'rgba(6,7,9,0.075)';
+    diffCtx.fillRect(0, y, TEX_SIZE, 1.5);
+    bumpCtx.fillStyle = y % 8 === 0 ? '#949494' : '#6c6c6c';
+    bumpCtx.fillRect(0, y, TEX_SIZE, 1.6);
+  }
+  for (let x = 0; x < TEX_SIZE; x += 4) {
+    diffCtx.fillStyle = x % 8 === 0 ? 'rgba(255,255,255,0.028)' : 'rgba(6,7,9,0.068)';
+    diffCtx.fillRect(x, 0, 1.5, TEX_SIZE);
+    bumpCtx.fillStyle = x % 8 === 0 ? 'rgba(166,166,166,0.45)' : 'rgba(92,92,92,0.45)';
+    bumpCtx.fillRect(x, 0, 1.6, TEX_SIZE);
+  }
+
+  // Subtle woven cotton fuzz speckles
+  for (let i = 0; i < 1600; i++) {
+    const x = Math.floor(rand() * TEX_SIZE);
+    const y = Math.floor(rand() * TEX_SIZE);
+    bumpCtx.fillStyle = rand() > 0.5 ? '#909090' : '#707070';
+    bumpCtx.fillRect(x, y, 2, 2);
+  }
+}
+
+/**
+ * 9. UTKARSH — Charcoal-Black Plaid Button-Down Cotton Shirt (512x512 Diffuse + Woven Cotton Bump)
+ * Matches Utkarsh reference image: deep charcoal-black (#1b1d20) with thin muted rust-red (#6e473b)
+ * and slate-grey (#3a3f46) double-line plaid checks, plus subtle natural shirt drape folds.
+ */
+export function getUtkarshPlaidShirtTextures(): ProceduralFabricTexturePair {
+  if (fabricCache.utkarshPlaidShirt) return fabricCache.utkarshPlaidShirt;
+  const pair = createCanvasPair();
+  if (!pair) return { diffuse: null, bump: null };
+
+  const { diffCanvas, diffCtx, bumpCanvas, bumpCtx } = pair;
+  paintUtkarshCharcoalPlaid(diffCtx, bumpCtx, 6101);
+
+  // Subtle organic cotton shirt drape folds across torso
+  drawClothFolds(diffCtx, bumpCtx, [
+    { x1: 164, y1: 310, cx: 256, cy: 332, x2: 348, y2: 306, width: 12, strength: 0.14 },
+    { x1: 172, y1: 405, cx: 256, cy: 422, x2: 340, y2: 402, width: 14, strength: 0.16 },
+    { x1: 148, y1: 120, cx: 184, cy: 175, x2: 204, y2: 235, width: 10, strength: 0.12 },
+    { x1: 364, y1: 120, cx: 328, cy: 175, x2: 308, y2: 235, width: 10, strength: 0.12 },
+  ]);
+
+  const result = finalizeTexturePair(
+    diffCanvas,
+    bumpCanvas,
+    THREE.RepeatWrapping,
+    THREE.RepeatWrapping,
+    1.25,
+    1.25,
+  );
+  fabricCache.utkarshPlaidShirt = result;
+  return result;
+}
+
+/**
+ * 10. UTKARSH — 45° Bias-Cut Diagonal Plaid Left Chest Pocket (512x512 Diffuse + Bump)
+ * Exact diagonal check orientation seen on Utkarsh's left chest pocket in the reference image.
+ */
+export function getUtkarshPocketBiasPlaidTextures(): ProceduralFabricTexturePair {
+  if (fabricCache.utkarshPocketBiasPlaid) return fabricCache.utkarshPocketBiasPlaid;
+  const pair = createCanvasPair();
+  if (!pair) return { diffuse: null, bump: null };
+
+  const { diffCanvas, diffCtx, bumpCanvas, bumpCtx } = pair;
+
+  // Draw base plaid onto an offscreen canvas, then tile rotated 45° for crisp bias-cut checks
+  const basePair = createCanvasPair();
+  if (!basePair) return { diffuse: null, bump: null };
+  paintUtkarshCharcoalPlaid(basePair.diffCtx, basePair.bumpCtx, 6133);
+
+  diffCtx.fillStyle = '#1b1d20';
+  diffCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+  bumpCtx.fillStyle = '#808080';
+  bumpCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+
+  const drawRotated = (
+    dst: CanvasRenderingContext2D,
+    src: HTMLCanvasElement,
+  ) => {
+    dst.save();
+    dst.translate(TEX_SIZE * 0.5, TEX_SIZE * 0.5);
+    dst.rotate(Math.PI / 4);
+    for (let gx = -1; gx <= 1; gx++) {
+      for (let gy = -1; gy <= 1; gy++) {
+        dst.drawImage(src, gx * TEX_SIZE - TEX_SIZE * 0.5, gy * TEX_SIZE - TEX_SIZE * 0.5);
+      }
+    }
+    dst.restore();
+  };
+
+  drawRotated(diffCtx, basePair.diffCanvas);
+  drawRotated(bumpCtx, basePair.bumpCanvas);
+
+  // Crisp stitched pocket top hem & side borders
+  diffCtx.strokeStyle = 'rgba(14, 15, 18, 0.72)';
+  diffCtx.lineWidth = 8;
+  diffCtx.strokeRect(10, 10, TEX_SIZE - 20, TEX_SIZE - 20);
+  diffCtx.strokeStyle = 'rgba(134, 84, 70, 0.5)';
+  diffCtx.lineWidth = 3;
+  diffCtx.setLineDash([8, 6]);
+  diffCtx.beginPath();
+  diffCtx.moveTo(16, 48);
+  diffCtx.lineTo(TEX_SIZE - 16, 48);
+  diffCtx.stroke();
+  diffCtx.setLineDash([]);
+
+  const result = finalizeTexturePair(
+    diffCanvas,
+    bumpCanvas,
+    THREE.ClampToEdgeWrapping,
+    THREE.ClampToEdgeWrapping,
+    1,
+    1,
+  );
+  fabricCache.utkarshPocketBiasPlaid = result;
+  return result;
+}
+
+/**
+ * 11. UTKARSH — Heather-Grey Cotton Drawstring Trackpants (512x512 Diffuse + Drape Bump)
+ * Matches Utkarsh reference image: mid heather-grey (#6c7077) soft jersey cotton with
+ * elastic gathered waistband puckering, vertical relaxed drape folds, and side seams.
+ */
+export function getUtkarshTrackpantsTextures(): ProceduralFabricTexturePair {
+  if (fabricCache.utkarshTrackpants) return fabricCache.utkarshTrackpants;
+  const pair = createCanvasPair();
+  if (!pair) return { diffuse: null, bump: null };
+
+  const { diffCanvas, diffCtx, bumpCanvas, bumpCtx } = pair;
+  const rand = createHash(6217);
+
+  // Clean mid heather-grey soft cotton base (#6c7077) calibrated for bright stage light
+  const grad = diffCtx.createLinearGradient(0, 0, 0, TEX_SIZE);
+  grad.addColorStop(0, '#62666d');
+  grad.addColorStop(0.45, '#6e727a');
+  grad.addColorStop(0.85, '#5d6169');
+  grad.addColorStop(1, '#50545b');
+  diffCtx.fillStyle = grad;
+  diffCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+
+  bumpCtx.fillStyle = '#808080';
+  bumpCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+
+  // Soft cotton jersey heather melange speckles
+  for (let i = 0; i < 6800; i++) {
+    const x = Math.floor(rand() * TEX_SIZE);
+    const y = Math.floor(rand() * TEX_SIZE);
+    const r = rand();
+    const w = 2 + Math.floor(rand() * 4);
+    diffCtx.fillStyle =
+      r > 0.64
+        ? 'rgba(210, 214, 222, 0.14)'
+        : r > 0.3
+          ? 'rgba(42, 45, 52, 0.14)'
+          : 'rgba(154, 158, 166, 0.1)';
+    diffCtx.fillRect(x, y, w, 1.6);
+    bumpCtx.fillStyle = r > 0.5 ? '#929292' : '#6e6e6e';
+    bumpCtx.fillRect(x, y, w, 1.6);
+  }
+
+  // Elastic gathered waistband vertical pleats along top edge
+  for (let x = 0; x < TEX_SIZE; x += 12) {
+    diffCtx.fillStyle = 'rgba(30, 33, 38, 0.25)';
+    diffCtx.fillRect(x, 0, 3.5, 44);
+    bumpCtx.fillStyle = '#4e4e4e';
+    bumpCtx.fillRect(x, 0, 3.5, 44);
+    bumpCtx.fillStyle = '#b4b4b4';
+    bumpCtx.fillRect(x + 4, 0, 3.5, 44);
+  }
+
+  // Crisp side seam stitching
+  diffCtx.strokeStyle = 'rgba(38, 41, 48, 0.45)';
+  diffCtx.lineWidth = 3;
+  [128, 384].forEach((sx) => {
+    diffCtx.beginPath();
+    diffCtx.moveTo(sx, 0);
+    diffCtx.lineTo(sx, TEX_SIZE);
+    diffCtx.stroke();
+
+    bumpCtx.strokeStyle = '#b2b2b2';
+    bumpCtx.lineWidth = 3;
+    bumpCtx.beginPath();
+    bumpCtx.moveTo(sx, 0);
+    bumpCtx.lineTo(sx, TEX_SIZE);
+    bumpCtx.stroke();
+  });
+
+  // Soft vertical relaxed cotton trackpant drape folds & subtle knee stack creases
+  drawClothFolds(diffCtx, bumpCtx, [
+    { x1: 208, y1: 52, cx: 196, cy: 235, x2: 214, y2: 478, width: 14, strength: 0.2 },
+    { x1: 304, y1: 56, cx: 314, cy: 245, x2: 298, y2: 482, width: 14, strength: 0.2 },
+    { x1: 210, y1: 312, cx: 256, cy: 326, x2: 302, y2: 308, width: 9, strength: 0.16 },
+    { x1: 216, y1: 422, cx: 256, cy: 436, x2: 296, y2: 418, width: 10, strength: 0.18 },
+  ]);
+
+  const result = finalizeTexturePair(
+    diffCanvas,
+    bumpCanvas,
+    THREE.RepeatWrapping,
+    THREE.ClampToEdgeWrapping,
+  );
+  fabricCache.utkarshTrackpants = result;
   return result;
 }

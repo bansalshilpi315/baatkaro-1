@@ -120,7 +120,7 @@ test('createPlayerAccount hashes password with SHA-256, checks uniqueness, and m
 
 test('coin unlocking unlocks Adi (150), Laddoo Mausi (350), Principal Man (1500), and higher stages safely', async () => {
   const storage = createMemoryStorage();
-  assert.deepEqual(STARTER_FIGHTERS, ['sheru', 'billa', 'anda', 'krish']);
+  assert.deepEqual(STARTER_FIGHTERS, ['sheru', 'billa', 'utkarsh', 'anda', 'krish']);
   assert.equal(STARTER_FIGHTERS.includes('adi'), false);
   assert.equal(STARTER_FIGHTERS.includes('mausi'), false);
   const created = await createPlayerAccount('coin_hero', 'pass1234', storage, null);
@@ -163,7 +163,7 @@ test('creator account rejects incorrect password and keeps all fighters count co
   const rejected = await loginPlayerAccount(CREATOR_ACCOUNT_ID, 'incorrect_pw', storage, null);
   assert.equal(rejected.ok, false);
   assert.equal(rejected.error, 'Invalid username or password.');
-  assert.equal(ALL_FIGHTER_IDS.length, 9);
+  assert.equal(ALL_FIGHTER_IDS.length, 10);
 });
 
 test('optional cloud adapter syncs account records and checks remote uniqueness', async () => {

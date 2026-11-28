@@ -25,11 +25,11 @@ import {
 } from './combat';
 import type { FighterId } from './types';
 
-test('Adi is registered in the 9-playable roster with 160 HP, NOTEBOOK SMASH, and ADI LAST-BENCH STRIKE', () => {
-  assert.equal(FIGHTER_LIST.length, 9, 'Roster must have 9 playable fighters');
+test('Adi is registered in the 10-playable roster with 160 HP, NOTEBOOK SMASH, and ADI LAST-BENCH STRIKE', () => {
+  assert.equal(FIGHTER_LIST.length, 10, 'Roster must have 10 playable fighters');
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
-    ['sheru', 'billa', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
+    ['sheru', 'billa', 'utkarsh', 'anda', 'krish', 'adi', 'mausi', 'neta', 'samyak', 'father'],
   );
 
   const adi = FIGHTER_CONFIGS.adi;

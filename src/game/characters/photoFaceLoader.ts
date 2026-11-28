@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import type { FighterId } from '../types';
 
-export type PhotoFaceFighterId = 'father' | 'samyak' | 'adi' | 'krish';
+export type PhotoFaceFighterId = 'father' | 'samyak' | 'adi' | 'krish' | 'utkarsh';
 
 export const REAL_FACE_PHOTO_URLS: Record<PhotoFaceFighterId, string> = {
   father: '/textures/faces/principal_man.png',
   samyak: '/textures/faces/samyak.png',
   adi: '/textures/faces/adi.png',
   krish: '/textures/faces/krish.png',
+  utkarsh: '/textures/faces/utkarsh.png',
 };
 
 /** Natural oval head proportions for the D-shaped hemisphere + flat front face plate */
@@ -69,6 +70,13 @@ export const PHOTO_FACE_CROP_SPECS: Record<PhotoFaceFighterId, PhotoFaceCropSpec
     sw: 0.72,
     sh: 0.80,
     skinHex: 0xbc8662,
+  },
+  utkarsh: {
+    sx: 0.14,
+    sy: 0.08,
+    sw: 0.72,
+    sh: 0.80,
+    skinHex: 0xc5906a,
   },
 };
 
@@ -186,13 +194,20 @@ const cache: Record<PhotoFaceFighterId, CachedPhotoEntry> = {
     listeners: new Set(),
     waiters: new Set(),
   },
+  utkarsh: {
+    status: 'idle',
+    rawTexture: null,
+    croppedTexture: null,
+    listeners: new Set(),
+    waiters: new Set(),
+  },
 };
 
 const failedPortraitUrls = new Set<string>();
 let sharedTextureLoader: THREE.TextureLoader | null = null;
 
 export function isPhotoFaceFighter(id: FighterId): id is PhotoFaceFighterId {
-  return id === 'father' || id === 'samyak' || id === 'adi' || id === 'krish';
+  return id === 'father' || id === 'samyak' || id === 'adi' || id === 'krish' || id === 'utkarsh';
 }
 
 export function getRealFacePhotoUrl(id: FighterId): string | null {
@@ -342,6 +357,7 @@ export function preloadRealFaceTextures(
     loadSinglePhotoFace('samyak', loaderFactory),
     loadSinglePhotoFace('adi', loaderFactory),
     loadSinglePhotoFace('krish', loaderFactory),
+    loadSinglePhotoFace('utkarsh', loaderFactory),
   ]).then(() => undefined);
 }
 

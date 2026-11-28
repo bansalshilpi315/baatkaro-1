@@ -75,6 +75,44 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
       'MEOW-MEOW KARKE SABKO UDA DIYA!',
     ],
   },
+  utkarsh: {
+    id: 'utkarsh',
+    name: 'Utkarsh',
+    tagline: 'Agile Striker · Charcoal Plaid Shirt & Grey Trackpants',
+    titleBadge: 'SWIFT STRIKER',
+    maxHp: 125,
+    walkSpeed: 5.25,
+    jumpVelocity: 11.3,
+    punchDamage: 9,
+    kickDamage: 12,
+    grabDamage: 15,
+    accentHex: '#EF4444',
+    secondaryHex: '#6C7077',
+    skinHex: '#C5906A',
+    special: {
+      id: 'swift_combo',
+      name: 'Utkarsh Swift Combo',
+      shortLabel: 'SWIFT COMBO',
+      iconKey: 'swift',
+      description:
+        'Dashes forward in a lightning-fast footwork burst and snaps a crisp agile striker combo.',
+      cooldown: 3.5,
+      damage: 14,
+      range: 2.4,
+      knockbackX: 6.1,
+      knockbackY: 2.9,
+      windup: 0.12,
+      active: 0.16,
+      recovery: 0.22,
+      stunDuration: 0.42,
+      accentColor: '#EF4444',
+    },
+    superName: 'UTKARSH QUICK-STEP RUSH',
+    victoryQuotes: [
+      'TOO FAST TO CATCH — QUICK-STEP KNOCKOUT!',
+      'CHARCOAL PLAID SWAG, LIGHTNING FOOTWORK!',
+    ],
+  },
   neta: {
     id: 'neta',
     name: 'Garib Sena Neta',
@@ -347,6 +385,7 @@ export const FIGHTER_CONFIGS: Record<FighterId, FighterConfig> = {
 export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.sheru,
   FIGHTER_CONFIGS.billa,
+  FIGHTER_CONFIGS.utkarsh,
   FIGHTER_CONFIGS.anda,
   FIGHTER_CONFIGS.krish,
   FIGHTER_CONFIGS.adi,
@@ -356,51 +395,23 @@ export const FIGHTER_LIST: FighterConfig[] = [
   FIGHTER_CONFIGS.father,
 ];
 
-export interface ComingFutureRosterSlot {
-  kind: 'coming_future';
-  id: 'utkarsh';
-  name: string;
-  shortName: string;
-  maxHp: number;
-  badgeText: string;
-  toastMessage: string;
-}
-
 export interface PlayableRosterSlot {
   kind: 'playable';
   fighter: FighterConfig;
 }
 
-export type RosterSlot = PlayableRosterSlot | ComingFutureRosterSlot;
-
-export const UTKARSH_TEASER_SLOT: ComingFutureRosterSlot = {
-  kind: 'coming_future',
-  id: 'utkarsh',
-  name: 'Utkarsh',
-  shortName: 'UTKARSH',
-  maxHp: 125,
-  badgeText: 'COMING IN FUTURE',
-  toastMessage: 'Utkarsh joins the Dangal in the next update!',
-};
+export type RosterSlot = PlayableRosterSlot;
 
 /**
- * Exact 10-slot Character Select sequence:
- * 1. Sheru Bhai (155 HP) | 2. Blue Billa (150 HP) | 3. Utkarsh (125 HP · COMING IN FUTURE)
+ * Exact 10-slot Character Select sequence (All 10 Playable):
+ * 1. Sheru Bhai (155 HP) | 2. Blue Billa (150 HP) | 3. Utkarsh (125 HP)
  * 4. Anda Bhai (145 HP) | 5. Krish (140 HP) | 6. Adi (160 HP)
  * 7. Laddoo Mausi (165 HP) | 8. Garib Sena Neta (175 HP) | 9. Samyak (185 HP) | 10. Principal Man (200 HP)
  */
-export const ROSTER_SLOTS: RosterSlot[] = [
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.sheru },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.billa },
-  UTKARSH_TEASER_SLOT,
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.anda },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.krish },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.adi },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.mausi },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.neta },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.samyak },
-  { kind: 'playable', fighter: FIGHTER_CONFIGS.father },
-];
+export const ROSTER_SLOTS: RosterSlot[] = FIGHTER_LIST.map((fighter) => ({
+  kind: 'playable',
+  fighter,
+}));
 
 export const STAGE_CONFIGS: Record<StageId, StageConfig> = {
   mohalla: {

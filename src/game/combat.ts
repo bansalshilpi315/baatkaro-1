@@ -96,6 +96,7 @@ export const NON_SHERU_SUPER_DURATION = 1.6;
 const COMBO_FINISHER_CALLOUTS: Record<FighterId, string> = {
   sheru: 'PAISA UPPERCUT!',
   billa: 'SWATTER SLAPPER!',
+  utkarsh: 'SWIFT STEP UPPERCUT!',
   neta: 'JHOLA SLAM!',
   anda: 'ANDA CRACKER!',
   mausi: 'BELAN SMASH!',
@@ -108,6 +109,7 @@ const COMBO_FINISHER_CALLOUTS: Record<FighterId, string> = {
 const GRAB_THROW_CALLOUTS: Record<FighterId, string> = {
   sheru: 'SYSTUMM PATKI!',
   billa: 'CATAPULT TOSS!',
+  utkarsh: 'QUICK-STEP TOSS!',
   neta: 'DHARNA DHAKKA!',
   anda: 'EGG FLIP SLAM!',
   mausi: 'AUNTY PATKI!',
@@ -685,6 +687,19 @@ function startAction(
         word: 'DESK SLAM!',
         moveCallout: 'DESK SLAM!',
         color: '#84CC16',
+      });
+    } else if (cfg.special.id === 'swift_combo') {
+      // Agile rapid-step dash burst for Utkarsh's signature SWIFT COMBO!
+      fighter.vx = fighter.facing * 6.8;
+      events.push({
+        type: 'special',
+        attackerSlot: fighter.slot,
+        x: fighter.x + fighter.facing * 0.55,
+        y: fighter.y + 1.32,
+        damage: 0,
+        word: 'SWIFT COMBO!',
+        moveCallout: 'SWIFT COMBO!',
+        color: '#EF4444',
       });
     } else {
       events.push({
@@ -2593,6 +2608,11 @@ const WINNER_SATIRE_HEADLINES: Record<FighterId, string[]> = {
     'HEAVYWEIGHT SWAG FROM THE LAST ROW — KRISH TAKES THE CROWN!',
     'DESK SLAM LANDSLIDE: KRISH FLATTENS OPPOSITION IN STYLE!',
   ],
+  utkarsh: [
+    'UTKARSH OUTRUNS THE ROSTER WITH LIGHTNING QUICK-STEP RUSH!',
+    'AGILE STRIKER MASTERCLASS — UTKARSH TAKES THE DANGAL CROWN!',
+    'BLINK AND YOU MISSED IT: UTKARSH CLOSES THE MATCH WITH SWIFT COMBO!',
+  ],
 };
 
 const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
@@ -2603,6 +2623,10 @@ const LOSER_CAMP_QUOTES: Record<FighterId, string[]> = {
   billa: [
     '"The cockroaches tampered with my flyswatter grip!" — Blue Billa Spokesperson',
     '"Wait till I finish my fish curry, then we rematch!" — Blue Billa Camp',
+  ],
+  utkarsh: [
+    '"Just warming up my footwork — wait for the Quick-Step rematch!" — Team Utkarsh',
+    '"Give me two seconds to roll my plaid sleeves higher, rematch now!" — Utkarsh Corner',
   ],
   neta: [
     '"We demand an immediate recount and a fresh cup of cutting chai!" — Garib Sena Office',

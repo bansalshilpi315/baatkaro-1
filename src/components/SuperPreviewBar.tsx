@@ -18,6 +18,7 @@ interface SuperPreviewBarProps {
 const CHIP_SHORT_NAMES: Record<FighterId, string> = {
   sheru: 'SHERU',
   billa: 'BILLA',
+  utkarsh: 'UTKARSH',
   neta: 'NETA',
   anda: 'ANDA',
   mausi: 'MAUSI',
@@ -143,9 +144,9 @@ export function SuperPreviewBar({
         }`}
       >
         <div className="flex flex-col gap-1.5 border-2 border-[#facc15]/85 bg-[#120d0a]/92 px-2.5 py-2 shadow-[0_8px_28px_rgba(0,0,0,0.8)] backdrop-blur-sm">
-          {/* Row 1: All 9 Fighter Quick-Select Chips */}
+          {/* Row 1: All 10 Fighter Quick-Select Chips */}
           <div
-            className="grid grid-cols-3 gap-1 sm:grid-cols-9"
+            className="grid grid-cols-5 gap-1 lg:grid-cols-10"
             role="group"
             aria-label="Preview fighter selector"
           >

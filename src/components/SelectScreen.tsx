@@ -5,7 +5,6 @@ import {
   Lock,
   MapPin,
   Settings,
-  Sparkles,
   Swords,
   Tv,
   Users,
@@ -68,6 +67,7 @@ const DIFFICULTIES: Array<{ id: Difficulty; label: string }> = [
 const SHORT_NAMES: Record<FighterId, string> = {
   sheru: 'SHERU',
   billa: 'BILLA',
+  utkarsh: 'UTKARSH',
   anda: 'ANDA',
   krish: 'KRISH',
   adi: 'ADI',
@@ -76,23 +76,6 @@ const SHORT_NAMES: Record<FighterId, string> = {
   samyak: 'SAMYAK',
   father: 'PRINCIPAL MAN',
 };
-
-function MysterySilhouetteAvatar() {
-  return (
-    <div
-      aria-hidden="true"
-      className="select-fighter-avatar relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-[#f59e0b]/70 bg-gradient-to-b from-[#2b1e0c] via-[#17110b] to-[#0b0806] sm:h-11 sm:w-11"
-    >
-      <svg viewBox="0 0 44 44" className="h-9 w-9 text-[#f59e0b]/55">
-        <circle cx="22" cy="15" r="7.5" fill="currentColor" />
-        <path d="M9 39c1.5-8.5 6.5-12.5 13-12.5S33.5 30.5 35 39H9Z" fill="currentColor" />
-      </svg>
-      <span className="absolute font-display text-lg font-extrabold text-[#fde047] drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
-        ?
-      </span>
-    </div>
-  );
-}
 
 export function SelectScreen({
   p1Id,
@@ -142,30 +125,9 @@ export function SelectScreen({
   const activeStageCost = STAGE_UNLOCK_COSTS[activeStageNum] ?? 75;
 
   const [unlockModalFighterId, setUnlockModalFighterId] = useState<FighterId | null>(null);
-  const [arcadeToast, setArcadeToast] = useState<string | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
 
   const p1CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
   const p2CardRefs = useRef<Partial<Record<FighterId, HTMLButtonElement | null>>>({});
-
-  const showToast = (msg: string) => {
-    setArcadeToast(msg);
-    if (toastTimerRef.current !== null) {
-      window.clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = window.setTimeout(() => {
-      setArcadeToast(null);
-      toastTimerRef.current = null;
-    }, 2600);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     p1CardRefs.current[p1Id]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -277,21 +239,6 @@ export function SelectScreen({
         </div>
       </header>
 
-      {/* Arcade Toast Banner (e.g. Utkarsh Teaser Slot Notice) */}
-      {arcadeToast && (
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="select-arcade-toast"
-          className="pointer-events-none fixed top-16 left-1/2 z-40 -translate-x-1/2 border-2 border-[#facc15] bg-[#140d09]/95 px-4 py-2 font-display text-sm font-extrabold uppercase tracking-wider text-[#fde047] shadow-[4px_4px_0_#dc2626] sm:text-base"
-        >
-          <span className="inline-flex items-center gap-2 whitespace-nowrap">
-            <Sparkles className="h-4 w-4 text-[#facc15]" aria-hidden="true" />
-            <span>{arcadeToast}</span>
-          </span>
-        </div>
-      )}
-
       {/* MIDDLE OPEN-CENTER ARENA SHOWCASE — Scrollable Left 1P Strip | Live 3D Face-Off | Scrollable Right CPU/2P Strip */}
       <div className="select-middle mx-auto flex min-h-0 w-full max-w-6xl flex-1 items-stretch justify-between gap-2 py-2">
         {/* LEFT: 1P Portrait Strip (Exact 10-Slot Sequence, Vertically Scrollable) */}
@@ -314,34 +261,6 @@ export function SelectScreen({
             className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1 pr-1"
           >
             {ROSTER_SLOTS.map((slot) => {
-              if (slot.kind === 'coming_future') {
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    data-testid="p1-utkarsh-teaser-card"
-                    onClick={() => showToast(slot.toastMessage)}
-                    aria-label={`${slot.name} (${slot.maxHp} HP) — ${slot.badgeText}`}
-                    className="select-fighter-btn flex min-h-[54px] shrink-0 cursor-pointer items-center gap-2 border-2 border-dashed border-[#f59e0b]/75 bg-gradient-to-r from-[#24190c]/95 to-[#16100b]/95 px-2 py-1 text-left transition hover:border-[#fde047]"
-                  >
-                    <MysterySilhouetteAvatar />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-[#fde047] sm:text-base">
-                          {slot.shortName}
-                        </span>
-                        <span className="shrink-0 font-mono-num text-[9px] font-bold text-[#fcd34d]/85">
-                          {slot.maxHp}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 inline-block whitespace-nowrap bg-[#f59e0b]/25 px-1 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-[#fde047] sm:text-[10px]">
-                        {slot.badgeText}
-                      </div>
-                    </div>
-                  </button>
-                );
-              }
-
               const f = slot.fighter;
               const selected = f.id === p1Id;
               const locked = !isOnline && !playerProfile.unlockedFighters.includes(f.id);
@@ -493,34 +412,6 @@ export function SelectScreen({
             className="select-strip-list select-roster-scroll flex min-h-0 flex-1 flex-col gap-1 pr-1"
           >
             {ROSTER_SLOTS.map((slot) => {
-              if (slot.kind === 'coming_future') {
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    data-testid="p2-utkarsh-teaser-card"
-                    onClick={() => showToast(slot.toastMessage)}
-                    aria-label={`${slot.name} (${slot.maxHp} HP) — ${slot.badgeText}`}
-                    className="select-fighter-btn flex min-h-[54px] shrink-0 cursor-pointer flex-row-reverse items-center gap-2 border-2 border-dashed border-[#f59e0b]/75 bg-gradient-to-l from-[#24190c]/95 to-[#16100b]/95 px-2 py-1 text-right transition hover:border-[#fde047]"
-                  >
-                    <MysterySilhouetteAvatar />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="shrink-0 font-mono-num text-[9px] font-bold text-[#fcd34d]/85">
-                          {slot.maxHp}
-                        </span>
-                        <span className="select-fighter-name truncate font-display text-sm font-extrabold uppercase leading-tight text-[#fde047] sm:text-base">
-                          {slot.shortName}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 inline-block whitespace-nowrap bg-[#f59e0b]/25 px-1 py-0.5 font-display text-[9px] font-extrabold uppercase tracking-wider text-[#fde047] sm:text-[10px]">
-                        {slot.badgeText}
-                      </div>
-                    </div>
-                  </button>
-                );
-              }
-
               const f = slot.fighter;
               const selected = f.id === p2Id;
               return (

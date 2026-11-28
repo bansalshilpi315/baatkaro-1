@@ -256,6 +256,7 @@ test('All 9 fighter Super MP3s (sheru, billa, neta, anda, mausi, father, samyak,
     assert.ok(fetchedUrls.includes('/audio/supers/ias.mp3'));
     assert.ok(fetchedUrls.includes('/audio/supers/adi.mp3'));
     assert.ok(fetchedUrls.includes('/audio/supers/krish.mp3'));
+    assert.ok(fetchedUrls.includes('/audio/supers/utkarsh.mp3'));
     assert.ok(!fetchedUrls.includes('/audio/supers/principal.mp3'), 'Principal Man must reuse father.mp3 without fetching principal.mp3');
     assert.ok(fetchedUrls.includes(DAHI_KO_AUDIO_URL));
 
@@ -335,7 +336,17 @@ test('All 9 fighter Super MP3s (sheru, billa, neta, anda, mausi, father, samyak,
     env.sources[7].onended?.();
     assert.equal(engine.isSuperAudioPlaying(), false);
 
-    assert.equal(fetchedUrls.length, 11, 'Preloaded buffers (bgm + 9 supers + dahi KO) must never trigger duplicate fetches');
+    // Utkarsh Super audio (/audio/supers/utkarsh.mp3) plays from RAM cache and finishes naturally
+    engine.playFighterSuperAudio('utkarsh');
+    assert.equal(engine.isSuperAudioPlaying(), true);
+    assert.equal(env.sources.length, 9);
+    assert.deepEqual(env.sources[8].startedAt, [0]);
+    engine.notifySuperAnimationEnd();
+    assert.equal(env.sources[8].stoppedCount, 0, 'Utkarsh Super MP3 must never be cut off early');
+    env.sources[8].onended?.();
+    assert.equal(engine.isSuperAudioPlaying(), false);
+
+    assert.equal(fetchedUrls.length, 12, 'Preloaded buffers (bgm + 10 supers + dahi KO) must never trigger duplicate fetches');
   } finally {
     env.restore();
     clearSuperAudioCacheForTests();

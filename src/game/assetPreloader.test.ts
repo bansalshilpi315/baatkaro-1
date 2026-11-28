@@ -14,23 +14,26 @@ import {
   withPreloadRetry,
 } from './assetPreloader';
 
-test('startup preloader manifest and retry constants cover all 24 assets with 2 retries', () => {
+test('startup preloader manifest and retry constants cover all 27 assets with 2 retries', () => {
   assert.equal(SPLASH_STAGE1_MIN_MS, 2000);
   assert.equal(PRELOAD_MAX_RETRIES, 2);
   assert.equal(PRELOAD_RETRY_BACKOFF_MS, 300);
-  assert.equal(STARTUP_ASSET_MANIFEST.glbModels.length, 4);
-  assert.equal(STARTUP_ASSET_MANIFEST.portraits.length, 9);
-  assert.equal(STARTUP_ASSET_MANIFEST.audioFiles.length, 11);
-  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 24);
+  assert.equal(STARTUP_ASSET_MANIFEST.glbModels.length, 5);
+  assert.equal(STARTUP_ASSET_MANIFEST.portraits.length, 10);
+  assert.equal(STARTUP_ASSET_MANIFEST.audioFiles.length, 12);
+  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 27);
   assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/bgm.mp3'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/utkarsh.mp3'));
   assert.ok(PRELOAD_GLB_URLS.includes('/models/father_head.glb'));
   assert.ok(PRELOAD_GLB_URLS.includes('/models/samyak_head.glb'));
   assert.ok(PRELOAD_GLB_URLS.includes('/models/adi_head.glb'));
   assert.ok(PRELOAD_GLB_URLS.includes('/models/krish_head.glb'));
-  assert.equal(PRELOAD_PORTRAIT_URLS.length, 9);
+  assert.ok(PRELOAD_GLB_URLS.includes('/models/utkarsh_head.glb'));
+  assert.equal(PRELOAD_PORTRAIT_URLS.length, 10);
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/utkarsh.png'));
   assert.equal(
-    formatPreloadStatusLabel(12, 24),
-    'Loading 3D Models, Portraits & Audio (12 / 24)...',
+    formatPreloadStatusLabel(12, 27),
+    'Loading 3D Models, Portraits & Audio (12 / 27)...',
   );
 });
 

@@ -9,6 +9,7 @@ export const BGM_DUCKED_GAIN = 0.1;
 
 export const SHERU_SUPER_AUDIO_URL = '/audio/supers/sheru.mp3';
 export const BILLA_SUPER_AUDIO_URL = '/audio/supers/billa.mp3';
+export const UTKARSH_SUPER_AUDIO_URL = '/audio/supers/utkarsh.mp3';
 export const NETA_SUPER_AUDIO_URL = '/audio/supers/neta.mp3';
 export const ANDA_SUPER_AUDIO_URL = '/audio/supers/anda.mp3';
 export const MAUSI_SUPER_AUDIO_URL = '/audio/supers/mausi.mp3';
@@ -21,6 +22,7 @@ export const DAHI_KO_AUDIO_URL = '/audio/supers/dahi.mp3';
 export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
   sheru: SHERU_SUPER_AUDIO_URL,
   billa: BILLA_SUPER_AUDIO_URL,
+  utkarsh: UTKARSH_SUPER_AUDIO_URL,
   neta: NETA_SUPER_AUDIO_URL,
   anda: ANDA_SUPER_AUDIO_URL,
   mausi: MAUSI_SUPER_AUDIO_URL,
@@ -202,6 +204,7 @@ export class DesiAudioEngine {
       this.preloadBgmAudio(),
       this.preloadSuperAudio(SHERU_SUPER_AUDIO_URL),
       this.preloadSuperAudio(BILLA_SUPER_AUDIO_URL),
+      this.preloadSuperAudio(UTKARSH_SUPER_AUDIO_URL),
       this.preloadSuperAudio(NETA_SUPER_AUDIO_URL),
       this.preloadSuperAudio(ANDA_SUPER_AUDIO_URL),
       this.preloadSuperAudio(MAUSI_SUPER_AUDIO_URL),
@@ -419,6 +422,10 @@ export class DesiAudioEngine {
 
   public playKrishSuperAudio(): void {
     this.playSuperAudio(KRISH_SUPER_AUDIO_URL);
+  }
+
+  public playUtkarshSuperAudio(): void {
+    this.playSuperAudio(UTKARSH_SUPER_AUDIO_URL);
   }
 
   public playFighterSuperAudio(fighterId: FighterId): void {

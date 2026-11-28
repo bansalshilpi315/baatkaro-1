@@ -21,9 +21,9 @@ import {
 } from './samyakSuper';
 import type { CombatEvent, FighterId } from './types';
 
-test('Samyak is registered in the 9-playable roster (slot #9) with 185 HP, /audio/supers/ias.mp3 and 6 stages', () => {
-  assert.equal(FIGHTER_LIST.length, 9, 'Roster must preserve Samyak and all playable fighters');
-  assert.equal(FIGHTER_LIST[7].id, 'samyak');
+test('Samyak is registered in the 10-playable roster (slot #9) with 185 HP, /audio/supers/ias.mp3 and 6 stages', () => {
+  assert.equal(FIGHTER_LIST.length, 10, 'Roster must preserve Samyak and all playable fighters');
+  assert.equal(FIGHTER_LIST[8].id, 'samyak');
   assert.equal(STAGE_LIST.length, 6, 'No new stage should be added (must remain 6 existing stages)');
 
   const samyak = FIGHTER_CONFIGS.samyak;

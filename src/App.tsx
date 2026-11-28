@@ -115,6 +115,7 @@ function getFighterQueryParam(key: string, fallback: FighterId): FighterId {
   if (
     raw === 'sheru' ||
     raw === 'billa' ||
+    raw === 'utkarsh' ||
     raw === 'neta' ||
     raw === 'anda' ||
     raw === 'mausi' ||

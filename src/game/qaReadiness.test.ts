@@ -202,7 +202,7 @@ describe('Poki & CrazyGames QA Readiness', () => {
         const sub = getEnglishSubtitle(line);
         assert.ok(sub && sub.length > 5, `Missing English subtitle for: "${line}"`);
       }
-      assert.equal(FIGHTER_LIST.length, 9);
+      assert.equal(FIGHTER_LIST.length, 10);
     });
 
     it('keeps all 5 main stage display names clear and readable for global players', () => {

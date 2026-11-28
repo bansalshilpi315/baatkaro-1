@@ -6,10 +6,11 @@ export const ACTIVE_SESSION_STORAGE_KEY = 'desi_dangal_active_session_v1';
 export const GUEST_PROGRESS_STORAGE_KEY = 'desi_dangal_guest_progress_v1';
 export const CREATOR_PROGRESS_STORAGE_KEY = 'desi_dangal_creator_progress_v1';
 
-export const STARTER_FIGHTERS: FighterId[] = ['sheru', 'billa', 'anda', 'krish'];
+export const STARTER_FIGHTERS: FighterId[] = ['sheru', 'billa', 'utkarsh', 'anda', 'krish'];
 export const ALL_FIGHTER_IDS: FighterId[] = [
   'sheru',
   'billa',
+  'utkarsh',
   'anda',
   'krish',
   'adi',
@@ -22,6 +23,7 @@ export const ALL_FIGHTER_IDS: FighterId[] = [
 export const FIGHTER_UNLOCK_COSTS: Record<FighterId, number> = {
   sheru: 0,
   billa: 0,
+  utkarsh: 0,
   anda: 0,
   krish: 0,
   adi: 150,
@@ -34,6 +36,7 @@ export const FIGHTER_UNLOCK_COSTS: Record<FighterId, number> = {
 export const FIGHTER_UNLOCK_ADS: Record<FighterId, number> = {
   sheru: 0,
   billa: 0,
+  utkarsh: 0,
   anda: 0,
   krish: 0,
   adi: 2,

@@ -11,7 +11,6 @@ import {
   FIGHTER_CONFIGS,
   FIGHTER_LIST,
   ROSTER_SLOTS,
-  UTKARSH_TEASER_SLOT,
 } from './characters';
 import { computeCpuInput, createMatchState, getStageAiProfile } from './combat';
 import {
@@ -41,20 +40,20 @@ function createMemoryStorage(): AccountStorage {
   };
 }
 
-test('Exact 10-slot roster sequence, exact maxHp values, and Utkarsh #3 teaser slot isolation', () => {
+test('Exact 10-slot roster sequence, exact maxHp values, and Utkarsh #3 active playable fighter', () => {
   assert.equal(ROSTER_SLOTS.length, 10);
-  assert.equal(FIGHTER_LIST.length, 9);
+  assert.equal(FIGHTER_LIST.length, 10);
 
-  const summary = ROSTER_SLOTS.map((slot) =>
-    slot.kind === 'coming_future'
-      ? { id: slot.id, maxHp: slot.maxHp, kind: slot.kind }
-      : { id: slot.fighter.id, maxHp: slot.fighter.maxHp, kind: slot.kind },
-  );
+  const summary = ROSTER_SLOTS.map((slot) => ({
+    id: slot.fighter.id,
+    maxHp: slot.fighter.maxHp,
+    kind: slot.kind,
+  }));
 
   assert.deepEqual(summary, [
     { id: 'sheru', maxHp: 155, kind: 'playable' },
     { id: 'billa', maxHp: 150, kind: 'playable' },
-    { id: 'utkarsh', maxHp: 125, kind: 'coming_future' },
+    { id: 'utkarsh', maxHp: 125, kind: 'playable' },
     { id: 'anda', maxHp: 145, kind: 'playable' },
     { id: 'krish', maxHp: 140, kind: 'playable' },
     { id: 'adi', maxHp: 160, kind: 'playable' },
@@ -64,21 +63,16 @@ test('Exact 10-slot roster sequence, exact maxHp values, and Utkarsh #3 teaser s
     { id: 'father', maxHp: 200, kind: 'playable' },
   ]);
 
-  assert.equal(UTKARSH_TEASER_SLOT.badgeText, 'COMING IN FUTURE');
-  assert.equal(UTKARSH_TEASER_SLOT.toastMessage, 'Utkarsh joins the Dangal in the next update!');
-  assert.equal(
-    FIGHTER_LIST.some((f) => (f.id as string) === 'utkarsh'),
-    false,
-    'Utkarsh teaser must never enter playable FIGHTER_LIST used by CPU/Friend Room/Super Lab',
-  );
+  assert.equal(FIGHTER_CONFIGS.utkarsh.maxHp, 125);
   assert.equal(FIGHTER_CONFIGS.father.maxHp, 200);
 });
 
 test('Dual Unlock System (Coins OR Ads) enforces exact costs/ad counts, persists ad progress, and auto-unlocks', async () => {
-  assert.deepEqual(STARTER_FIGHTERS, ['sheru', 'billa', 'anda', 'krish']);
+  assert.deepEqual(STARTER_FIGHTERS, ['sheru', 'billa', 'utkarsh', 'anda', 'krish']);
   assert.deepEqual(FIGHTER_UNLOCK_COSTS, {
     sheru: 0,
     billa: 0,
+    utkarsh: 0,
     anda: 0,
     krish: 0,
     adi: 150,
@@ -90,6 +84,7 @@ test('Dual Unlock System (Coins OR Ads) enforces exact costs/ad counts, persists
   assert.deepEqual(FIGHTER_UNLOCK_ADS, {
     sheru: 0,
     billa: 0,
+    utkarsh: 0,
     anda: 0,
     krish: 0,
     adi: 2,
@@ -135,19 +130,22 @@ test('Dual Unlock System (Coins OR Ads) enforces exact costs/ad counts, persists
   assert.equal(accountProfile.unlockedFighters.includes('adi'), true);
 });
 
-test('Unified startup preloader covers all 4 GLB heads, 9 PNG portraits, and 11 MP3 audio files including bgm.mp3', () => {
-  assert.equal(PRELOAD_GLB_URLS.length, 4);
-  assert.equal(PRELOAD_PORTRAIT_URLS.length, 9);
-  assert.equal(PRELOAD_AUDIO_URLS.length, 11);
-  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 24);
+test('Unified startup preloader covers all 5 GLB heads, 10 PNG portraits, and 12 MP3 audio files including bgm.mp3', () => {
+  assert.equal(PRELOAD_GLB_URLS.length, 5);
+  assert.equal(PRELOAD_PORTRAIT_URLS.length, 10);
+  assert.equal(PRELOAD_AUDIO_URLS.length, 12);
+  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 27);
   assert.equal(
     formatPreloadStatusLabel(11, TOTAL_STARTUP_PRELOAD_ASSETS),
-    'Loading 3D Models, Portraits & Audio (11 / 24)...',
+    'Loading 3D Models, Portraits & Audio (11 / 27)...',
   );
+  assert.ok(PRELOAD_GLB_URLS.includes('/models/utkarsh_head.glb'));
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/principal_man.png'));
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/adi.png'));
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/krish.png'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/utkarsh.png'));
   assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/bgm.mp3'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/utkarsh.mp3'));
   assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/dahi.mp3'));
 });
 

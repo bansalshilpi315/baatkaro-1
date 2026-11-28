@@ -2213,6 +2213,9 @@ export function paintFighterFace(
     case 'billa':
       paintBlueBillaFace(ctx, expression);
       return;
+    case 'utkarsh':
+      paintUtkarshFace(ctx, expression);
+      return;
     case 'neta':
       paintNetaFace(ctx, expression);
       return;
@@ -2368,6 +2371,125 @@ function paintAdiFace(ctx: CanvasRenderingContext2D, expression: FaceExpression)
     ctx.beginPath();
     ctx.moveTo(cx - 28, mouthY + 2);
     ctx.quadraticCurveTo(cx + 4, mouthY + 14, cx + 32, mouthY - 6);
+    ctx.stroke();
+  }
+}
+
+function paintUtkarshFace(ctx: CanvasRenderingContext2D, expression: FaceExpression): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const cx = w * 0.5;
+
+  // Warm youthful tan Indian skin tone matching Utkarsh reference photo
+  const skinGrad = ctx.createRadialGradient(cx, h * 0.45, w * 0.06, cx, h * 0.5, w * 0.52);
+  skinGrad.addColorStop(0, '#D4A17A');
+  skinGrad.addColorStop(0.62, '#C5906A');
+  skinGrad.addColorStop(1, '#9E6D4B');
+  ctx.fillStyle = skinGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Short neatly side-tapered dark hair across forehead
+  ctx.fillStyle = '#191718';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.lineTo(w, h * 0.28);
+  ctx.quadraticCurveTo(w * 0.72, h * 0.23, cx, h * 0.26);
+  ctx.quadraticCurveTo(w * 0.26, h * 0.24, 0, h * 0.29);
+  ctx.closePath();
+  ctx.fill();
+
+  // Expressive dark eyebrows
+  const eyeY = h * 0.48;
+  const eyeSpan = w * 0.095;
+  ctx.strokeStyle = '#1A1617';
+  ctx.lineWidth = Math.max(6, w * 0.02);
+  ctx.lineCap = 'round';
+  const browTilt =
+    expression === 'attack' ? 12 : expression === 'hit' || expression === 'ko' ? -9 : 3;
+  [-1, 1].forEach((side) => {
+    const bx = cx + side * eyeSpan;
+    ctx.beginPath();
+    ctx.moveTo(bx - side * w * 0.06, eyeY - h * 0.078 - browTilt * 0.45);
+    ctx.quadraticCurveTo(bx, eyeY - h * 0.1, bx + side * w * 0.056, eyeY - h * 0.066 + browTilt * 0.5);
+    ctx.stroke();
+  });
+
+  // Bright sharp eyes
+  if (expression === 'ko') {
+    ctx.strokeStyle = '#181415';
+    ctx.lineWidth = Math.max(7, w * 0.02);
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeSpan;
+      ctx.beginPath();
+      ctx.moveTo(ex - 16, eyeY - 14);
+      ctx.lineTo(ex + 16, eyeY + 14);
+      ctx.moveTo(ex + 16, eyeY - 14);
+      ctx.lineTo(ex - 16, eyeY + 14);
+      ctx.stroke();
+    });
+  } else {
+    const eyeH = expression === 'hit' ? h * 0.048 : expression === 'block' ? h * 0.022 : h * 0.036;
+    [-1, 1].forEach((side) => {
+      const ex = cx + side * eyeSpan;
+      ctx.fillStyle = '#F8FAFC';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, w * 0.048, eyeH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1E1512';
+      ctx.lineWidth = 3.8;
+      ctx.stroke();
+
+      ctx.fillStyle = '#231712';
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, w * 0.024, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(ex - 5, eyeY - 5, w * 0.01, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // Subtle nose bridge & mouth
+  ctx.strokeStyle = 'rgba(84, 44, 24, 0.5)';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(cx, eyeY + h * 0.035);
+  ctx.lineTo(cx - 3, h * 0.6);
+  ctx.quadraticCurveTo(cx + 2, h * 0.625, cx + 11, h * 0.605);
+  ctx.stroke();
+
+  const mouthY = h * 0.725;
+  ctx.strokeStyle = '#5B2B24';
+  ctx.lineWidth = 5.8;
+  ctx.lineCap = 'round';
+  if (expression === 'attack') {
+    ctx.fillStyle = '#521515';
+    ctx.beginPath();
+    ctx.roundRect(cx - 28, mouthY - 10, 56, 26, 10);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillRect(cx - 22, mouthY - 8, 44, 8);
+  } else if (expression === 'hit' || expression === 'ko') {
+    ctx.fillStyle = '#451212';
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + 4, 20, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (expression === 'victory') {
+    ctx.fillStyle = '#F8FAFC';
+    ctx.beginPath();
+    ctx.arc(cx, mouthY - 4, 30, 0.1 * Math.PI, 0.9 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(cx - 24, mouthY + 1);
+    ctx.quadraticCurveTo(cx, mouthY + 9, cx + 26, mouthY - 2);
     ctx.stroke();
   }
 }
@@ -4309,6 +4431,132 @@ function paintKrishPortrait(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function paintUtkarshPortrait(ctx: CanvasRenderingContext2D): void {
+  // Crisp charcoal & warm terracotta arcade backdrop matching Utkarsh's plaid shirt accents
+  const bg = ctx.createRadialGradient(80, 64, 12, 80, 82, 108);
+  bg.addColorStop(0, '#5a3830');
+  bg.addColorStop(0.55, '#25272c');
+  bg.addColorStop(1, '#0b0c0f');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 160, 160);
+
+  const rim = ctx.createRadialGradient(80, 80, 14, 80, 80, 74);
+  rim.addColorStop(0, 'rgba(239, 68, 68, 0.24)');
+  rim.addColorStop(1, 'rgba(239, 68, 68, 0)');
+  ctx.fillStyle = rim;
+  ctx.fillRect(0, 0, 160, 160);
+
+  // Slim charcoal-black plaid button-down shirt shoulders (#1b1d20) with rust-red & slate checks
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(22, 160);
+  ctx.quadraticCurveTo(28, 114, 60, 105);
+  ctx.lineTo(100, 105);
+  ctx.quadraticCurveTo(132, 114, 138, 160);
+  ctx.closePath();
+  ctx.fillStyle = '#1b1d20';
+  ctx.fill();
+  ctx.clip();
+
+  for (let x = 22; x < 142; x += 18) {
+    ctx.fillStyle = 'rgba(134, 84, 70, 0.65)';
+    ctx.fillRect(x, 102, 2.5, 62);
+    ctx.fillStyle = 'rgba(84, 92, 102, 0.5)';
+    ctx.fillRect(x + 9, 102, 2, 62);
+  }
+  for (let y = 108; y < 160; y += 16) {
+    ctx.fillStyle = 'rgba(134, 84, 70, 0.65)';
+    ctx.fillRect(20, y, 120, 2.5);
+    ctx.fillStyle = 'rgba(84, 92, 102, 0.45)';
+    ctx.fillRect(20, y + 8, 120, 2);
+  }
+  ctx.restore();
+
+  // Open V-neck collar & neck
+  ctx.fillStyle = '#b4805c';
+  ctx.beginPath();
+  ctx.moveTo(68, 92);
+  ctx.lineTo(92, 92);
+  ctx.lineTo(90, 112);
+  ctx.lineTo(80, 126);
+  ctx.lineTo(70, 112);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle grey undershirt triangle at base of V
+  ctx.fillStyle = '#878b91';
+  ctx.beginPath();
+  ctx.moveTo(75, 119);
+  ctx.lineTo(85, 119);
+  ctx.lineTo(80, 128);
+  ctx.closePath();
+  ctx.fill();
+
+  // Spread collar edges
+  ctx.strokeStyle = '#3a3f46';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(64, 105);
+  ctx.lineTo(80, 130);
+  ctx.lineTo(96, 105);
+  ctx.stroke();
+
+  // Lean youthful oval head
+  ctx.fillStyle = '#c8946e';
+  ctx.strokeStyle = '#4a2c1a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(80, 64, 25, 33, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Short neatly tapered dark hair
+  ctx.fillStyle = '#181617';
+  ctx.beginPath();
+  ctx.moveTo(54, 57);
+  ctx.quadraticCurveTo(53, 24, 80, 21);
+  ctx.quadraticCurveTo(107, 24, 106, 57);
+  ctx.quadraticCurveTo(99, 41, 80, 39);
+  ctx.quadraticCurveTo(61, 41, 54, 57);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sharp brows & alert eyes
+  ctx.strokeStyle = '#181415';
+  ctx.lineWidth = 2.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(60, 53);
+  ctx.lineTo(74, 54.5);
+  ctx.moveTo(100, 53);
+  ctx.lineTo(86, 54.5);
+  ctx.stroke();
+
+  [-1, 1].forEach((side) => {
+    const ex = 80 + side * 11;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.ellipse(ex, 62, 5.4, 3.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#231712';
+    ctx.beginPath();
+    ctx.arc(ex, 62, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(ex - 0.8, 61, 1, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Confident calm smile
+  ctx.strokeStyle = '#5b2b24';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(70, 81);
+  ctx.quadraticCurveTo(80, 86, 90, 80);
+  ctx.stroke();
+}
+
 export function getFighterPortraitDataUrl(id: FighterId): string {
   const cached = portraitCache.get(id);
   if (cached) return cached;
@@ -4325,6 +4573,9 @@ export function getFighterPortraitDataUrl(id: FighterId): string {
       break;
     case 'billa':
       paintBlueBillaPortrait(ctx);
+      break;
+    case 'utkarsh':
+      paintUtkarshPortrait(ctx);
       break;
     case 'neta':
       paintNetaPortrait(ctx);

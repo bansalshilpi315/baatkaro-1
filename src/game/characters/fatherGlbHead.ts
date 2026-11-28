@@ -5,6 +5,7 @@ export const FATHER_GLB_HEAD_URL = '/models/father_head.glb';
 export const SAMYAK_GLB_HEAD_URL = '/models/samyak_head.glb';
 export const ADI_GLB_HEAD_URL = '/models/adi_head.glb';
 export const KRISH_GLB_HEAD_URL = '/models/krish_head.glb';
+export const UTKARSH_GLB_HEAD_URL = '/models/utkarsh_head.glb';
 
 /**
  * Easy one-line tweak constants for aligning Principal Man's TRELLIS GLB head
@@ -52,6 +53,18 @@ export const KRISH_GLB_HEAD_CONFIG = {
   rotationY: 0,
 };
 
+/**
+ * Easy one-line tweak constants for aligning Utkarsh's custom 3D `.glb` head
+ * (which includes his sculpted 3D neck) inside his animated `rig.head` (`headGroup`).
+ */
+export const UTKARSH_GLB_HEAD_CONFIG = {
+  scaleMultiplier: 1.0,
+  offsetX: 0.0,
+  offsetY: 0.0,
+  offsetZ: 0.0,
+  rotationY: 0,
+};
+
 export interface GlbHeadConfig {
   scaleMultiplier: number;
   offsetX?: number;
@@ -71,6 +84,7 @@ export interface AdiGlbHeadConfig {
 export type FatherGlbHeadConfig = GlbHeadConfig;
 export type SamyakGlbHeadConfig = GlbHeadConfig;
 export type KrishGlbHeadConfig = AdiGlbHeadConfig;
+export type UtkarshGlbHeadConfig = AdiGlbHeadConfig;
 
 /**
  * Target local head height inside Principal Man's `rig.head` (which has `scale = 1.42`).
@@ -108,14 +122,28 @@ export const ADI_TARGET_HEAD_HEIGHT = 0.395;
 export const ADI_NECK_PIVOT_Y = -0.195;
 
 /**
- * Target local head height inside Krish's `rig.head` (which has `scale = 1.42`).
+ * Target local head+neck height inside Krish's `rig.head` (which has `scale = 1.42`).
+ * Includes `/models/krish_head.glb`'s sculpted 3D neck with zero duplicate procedural neck.
  */
-export const KRISH_TARGET_HEAD_HEIGHT = 0.345;
+export const KRISH_TARGET_HEAD_HEIGHT = 0.395;
 
 /**
- * Bottom-neck pivot Y in `rig.head` local space seating cleanly onto Krish's crew-neck collar.
+ * Bottom-neck pivot Y in `rig.head` local space seating `/models/krish_head.glb`'s built-in neck
+ * cleanly inside `krish_ribbed_collar` (torso y ≈ 0.610 vs collar y = 0.628) with zero gap or clipping.
  */
-export const KRISH_NECK_PIVOT_Y = -0.145;
+export const KRISH_NECK_PIVOT_Y = -0.208;
+
+/**
+ * Target local head+neck height inside Utkarsh's `rig.head` (which has `scale = 1.38`).
+ * Includes `/models/utkarsh_head.glb`'s sculpted 3D neck with zero procedural neck mesh.
+ */
+export const UTKARSH_TARGET_HEAD_HEIGHT = 0.378;
+
+/**
+ * Bottom-neck pivot Y in `rig.head` local space seating `/models/utkarsh_head.glb`'s built-in neck
+ * cleanly inside Utkarsh's open V-neck spread collar (torso y ≈ 0.550 vs collar y = 0.595) with zero gap.
+ */
+export const UTKARSH_NECK_PIVOT_Y = -0.228;
 
 interface GlbHeadCache {
   status: 'idle' | 'loading' | 'loaded' | 'failed';
@@ -137,6 +165,7 @@ const fatherGlbCache: GlbHeadCache = createGlbHeadCache();
 const samyakGlbCache: GlbHeadCache = createGlbHeadCache();
 const adiGlbCache: GlbHeadCache = createGlbHeadCache();
 const krishGlbCache: GlbHeadCache = createGlbHeadCache();
+const utkarshGlbCache: GlbHeadCache = createGlbHeadCache();
 
 let sharedGltfLoader: GLTFLoader | null = null;
 
@@ -793,6 +822,159 @@ export function attachKrishGlbHead(
   krishGlbCache.listeners.add(mountClonedHead);
 }
 
+/**
+ * Clones and normalizes Utkarsh's `/models/utkarsh_head.glb` scene via exact `THREE.Box3` math:
+ * 1. Wraps `templateScene.clone(true)` inside `glbRoot = new THREE.Group()`.
+ * 2. Computes `rawBox = new THREE.Box3().setFromObject(glbRoot)`, `rawSize`, `rawCenter`.
+ * 3. Uniformly scales height to `(targetHeadHeight / Math.max(rawSize.y, 0.001)) * config.scaleMultiplier`.
+ * 4. Seats `rawBox.min.y` cleanly inside Utkarsh's open V-neck collar at `neckJointY + config.offsetY`
+ *    (with ZERO procedural neck mesh underneath), centers X/Z onto `offsetX`/`offsetZ`, and applies `rotationY`.
+ * 5. Calibrates every mesh material: `metalness = 0.0`, `roughness = 0.72`, `side = THREE.DoubleSide`,
+ *    and `map.colorSpace = THREE.SRGBColorSpace` with `map.needsUpdate = true`.
+ */
+export function buildFittedUtkarshGlbHead(
+  templateScene: THREE.Object3D,
+  config: UtkarshGlbHeadConfig = UTKARSH_GLB_HEAD_CONFIG,
+  targetHeadHeight = UTKARSH_TARGET_HEAD_HEIGHT,
+  neckJointY = UTKARSH_NECK_PIVOT_Y,
+  flashMaterials?: THREE.MeshStandardMaterial[],
+): { glbRoot: THREE.Group; materials: THREE.Material[] } {
+  const cloned = templateScene.clone(true);
+  stripEmbeddedLightsAndCameras(cloned);
+
+  const glbRoot = new THREE.Group();
+  glbRoot.name = 'utkarsh_glb_head_root';
+  glbRoot.add(cloned);
+  glbRoot.updateMatrixWorld(true);
+
+  const rawBox = new THREE.Box3().setFromObject(glbRoot);
+  const rawSize = new THREE.Vector3();
+  const rawCenter = new THREE.Vector3();
+  rawBox.getSize(rawSize);
+  rawBox.getCenter(rawCenter);
+
+  const safeHeight = Math.max(rawSize.y, 0.001);
+  const baseScale = (targetHeadHeight / safeHeight) * config.scaleMultiplier;
+
+  cloned.position.set(
+    cloned.position.x - rawCenter.x,
+    cloned.position.y - rawBox.min.y,
+    cloned.position.z - rawCenter.z,
+  );
+
+  const materials: THREE.Material[] = [];
+  cloned.traverse((obj) => {
+    if (!(obj as THREE.Mesh).isMesh) return;
+    const mesh = obj as THREE.Mesh;
+    mesh.frustumCulled = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = false;
+
+    const calibrateMaterial = (orig: THREE.Material): THREE.Material => {
+      const mat = orig.clone();
+      const std = mat as THREE.MeshStandardMaterial;
+      if (std.map) {
+        std.map.colorSpace = THREE.SRGBColorSpace;
+        std.map.needsUpdate = true;
+      }
+      if (typeof std.metalness === 'number') {
+        std.metalness = 0.0;
+      }
+      if (typeof std.roughness === 'number') {
+        std.roughness = 0.72;
+      }
+      std.side = THREE.DoubleSide;
+      if ('envMapIntensity' in std) {
+        std.envMapIntensity = 0.22;
+      }
+      if (std.emissive && std.emissive.isColor) {
+        std.emissive.setHex(0xffffff);
+        if (std.map) {
+          std.emissiveMap = std.map;
+        }
+        std.emissiveIntensity = 0.08;
+        std.userData.baseEmissiveIntensity = 0.08;
+        if (flashMaterials) {
+          flashMaterials.push(std);
+        }
+      }
+      std.needsUpdate = true;
+      materials.push(mat);
+      return mat;
+    };
+
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map(calibrateMaterial);
+    } else if (mesh.material) {
+      mesh.material = calibrateMaterial(mesh.material);
+    }
+  });
+
+  glbRoot.scale.setScalar(baseScale);
+  glbRoot.position.set(config.offsetX, neckJointY + config.offsetY, config.offsetZ);
+  glbRoot.rotation.y = config.rotationY;
+  glbRoot.updateMatrixWorld(true);
+
+  return { glbRoot, materials };
+}
+
+/**
+ * Preloads and caches `/models/utkarsh_head.glb` ONCE at module level via `GLTFLoader`.
+ */
+export function preloadUtkarshGlbHead(
+  loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+  maxRetries = 0,
+  retryBackoffMs = 300,
+): Promise<boolean> {
+  return preloadCachedGlbHead(
+    UTKARSH_GLB_HEAD_URL,
+    utkarshGlbCache,
+    loaderFactory,
+    maxRetries,
+    retryBackoffMs,
+  );
+}
+
+/**
+ * Attaches a cloned, normalized `/models/utkarsh_head.glb` head inside Utkarsh's animated `rig.head`
+ * while keeping `fallbackHeadGroup` visible during loading or if `/models/utkarsh_head.glb` is absent.
+ */
+export function attachUtkarshGlbHead(
+  headGroup: THREE.Group,
+  fallbackHeadGroup: THREE.Group,
+  flashMaterials: THREE.MeshStandardMaterial[],
+  isDisposed: () => boolean,
+  loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+): void {
+  fallbackHeadGroup.visible = true;
+  preloadUtkarshGlbHead(loaderFactory);
+
+  const mountClonedHead = (template: THREE.Group) => {
+    if (isDisposed()) return;
+    const { glbRoot } = buildFittedUtkarshGlbHead(
+      template,
+      UTKARSH_GLB_HEAD_CONFIG,
+      UTKARSH_TARGET_HEAD_HEIGHT,
+      UTKARSH_NECK_PIVOT_Y,
+      flashMaterials,
+    );
+    headGroup.add(glbRoot);
+    fallbackHeadGroup.visible = false;
+  };
+
+  if (utkarshGlbCache.status === 'loaded' && utkarshGlbCache.templateScene) {
+    mountClonedHead(utkarshGlbCache.templateScene);
+    return;
+  }
+
+  if (utkarshGlbCache.status === 'failed') {
+    fallbackHeadGroup.visible = true;
+    return;
+  }
+
+  utkarshGlbCache.listeners.add(mountClonedHead);
+}
+
 export function getFatherGlbHeadStatus(): GlbHeadCache['status'] {
   return fatherGlbCache.status;
 }
@@ -807,6 +989,10 @@ export function getAdiGlbHeadStatus(): GlbHeadCache['status'] {
 
 export function getKrishGlbHeadStatus(): GlbHeadCache['status'] {
   return krishGlbCache.status;
+}
+
+export function getUtkarshGlbHeadStatus(): GlbHeadCache['status'] {
+  return utkarshGlbCache.status;
 }
 
 export function clearFatherGlbHeadCacheForTests(): void {
@@ -835,4 +1021,11 @@ export function clearKrishGlbHeadCacheForTests(): void {
   krishGlbCache.templateScene = null;
   krishGlbCache.listeners.clear();
   krishGlbCache.waiters.clear();
+}
+
+export function clearUtkarshGlbHeadCacheForTests(): void {
+  utkarshGlbCache.status = 'idle';
+  utkarshGlbCache.templateScene = null;
+  utkarshGlbCache.listeners.clear();
+  utkarshGlbCache.waiters.clear();
 }
