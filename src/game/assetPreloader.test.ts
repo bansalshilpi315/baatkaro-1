@@ -23,16 +23,16 @@ test('startup preloader manifest and retry constants cover all 28 assets (incl. 
   assert.equal(STARTUP_ASSET_MANIFEST.brandAssets.length, 1);
   assert.equal(STARTUP_ASSET_MANIFEST.audioFiles.length, 12);
   assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 28);
-  assert.ok(STARTUP_ASSET_MANIFEST.brandAssets.includes('/logo.png'));
-  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/bgm.mp3'));
-  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/utkarsh.mp3'));
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/father_head.glb'));
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/samyak_head.glb'));
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/adi_head.glb'));
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/krish_head.glb'));
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/utkarsh_head.glb'));
+  assert.ok(STARTUP_ASSET_MANIFEST.brandAssets.includes('./logo.png'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('./audio/bgm.mp3'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('./audio/supers/utkarsh.mp3'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/father_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/samyak_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/adi_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/krish_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/utkarsh_head.glb'));
   assert.equal(PRELOAD_PORTRAIT_URLS.length, 10);
-  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/utkarsh.png'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('./textures/faces/utkarsh.png'));
   assert.equal(
     formatPreloadStatusLabel(12, 28),
     'Loading 3D Models, Portraits & Audio (12 / 28)...',
@@ -49,14 +49,14 @@ test('preloadStartupAssets strictly waits until 100% of assets complete without 
       seenPercents.push(info.percent);
     },
     runLoader: async (manager) => {
-      manager.onStart?.('/models/father_head.glb', 0, 4);
-      manager.onProgress?.('/models/father_head.glb', 1, 4);
-      manager.onProgress?.('/models/samyak_head.glb', 2, 4);
-      manager.onProgress?.('/audio/bgm.mp3', 3, 4);
+      manager.onStart?.('./models/father_head.glb', 0, 4);
+      manager.onProgress?.('./models/father_head.glb', 1, 4);
+      manager.onProgress?.('./models/samyak_head.glb', 2, 4);
+      manager.onProgress?.('./audio/bgm.mp3', 3, 4);
       await new Promise<void>((resolve) => {
         releasePendingAsset = resolve;
       });
-      manager.onProgress?.('/textures/faces/principal_man.png', 4, 4);
+      manager.onProgress?.('./textures/faces/principal_man.png', 4, 4);
       manager.onLoad?.();
     },
   }).then((res) => {

@@ -5,6 +5,7 @@ import {
   TOTAL_STARTUP_PRELOAD_ASSETS,
   preloadStartupAssets,
 } from '../game/assetPreloader';
+import { CG_SDK } from '../game/crazyGamesSdk';
 import { GameLogoBadge } from './GameLogoBadge';
 
 interface LoadingScreenProps {
@@ -30,6 +31,11 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
     let fadeTimer = 0;
     let finishTimer = 0;
 
+    // 0. Initialize CrazyGames SDK v3 & signal loadingStart immediately
+    const sdkInitPromise = CG_SDK.init().finally(() => {
+      CG_SDK.loadingStart();
+    });
+
     // 1. Strict 2.0-second DESI DANGAL ARENA splash timer + Stage 2 transition
     const splashPromise = new Promise<void>((resolve) => {
       splashTimer = window.setTimeout(() => {
@@ -45,7 +51,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
       }, SPLASH_STAGE1_MIN_MS);
     });
 
-    // 2. Strict 100% manifest preload (4 GLBs + 9 PNGs + 11 MP3s including bgm.mp3, zero early skip)
+    // 2. Strict 100% manifest preload (5 GLBs + 10 PNGs + logo.png + 12 MP3s including bgm.mp3, zero early skip)
     const assetsPromise = preloadStartupAssets({
       onProgress: (info) => {
         if (cancelled) return;
@@ -54,8 +60,8 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
       },
     });
 
-    // Strictly gate dismissal behind BOTH splash completion AND 100% asset completion
-    void Promise.all([splashPromise, assetsPromise]).then(() => {
+    // Strictly gate dismissal behind SDK init, splash completion, AND 100% asset completion
+    void Promise.all([sdkInitPromise, splashPromise, assetsPromise]).then(() => {
       if (cancelled) return;
       setAssetProgress(100);
       setDisplayProgress(100);

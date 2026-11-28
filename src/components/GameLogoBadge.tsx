@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export const GAME_LOGO_URL = '/logo.png';
+export const GAME_LOGO_URL = './logo.png';
 
 export type GameLogoVariant = 'hero' | 'corner' | 'developer' | 'seal';
 

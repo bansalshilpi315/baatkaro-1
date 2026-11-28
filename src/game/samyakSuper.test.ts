@@ -53,8 +53,8 @@ test('Samyak is registered in the 10-playable roster (slot #9) with 185 HP, /aud
   assert.equal(samyak.special.cooldown, 3.5);
   assert.equal(samyak.superName, 'MISSION IAS: BEAST MODE');
 
-  assert.equal(getSuperAudioUrl('samyak'), '/audio/supers/ias.mp3');
-  assert.equal(SAMYAK_SUPER_AUDIO_URL, '/audio/supers/ias.mp3');
+  assert.equal(getSuperAudioUrl('samyak'), './audio/supers/ias.mp3');
+  assert.equal(SAMYAK_SUPER_AUDIO_URL, './audio/supers/ias.mp3');
   assert.equal(SAMYAK_BOOK_COUNT, 8);
   assert.equal(SAMYAK_DUMBBELL_COUNT, 6);
 });

@@ -30,7 +30,7 @@ import {
 import type { Difficulty, FighterId, StageId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 import { FullscreenButton } from './FullscreenButton';
-import { UnlockFighterModal } from './UnlockFighterModal';
+import { UnlockFighterModal, type RewardedAdFighterResult } from './UnlockFighterModal';
 
 interface SelectScreenProps {
   p1Id: FighterId;
@@ -48,7 +48,12 @@ interface SelectScreenProps {
   onSelectStage: (id: StageId) => void;
   onSelectDifficulty: (d: Difficulty) => void;
   onUnlockFighter: (id: FighterId) => boolean;
-  onWatchAdUnlock: (id: FighterId) => { watched: number; required: number; unlockedNow: boolean };
+  onRequestRewardedAd: (
+    id: FighterId,
+    onSimulatedTick?: (secondsLeft: number) => void,
+  ) => Promise<RewardedAdFighterResult>;
+  onWatchFreeCoinsAd: () => Promise<boolean>;
+  freeCoinsAdBusy?: boolean;
   onUnlockStage: (stageNumber: number) => void;
   onToggleGlobalMute: () => void;
   onToggleFullscreen: () => void;
@@ -93,7 +98,9 @@ export function SelectScreen({
   onSelectStage,
   onSelectDifficulty,
   onUnlockFighter,
-  onWatchAdUnlock,
+  onRequestRewardedAd,
+  onWatchFreeCoinsAd,
+  freeCoinsAdBusy = false,
   onUnlockStage,
   onToggleGlobalMute,
   onToggleFullscreen,
@@ -164,6 +171,19 @@ export function SelectScreen({
             <Coins className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{playerProfile.coins.toLocaleString()}</span>
           </span>
+          {!isOnline && (
+            <button
+              type="button"
+              data-testid="free-coins-ad-btn"
+              disabled={freeCoinsAdBusy}
+              onClick={() => void onWatchFreeCoinsAd()}
+              title="Watch a short ad for +50 Free Coins"
+              className="hidden cursor-pointer items-center gap-1 border border-[#38bdf8] bg-[#0c4a6e]/90 px-2 py-0.5 font-display text-[11px] font-extrabold uppercase tracking-wider text-[#e0f2fe] transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
+            >
+              <Tv className="h-3 w-3 shrink-0 text-[#fde047]" aria-hidden="true" />
+              <span>{freeCoinsAdBusy ? 'AD...' : '+50 COINS'}</span>
+            </button>
+          )}
           <span className="hidden border-l border-white/20 pl-2.5 text-xs font-bold uppercase tracking-wide text-[#e7e5e4] lg:inline">
             {p1Cfg.name} vs {p2Cfg.name}
           </span>
@@ -611,7 +631,7 @@ export function SelectScreen({
             fighterId={unlockModalFighterId}
             playerProfile={playerProfile}
             onUnlockWithCoins={onUnlockFighter}
-            onWatchRewardedAd={onWatchAdUnlock}
+            onRequestRewardedAd={onRequestRewardedAd}
             onClose={() => setUnlockModalFighterId(null)}
           />
         </div>

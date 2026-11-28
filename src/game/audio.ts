@@ -3,21 +3,21 @@
 
 import type { FighterId } from './types';
 
-export const BGM_AUDIO_URL = '/audio/bgm.mp3';
+export const BGM_AUDIO_URL = './audio/bgm.mp3';
 export const BGM_DEFAULT_GAIN = 0.35;
 export const BGM_DUCKED_GAIN = 0.1;
 
-export const SHERU_SUPER_AUDIO_URL = '/audio/supers/sheru.mp3';
-export const BILLA_SUPER_AUDIO_URL = '/audio/supers/billa.mp3';
-export const UTKARSH_SUPER_AUDIO_URL = '/audio/supers/utkarsh.mp3';
-export const NETA_SUPER_AUDIO_URL = '/audio/supers/neta.mp3';
-export const ANDA_SUPER_AUDIO_URL = '/audio/supers/anda.mp3';
-export const MAUSI_SUPER_AUDIO_URL = '/audio/supers/mausi.mp3';
-export const FATHER_SUPER_AUDIO_URL = '/audio/supers/father.mp3';
-export const SAMYAK_SUPER_AUDIO_URL = '/audio/supers/ias.mp3';
-export const ADI_SUPER_AUDIO_URL = '/audio/supers/adi.mp3';
-export const KRISH_SUPER_AUDIO_URL = '/audio/supers/krish.mp3';
-export const DAHI_KO_AUDIO_URL = '/audio/supers/dahi.mp3';
+export const SHERU_SUPER_AUDIO_URL = './audio/supers/sheru.mp3';
+export const BILLA_SUPER_AUDIO_URL = './audio/supers/billa.mp3';
+export const UTKARSH_SUPER_AUDIO_URL = './audio/supers/utkarsh.mp3';
+export const NETA_SUPER_AUDIO_URL = './audio/supers/neta.mp3';
+export const ANDA_SUPER_AUDIO_URL = './audio/supers/anda.mp3';
+export const MAUSI_SUPER_AUDIO_URL = './audio/supers/mausi.mp3';
+export const FATHER_SUPER_AUDIO_URL = './audio/supers/father.mp3';
+export const SAMYAK_SUPER_AUDIO_URL = './audio/supers/ias.mp3';
+export const ADI_SUPER_AUDIO_URL = './audio/supers/adi.mp3';
+export const KRISH_SUPER_AUDIO_URL = './audio/supers/krish.mp3';
+export const DAHI_KO_AUDIO_URL = './audio/supers/dahi.mp3';
 
 export const SUPER_AUDIO_URLS: Partial<Record<FighterId, string>> = {
   sheru: SHERU_SUPER_AUDIO_URL,

@@ -247,17 +247,17 @@ test('All 9 fighter Super MP3s (sheru, billa, neta, anda, mausi, father, samyak,
     await engine.preloadAllSuperAudios();
 
     assert.ok(fetchedUrls.includes(BGM_AUDIO_URL));
-    assert.ok(fetchedUrls.includes('/audio/supers/sheru.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/billa.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/neta.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/anda.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/mausi.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/father.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/ias.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/adi.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/krish.mp3'));
-    assert.ok(fetchedUrls.includes('/audio/supers/utkarsh.mp3'));
-    assert.ok(!fetchedUrls.includes('/audio/supers/principal.mp3'), 'Principal Man must reuse father.mp3 without fetching principal.mp3');
+    assert.ok(fetchedUrls.includes('./audio/supers/sheru.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/billa.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/neta.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/anda.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/mausi.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/father.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/ias.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/adi.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/krish.mp3'));
+    assert.ok(fetchedUrls.includes('./audio/supers/utkarsh.mp3'));
+    assert.ok(!fetchedUrls.includes('./audio/supers/principal.mp3'), 'Principal Man must reuse father.mp3 without fetching principal.mp3');
     assert.ok(fetchedUrls.includes(DAHI_KO_AUDIO_URL));
 
     // Blue Billa Super audio plays from RAM cache without refetching and ends cleanly on onended

@@ -139,14 +139,14 @@ test('Unified startup preloader covers all 5 GLB heads, 10 PNG portraits, /logo.
     formatPreloadStatusLabel(11, TOTAL_STARTUP_PRELOAD_ASSETS),
     'Loading 3D Models, Portraits & Audio (11 / 28)...',
   );
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/utkarsh_head.glb'));
-  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/principal_man.png'));
-  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/adi.png'));
-  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/krish.png'));
-  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/utkarsh.png'));
-  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/bgm.mp3'));
-  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/utkarsh.mp3'));
-  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/dahi.mp3'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/utkarsh_head.glb'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('./textures/faces/principal_man.png'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('./textures/faces/adi.png'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('./textures/faces/krish.png'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('./textures/faces/utkarsh.png'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('./audio/bgm.mp3'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('./audio/supers/utkarsh.mp3'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('./audio/supers/dahi.mp3'));
 });
 
 test('Compact live dialogue formatter enforces single-line punchlines <= 48 chars with zero newlines', () => {

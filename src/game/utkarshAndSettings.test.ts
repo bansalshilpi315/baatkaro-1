@@ -39,7 +39,6 @@ import {
   STARTER_FIGHTERS,
 } from './playerAccount';
 import {
-  buildBugReportMailtoUrl,
   DEVELOPER_BUG_EMAIL,
   DEVELOPER_HOBBIES,
   DEVELOPER_NAME,
@@ -138,16 +137,16 @@ test('PART 1: Utkarsh is active playable Slot #3 (125 HP, Unlocked starter, SKY-
   assert.equal(FIGHTER_UNLOCK_COSTS.utkarsh, 0);
   assert.equal(FIGHTER_UNLOCK_ADS.utkarsh, 0);
 
-  assert.equal(UTKARSH_GLB_HEAD_URL, '/models/utkarsh_head.glb');
-  assert.equal(UTKARSH_SUPER_AUDIO_URL, '/audio/supers/utkarsh.mp3');
-  assert.equal(getSuperAudioUrl('utkarsh'), '/audio/supers/utkarsh.mp3');
+  assert.equal(UTKARSH_GLB_HEAD_URL, './models/utkarsh_head.glb');
+  assert.equal(UTKARSH_SUPER_AUDIO_URL, './audio/supers/utkarsh.mp3');
+  assert.equal(getSuperAudioUrl('utkarsh'), './audio/supers/utkarsh.mp3');
   assert.equal(isPhotoFaceFighter('utkarsh'), true);
-  assert.equal(REAL_FACE_PHOTO_URLS.utkarsh, '/textures/faces/utkarsh.png');
+  assert.equal(REAL_FACE_PHOTO_URLS.utkarsh, './textures/faces/utkarsh.png');
 
   assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 28);
-  assert.ok(PRELOAD_GLB_URLS.includes('/models/utkarsh_head.glb'));
-  assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/utkarsh.png'));
-  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/utkarsh.mp3'));
+  assert.ok(PRELOAD_GLB_URLS.includes('./models/utkarsh_head.glb'));
+  assert.ok(PRELOAD_PORTRAIT_URLS.includes('./textures/faces/utkarsh.png'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('./audio/supers/utkarsh.mp3'));
 });
 
 test('PART 1: Utkarsh combat moves (SWIFT COMBO & 33%-capped UTKARSH QUICK-STEP RUSH) work cleanly', () => {
@@ -338,7 +337,7 @@ test('PART 2: Krish 3D body has ZERO procedural neck mesh and GLB neck seats cle
   );
 });
 
-test('PART 3: Settings Modal Bug Report mailto builder & About Developer metadata match exact specifications', () => {
+test('PART 3: Settings Modal Bug Report Copy Email & About Developer metadata match exact CrazyGames-compliant specifications', () => {
   assert.equal(DEVELOPER_BUG_EMAIL, 'bansalansh315@gmail.com');
   assert.equal(DEVELOPER_NAME, 'Ansh Bansal');
   assert.equal(DEVELOPER_ROLE_BADGE, 'CREATOR & LEAD DEVELOPER');
@@ -352,24 +351,4 @@ test('PART 3: Settings Modal Bug Report mailto builder & About Developer metadat
     DEVELOPER_VISION_NOTE,
     "Hi! I'm Ansh Bansal — I love building 3D browser games, animating characters, and turning creative ideas into playable worlds. I created DESI DANGAL with a simple goal: to fuse classic arcade fighting energy with relatable desi characters, school & mohalla legends, and over-the-top superpowers that anyone can play instantly right in their browser without heavy downloads.",
   );
-
-  const mailtoUrl = buildBugReportMailtoUrl('Utkarsh combo test report', {
-    viewportWidth: 1280,
-    viewportHeight: 720,
-    orientation: 'Landscape',
-  });
-  assert.ok(mailtoUrl.startsWith('mailto:bansalansh315@gmail.com?'));
-  assert.ok(mailtoUrl.includes('subject=DESI%20DANGAL%20-%20Bug%20Report'));
-  assert.ok(mailtoUrl.includes('Utkarsh%20combo%20test%20report'));
-  assert.ok(mailtoUrl.includes('1280x720'));
-  assert.ok(mailtoUrl.includes('Landscape'));
-
-  // Empty description gracefully provides template prompt
-  const emptyUrl = buildBugReportMailtoUrl('   ', {
-    viewportWidth: 844,
-    viewportHeight: 390,
-    orientation: 'Landscape',
-  });
-  assert.ok(emptyUrl.startsWith('mailto:bansalansh315@gmail.com?'));
-  assert.ok(emptyUrl.includes('844x390'));
 });

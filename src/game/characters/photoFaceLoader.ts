@@ -4,11 +4,11 @@ import type { FighterId } from '../types';
 export type PhotoFaceFighterId = 'father' | 'samyak' | 'adi' | 'krish' | 'utkarsh';
 
 export const REAL_FACE_PHOTO_URLS: Record<PhotoFaceFighterId, string> = {
-  father: '/textures/faces/principal_man.png',
-  samyak: '/textures/faces/samyak.png',
-  adi: '/textures/faces/adi.png',
-  krish: '/textures/faces/krish.png',
-  utkarsh: '/textures/faces/utkarsh.png',
+  father: './textures/faces/principal_man.png',
+  samyak: './textures/faces/samyak.png',
+  adi: './textures/faces/adi.png',
+  krish: './textures/faces/krish.png',
+  utkarsh: './textures/faces/utkarsh.png',
 };
 
 /** Natural oval head proportions for the D-shaped hemisphere + flat front face plate */

@@ -29,27 +29,27 @@ export const PRELOAD_MAX_RETRIES = 3;
 export const PRELOAD_RETRY_BACKOFF_MS = 300;
 
 export const PRELOAD_GLB_URLS: readonly string[] = [
-  '/models/father_head.glb',
-  '/models/samyak_head.glb',
-  '/models/adi_head.glb',
-  '/models/krish_head.glb',
-  '/models/utkarsh_head.glb',
+  './models/father_head.glb',
+  './models/samyak_head.glb',
+  './models/adi_head.glb',
+  './models/krish_head.glb',
+  './models/utkarsh_head.glb',
 ];
 
 export const PRELOAD_PORTRAIT_URLS: readonly string[] = [
-  '/textures/faces/sheru.png',
-  '/textures/faces/billa.png',
-  '/textures/faces/utkarsh.png',
-  '/textures/faces/anda.png',
-  '/textures/faces/krish.png',
-  '/textures/faces/adi.png',
-  '/textures/faces/mausi.png',
-  '/textures/faces/neta.png',
-  '/textures/faces/samyak.png',
-  '/textures/faces/principal_man.png',
+  './textures/faces/sheru.png',
+  './textures/faces/billa.png',
+  './textures/faces/utkarsh.png',
+  './textures/faces/anda.png',
+  './textures/faces/krish.png',
+  './textures/faces/adi.png',
+  './textures/faces/mausi.png',
+  './textures/faces/neta.png',
+  './textures/faces/samyak.png',
+  './textures/faces/principal_man.png',
 ];
 
-export const PRELOAD_LOGO_URL = '/logo.png';
+export const PRELOAD_LOGO_URL = './logo.png';
 
 export const PRELOAD_BRAND_URLS: readonly string[] = [PRELOAD_LOGO_URL];
 

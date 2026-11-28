@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { CG_SDK } from '../game/crazyGamesSdk';
 
 export interface VendorFullscreenDocument {
   fullscreenEnabled?: boolean;
@@ -23,17 +24,26 @@ interface LockableScreenOrientation {
 
 /**
  * Pure helper: determines whether Fullscreen API (standard or WebKit) is available.
+ * Inside CrazyGames desktop iframe hosting, CrazyGames provides its own portal fullscreen
+ * wrapper so we defer desktop fullscreen cleanly while keeping mobile touch fullscreen safe.
  */
 export function checkFullscreenSupport(doc: VendorFullscreenDocument | undefined): boolean {
   if (!doc || !doc.documentElement) return false;
-  if (doc.fullscreenEnabled === false && doc.webkitFullscreenEnabled !== true) {
+  if (CG_SDK.isCrazyGamesHosted() && !isMobileOrTouchDevice()) {
     return false;
   }
-  const el = doc.documentElement;
-  return (
-    typeof el.requestFullscreen === 'function' ||
-    typeof el.webkitRequestFullscreen === 'function'
-  );
+  try {
+    if (doc.fullscreenEnabled === false && doc.webkitFullscreenEnabled !== true) {
+      return false;
+    }
+    const el = doc.documentElement;
+    return (
+      typeof el.requestFullscreen === 'function' ||
+      typeof el.webkitRequestFullscreen === 'function'
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -57,9 +67,9 @@ export async function enterFullscreen(
 
   try {
     if (typeof el.requestFullscreen === 'function') {
-      await el.requestFullscreen();
+      await Promise.resolve(el.requestFullscreen());
     } else if (typeof el.webkitRequestFullscreen === 'function') {
-      await el.webkitRequestFullscreen();
+      await Promise.resolve(el.webkitRequestFullscreen());
     } else {
       return false;
     }
@@ -158,9 +168,13 @@ export async function tryAutoMobileFullscreen(
     userAgent?: string;
   },
 ): Promise<boolean> {
-  if (!isMobileOrTouchDevice(win, nav)) return false;
-  if (!checkFullscreenSupport(doc) || readIsFullscreen(doc)) return false;
-  return enterFullscreen(doc);
+  try {
+    if (!isMobileOrTouchDevice(win, nav)) return false;
+    if (!checkFullscreenSupport(doc) || readIsFullscreen(doc)) return false;
+    return await enterFullscreen(doc);
+  } catch {
+    return false;
+  }
 }
 
 

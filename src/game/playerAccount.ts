@@ -59,6 +59,7 @@ export const DEFAULT_GUEST_COINS = 100;
 export const MATCH_WIN_COIN_REWARD = 75;
 export const MATCH_LOSS_COIN_REWARD = 20;
 export const STAGE_CLEAR_BONUS_COINS = 50;
+export const FREE_COINS_AD_REWARD = 50;
 
 export const CREATOR_ACCOUNT_ID = '@ansh_games';
 export const CREATOR_COINS = 999999;
@@ -794,6 +795,23 @@ export function recordRewardedAdWatch(
     watched: nextWatched,
     required,
     unlockedNow,
+  };
+}
+
+export function grantRewardedCoins(
+  profile: PlayerProfile,
+  amount = FREE_COINS_AD_REWARD,
+  storage?: AccountStorage | null,
+  cloudAdapter?: PlayerCloudAdapter | null,
+): { profile: PlayerProfile; coinsGranted: number } {
+  const safeAmount = Math.max(0, Math.floor(amount));
+  const nextProfile: PlayerProfile = {
+    ...profile,
+    coins: profile.coins + safeAmount,
+  };
+  return {
+    profile: persistPlayerProfile(nextProfile, storage, cloudAdapter),
+    coinsGranted: safeAmount,
   };
 }
 

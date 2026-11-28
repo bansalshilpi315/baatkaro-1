@@ -40,9 +40,9 @@ test('Adi is registered in the 10-playable roster with 160 HP, NOTEBOOK SMASH, a
   assert.equal(adi.special.shortLabel, 'NOTEBOOK SMASH');
   assert.equal(adi.special.cooldown, 3.5);
   assert.equal(adi.superName, 'ADI LAST-BENCH STRIKE');
-  assert.equal(getSuperAudioUrl('adi'), '/audio/supers/adi.mp3');
-  assert.equal(ADI_SUPER_AUDIO_URL, '/audio/supers/adi.mp3');
-  assert.equal(ADI_GLB_HEAD_URL, '/models/adi_head.glb');
+  assert.equal(getSuperAudioUrl('adi'), './audio/supers/adi.mp3');
+  assert.equal(ADI_SUPER_AUDIO_URL, './audio/supers/adi.mp3');
+  assert.equal(ADI_GLB_HEAD_URL, './models/adi_head.glb');
 });
 
 test('buildFittedAdiGlbHead applies exact THREE.Box3 bounding-box normalization, neck pivot grounding, and PBR material/sRGB fixes', () => {

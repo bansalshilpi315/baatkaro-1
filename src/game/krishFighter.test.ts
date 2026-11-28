@@ -38,15 +38,15 @@ test('Krish is registered in the 10-playable roster with 140 HP, DROP-BARRAGE, a
   assert.equal(krish.special.shortLabel, 'DROP-BARRAGE');
   assert.equal(krish.special.cooldown, 3.5);
   assert.equal(krish.superName, '10KG HEAVY BAG SMASH');
-  assert.equal(getSuperAudioUrl('krish'), '/audio/supers/krish.mp3');
-  assert.equal(KRISH_SUPER_AUDIO_URL, '/audio/supers/krish.mp3');
-  assert.equal(KRISH_GLB_HEAD_URL, '/models/krish_head.glb');
+  assert.equal(getSuperAudioUrl('krish'), './audio/supers/krish.mp3');
+  assert.equal(KRISH_SUPER_AUDIO_URL, './audio/supers/krish.mp3');
+  assert.equal(KRISH_GLB_HEAD_URL, './models/krish_head.glb');
 
   // Both Adi and Krish are wired to their 2D PNG portraits across UI
   assert.equal(isPhotoFaceFighter('adi'), true);
   assert.equal(isPhotoFaceFighter('krish'), true);
-  assert.equal(REAL_FACE_PHOTO_URLS.adi, '/textures/faces/adi.png');
-  assert.equal(REAL_FACE_PHOTO_URLS.krish, '/textures/faces/krish.png');
+  assert.equal(REAL_FACE_PHOTO_URLS.adi, './textures/faces/adi.png');
+  assert.equal(REAL_FACE_PHOTO_URLS.krish, './textures/faces/krish.png');
 });
 
 test('buildFittedKrishGlbHead applies exact THREE.Box3 normalization, neck seating, and PBR material/sRGB fixes', () => {

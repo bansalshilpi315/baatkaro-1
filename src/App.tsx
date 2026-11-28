@@ -13,6 +13,7 @@ import { SelectScreen } from './components/SelectScreen';
 import { SettingsModal } from './components/SettingsModal';
 import { SuperPreviewBar } from './components/SuperPreviewBar';
 import { TitleScreen } from './components/TitleScreen';
+import type { RewardedAdFighterResult } from './components/UnlockFighterModal';
 import { VictoryScreen } from './components/VictoryScreen';
 import { audioEngine } from './game/audio';
 import {
@@ -21,10 +22,14 @@ import {
   type CareerStats,
 } from './game/careerStats';
 import { preloadRealFaceTextures, STAGE_LIST } from './game/characters';
+import { CG_SDK } from './game/crazyGamesSdk';
 import { DesiShowdownEngine } from './game/engine';
 import {
   applyMatchOutcomeToProfile,
   createPlayerAccount,
+  FREE_COINS_AD_REWARD,
+  getFighterAdProgress,
+  grantRewardedCoins,
   loadActivePlayerProfile,
   loginPlayerAccount,
   logoutToGuest,
@@ -49,7 +54,12 @@ import type {
   StageId,
 } from './game/types';
 import { tryAutoMobileFullscreen, useFullscreen } from './utils/fullscreen';
-import { loadAudioPrefs, saveAudioPrefs } from './utils/safeStorage';
+import {
+  loadAudioPrefs,
+  loadSelectionPrefs,
+  saveAudioPrefs,
+  saveSelectionPrefs,
+} from './utils/safeStorage';
 
 const INITIAL_HUD: HudSnapshot = {
   p1Hp: 155,
@@ -147,19 +157,36 @@ function getStageQueryParam(fallback: StageId): StageId {
 
 export default function App() {
   const autostart = isAutostartRequested();
-  const initialP1 = autostart ? getFighterQueryParam('p1', 'sheru') : 'sheru';
-  const initialP2 = autostart ? getFighterQueryParam('p2', 'billa') : 'billa';
-  const initialStage = autostart ? getStageQueryParam('mohalla') : 'mohalla';
+  const [initialBootData] = useState(() => {
+    const savedSelection = loadSelectionPrefs();
+    const initialProfile = loadActivePlayerProfile();
+    const initialAudioPrefs = loadAudioPrefs();
+    const safeSavedP1: FighterId = initialProfile.unlockedFighters.includes(savedSelection.p1Id)
+      ? savedSelection.p1Id
+      : 'sheru';
+    const savedStageIdx = STAGE_LIST.findIndex((s) => s.id === savedSelection.stageId);
+    const safeSavedStage: StageId =
+      savedStageIdx >= 0 && savedStageIdx + 1 <= initialProfile.highestStage
+        ? savedSelection.stageId
+        : 'mohalla';
+    return {
+      initialProfile,
+      initialAudioPrefs,
+      initialP1: autostart ? getFighterQueryParam('p1', 'sheru') : safeSavedP1,
+      initialP2: autostart ? getFighterQueryParam('p2', 'billa') : savedSelection.p2Id,
+      initialStage: autostart ? getStageQueryParam('mohalla') : safeSavedStage,
+      initialDifficulty: (autostart ? 'normal' : savedSelection.difficulty) as Difficulty,
+    };
+  });
 
   const [screen, setScreen] = useState<GameScreen>(autostart ? 'playing' : 'loading');
-  const [p1Id, setP1Id] = useState<FighterId>(initialP1);
-  const [p2Id, setP2Id] = useState<FighterId>(initialP2);
-  const [stageId, setStageId] = useState<StageId>(initialStage);
-  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
-  const initialAudioPrefsRef = useRef(loadAudioPrefs());
-  const [globalMuted, setGlobalMuted] = useState(initialAudioPrefsRef.current.globalMuted);
-  const [muted, setMuted] = useState(initialAudioPrefsRef.current.sfxMuted);
-  const [musicMuted, setMusicMuted] = useState(initialAudioPrefsRef.current.musicMuted);
+  const [p1Id, setP1Id] = useState<FighterId>(initialBootData.initialP1);
+  const [p2Id, setP2Id] = useState<FighterId>(initialBootData.initialP2);
+  const [stageId, setStageId] = useState<StageId>(initialBootData.initialStage);
+  const [difficulty, setDifficulty] = useState<Difficulty>(initialBootData.initialDifficulty);
+  const [globalMuted, setGlobalMuted] = useState(initialBootData.initialAudioPrefs.globalMuted);
+  const [muted, setMuted] = useState(initialBootData.initialAudioPrefs.sfxMuted);
+  const [musicMuted, setMusicMuted] = useState(initialBootData.initialAudioPrefs.musicMuted);
   const [autoPaused, setAutoPaused] = useState(false);
   const [graphics, setGraphics] = useState<GraphicsQuality>('high');
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
@@ -171,8 +198,15 @@ export default function App() {
   const [friendRoomState, setFriendRoomState] =
     useState<FriendRoomStateSnapshot>(INITIAL_FRIEND_ROOM);
   const [disconnectNotice, setDisconnectNotice] = useState<string | null>(null);
-  const [previewFighterId, setPreviewFighterId] = useState<FighterId>(initialP1);
+  const [previewFighterId, setPreviewFighterId] = useState<FighterId>(initialBootData.initialP1);
   const [previewSuperPlaying, setPreviewSuperPlaying] = useState(false);
+  const [adOverlayActive, setAdOverlayActive] = useState(false);
+  const [freeCoinsAdBusy, setFreeCoinsAdBusy] = useState(false);
+  const [adToast, setAdToast] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const adToastTimerRef = useRef<number | null>(null);
   const {
     isFullscreen,
     isSupported: fullscreenSupported,
@@ -183,8 +217,8 @@ export default function App() {
   const [callouts, setCallouts] = useState<FloatingCallout[]>([]);
   const [matchResult, setMatchResult] = useState<MatchResultSnapshot | null>(null);
   const [careerStats, setCareerStats] = useState<CareerStats>(() => loadCareerStats());
-  const [playerProfile, setPlayerProfile] = useState<PlayerProfile>(() =>
-    loadActivePlayerProfile(),
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile>(
+    () => initialBootData.initialProfile,
   );
 
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
@@ -219,11 +253,97 @@ export default function App() {
 
   // Apply persisted audio mute preferences immediately on boot & keep audio strictly silent until 100% booted
   useEffect(() => {
-    const prefs = initialAudioPrefsRef.current;
+    const prefs = initialBootData.initialAudioPrefs;
     audioEngine.setBootReady(isAutostartRequested());
     audioEngine.setMuted(prefs.sfxMuted);
     audioEngine.setMusicMuted(prefs.musicMuted);
     audioEngine.setGlobalMuted(prefs.globalMuted, false);
+  }, [initialBootData]);
+
+  // Initialize CrazyGames SDK v3, hydrate SaveStore data, and sync portal muteAudio settings
+  useEffect(() => {
+    let active = true;
+
+    const applyPortalMute = (shouldMute: boolean) => {
+      if (!active) return;
+      globalMutedRef.current = shouldMute;
+      setGlobalMuted(shouldMute);
+      saveAudioPrefs({
+        globalMuted: shouldMute,
+        sfxMuted: mutedRef.current,
+        musicMuted: musicMutedRef.current,
+      });
+      const allowMusic =
+        !shouldMute &&
+        screenRef.current !== 'paused' &&
+        screenRef.current !== 'notice' &&
+        screenRef.current !== 'loading';
+      audioEngine.setGlobalMuted(shouldMute, allowMusic);
+    };
+
+    const unsubscribeMute = CG_SDK.onMuteAudioSettingChange(applyPortalMute);
+
+    void CG_SDK.init().then(() => {
+      if (!active) return;
+      // Re-hydrate persisted profile, career stats, and audio prefs from SaveStore (SDK.data + localStorage)
+      const hydratedProfile = loadActivePlayerProfile();
+      playerProfileRef.current = hydratedProfile;
+      setPlayerProfile(hydratedProfile);
+      setCareerStats(loadCareerStats());
+
+      const cgMute = CG_SDK.getMuteAudioSetting();
+      if (typeof cgMute === 'boolean') {
+        applyPortalMute(cgMute);
+      }
+      if (isAutostartRequested()) {
+        CG_SDK.loadingStop();
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribeMute();
+    };
+  }, []);
+
+  // Persist selected fighter, opponent, stage, and difficulty via unified SaveStore
+  useEffect(() => {
+    saveSelectionPrefs({ p1Id, p2Id, stageId, difficulty });
+  }, [p1Id, p2Id, stageId, difficulty]);
+
+  // Synchronize CrazyGames v3 gameplayStart / gameplayStop lifecycle accurately
+  useEffect(() => {
+    const isInteractiveCombat =
+      (screen === 'playing' || screen === 'super_preview') &&
+      !settingsOpen &&
+      !accountModalOpen &&
+      !howToPlayOpen &&
+      !aboutOpen &&
+      !satireNoticeOpen &&
+      !adOverlayActive;
+
+    if (isInteractiveCombat) {
+      CG_SDK.gameplayStart();
+    } else {
+      CG_SDK.gameplayStop();
+    }
+  }, [
+    screen,
+    settingsOpen,
+    accountModalOpen,
+    howToPlayOpen,
+    aboutOpen,
+    satireNoticeOpen,
+    adOverlayActive,
+  ]);
+
+  // Cleanup toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (adToastTimerRef.current !== null) {
+        window.clearTimeout(adToastTimerRef.current);
+      }
+    };
   }, []);
 
   // Mirror game state to document.body.dataset.state
@@ -284,6 +404,11 @@ export default function App() {
         );
         playerProfileRef.current = progression.profile;
         setPlayerProfile(progression.profile);
+
+        CG_SDK.gameplayStop();
+        if (accountOutcome === 'win') {
+          CG_SDK.happytime();
+        }
 
         setMatchResult(result);
         setScreen('victory');
@@ -504,18 +629,28 @@ export default function App() {
     };
   }, []);
 
-  // Global Esc / P pause and M global mute shortcuts
+  // Global Esc / P pause, M global mute shortcuts, and CrazyGames iframe Arrow/Space scroll prevention
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
         return;
       }
+      if (
+        e.code === 'ArrowUp' ||
+        e.code === 'ArrowDown' ||
+        e.code === 'ArrowLeft' ||
+        e.code === 'ArrowRight' ||
+        e.code === 'Space'
+      ) {
+        e.preventDefault();
+      }
       if (e.code === 'Escape' || e.code === 'KeyP') {
         if (screenRef.current === 'playing') {
           e.preventDefault();
           audioEngine.playUiClick();
           audioEngine.pauseAllAudio();
+          CG_SDK.gameplayStop();
           setAutoPaused(false);
           engineRef.current?.setScreen('paused');
           setScreen('paused');
@@ -526,6 +661,7 @@ export default function App() {
           audioEngine.playUiClick();
           engineRef.current?.setScreen('playing');
           setScreen('playing');
+          CG_SDK.gameplayStart();
         }
       } else if (e.code === 'KeyM') {
         e.preventDefault();
@@ -582,9 +718,10 @@ export default function App() {
     audioEngine.setBootReady(true);
     engineRef.current?.setScreen(nextScreen);
     setScreen(nextScreen);
+    CG_SDK.loadingStop();
     if (!portraitBlockedRef.current) {
       void tryAutoMobileFullscreen();
-      // Start continuous gapless /audio/bgm.mp3 immediately if AudioContext is already unlocked
+      // Start continuous gapless ./audio/bgm.mp3 immediately if AudioContext is already unlocked
       audioEngine.tryAutoStartMusic();
     }
   }, []);
@@ -676,11 +813,39 @@ export default function App() {
     }
   }, []);
 
+  const showAdToast = useCallback((text: string, tone: 'success' | 'error') => {
+    setAdToast({ text, tone });
+    if (adToastTimerRef.current !== null) {
+      window.clearTimeout(adToastTimerRef.current);
+    }
+    adToastTimerRef.current = window.setTimeout(() => {
+      setAdToast(null);
+      adToastTimerRef.current = null;
+    }, 3200);
+  }, []);
+
+  const pauseForAd = useCallback(() => {
+    CG_SDK.gameplayStop();
+    setAdOverlayActive(true);
+    audioEngine.pauseAllAudio();
+  }, []);
+
+  const restoreAfterAd = useCallback(() => {
+    setAdOverlayActive(false);
+    const shouldResumeMusic =
+      !globalMutedRef.current &&
+      !musicMutedRef.current &&
+      screenRef.current !== 'paused' &&
+      screenRef.current !== 'loading';
+    audioEngine.resumeAllAudio(shouldResumeMusic);
+  }, []);
+
   const handleUnlockFighter = useCallback((id: FighterId): boolean => {
     audioEngine.unlock();
     const res = unlockFighterWithCoins(playerProfileRef.current, id);
     if (res.ok) {
       audioEngine.playUnlockFanfare();
+      CG_SDK.happytime();
       playerProfileRef.current = res.profile;
       setPlayerProfile(res.profile);
       return true;
@@ -688,22 +853,88 @@ export default function App() {
     return false;
   }, []);
 
-  const handleWatchAdUnlock = useCallback((id: FighterId) => {
+  const handleRequestFighterRewardedAd = useCallback(
+    async (
+      id: FighterId,
+      onSimulatedTick?: (secondsLeft: number) => void,
+    ): Promise<RewardedAdFighterResult> => {
+      audioEngine.unlock();
+      const before = getFighterAdProgress(playerProfileRef.current, id);
+      const grantHolder: {
+        value: { watched: number; required: number; unlockedNow: boolean } | null;
+      } = { value: null };
+      let errorMsg: string | undefined;
+
+      const outcome = await CG_SDK.requestRewardedAd({
+        onAdStarted: pauseForAd,
+        onAdFinished: restoreAfterAd,
+        onSimulatedTick,
+        onRewardGranted: () => {
+          const res = recordRewardedAdWatch(playerProfileRef.current, id);
+          playerProfileRef.current = res.profile;
+          setPlayerProfile(res.profile);
+          grantHolder.value = {
+            watched: res.watched,
+            required: res.required,
+            unlockedNow: res.unlockedNow,
+          };
+          if (res.unlockedNow) {
+            audioEngine.playUnlockFanfare();
+            CG_SDK.happytime();
+          } else {
+            audioEngine.playUiClick();
+          }
+        },
+        onAdError: (toastText) => {
+          errorMsg = toastText;
+          showAdToast(toastText, 'error');
+        },
+      });
+
+      const granted = grantHolder.value;
+      if (!outcome.ok || !granted) {
+        return {
+          ok: false,
+          watched: before.watched,
+          required: before.required,
+          unlockedNow: false,
+          errorMessage: errorMsg ?? 'Ad not available right now, try again!',
+        };
+      }
+
+      return {
+        ok: true,
+        watched: granted.watched,
+        required: granted.required,
+        unlockedNow: granted.unlockedNow,
+      };
+    },
+    [pauseForAd, restoreAfterAd, showAdToast],
+  );
+
+  const handleWatchFreeCoinsAd = useCallback(async (): Promise<boolean> => {
+    if (freeCoinsAdBusy) return false;
     audioEngine.unlock();
-    const res = recordRewardedAdWatch(playerProfileRef.current, id);
-    playerProfileRef.current = res.profile;
-    setPlayerProfile(res.profile);
-    if (res.unlockedNow) {
-      audioEngine.playUnlockFanfare();
-    } else {
-      audioEngine.playUiClick();
-    }
-    return {
-      watched: res.watched,
-      required: res.required,
-      unlockedNow: res.unlockedNow,
-    };
-  }, []);
+    setFreeCoinsAdBusy(true);
+
+    const outcome = await CG_SDK.requestRewardedAd({
+      onAdStarted: pauseForAd,
+      onAdFinished: restoreAfterAd,
+      onRewardGranted: () => {
+        const res = grantRewardedCoins(playerProfileRef.current, FREE_COINS_AD_REWARD);
+        playerProfileRef.current = res.profile;
+        setPlayerProfile(res.profile);
+        audioEngine.playUnlockFanfare();
+        showAdToast(`+${res.coinsGranted} Free Coins Added!`, 'success');
+      },
+      onAdError: (toastText) => {
+        showAdToast(toastText, 'error');
+      },
+    });
+
+    setFreeCoinsAdBusy(false);
+    return outcome.ok;
+  }, [freeCoinsAdBusy, pauseForAd, restoreAfterAd, showAdToast]);
 
   const handleUnlockStage = useCallback((stageNumber: number) => {
     audioEngine.unlock();
@@ -1014,6 +1245,7 @@ export default function App() {
     audioEngine.stopDahiKoAudio();
     audioEngine.resumeAllAudio(!globalMutedRef.current && !musicMutedRef.current);
     audioEngine.playUiClick();
+    CG_SDK.gameplayStop();
     if (onlineRoleRef.current !== 'offline') {
       friendRoomRef.current?.send({ type: 'BACK_TO_SELECT' });
     }
@@ -1021,6 +1253,26 @@ export default function App() {
     engineRef.current?.setPreviewSelection(p1Id, p2Id, stageId, difficulty);
     setScreen('select');
   }, [p1Id, p2Id, stageId, difficulty]);
+
+  const handleVictoryRematch = useCallback(() => {
+    void CG_SDK.requestMidgameAd({
+      onAdStarted: pauseForAd,
+      onAdFinished: restoreAfterAd,
+      onAdError: restoreAfterAd,
+    }).finally(() => {
+      handleStartFight();
+    });
+  }, [pauseForAd, restoreAfterAd, handleStartFight]);
+
+  const handleVictoryBackToSelect = useCallback(() => {
+    void CG_SDK.requestMidgameAd({
+      onAdStarted: pauseForAd,
+      onAdFinished: restoreAfterAd,
+      onAdError: restoreAfterAd,
+    }).finally(() => {
+      handleQuitToSelect();
+    });
+  }, [pauseForAd, restoreAfterAd, handleQuitToSelect]);
 
   const handleSkipIntro = useCallback(() => {
     audioEngine.playUiClick();
@@ -1045,10 +1297,14 @@ export default function App() {
   );
 
   return (
-    <main className="fixed inset-0 h-[100dvh] w-[100dvw] overflow-hidden select-none touch-none bg-[#0e0c0a]">
+    <main
+      onContextMenu={(e) => e.preventDefault()}
+      className="fixed inset-0 h-[100dvh] w-[100dvw] overflow-hidden select-none touch-none bg-[#0e0c0a]"
+    >
       {/* Isolated WebGL Three.js Canvas Mount */}
       <div
         ref={canvasMountRef}
+        onContextMenu={(e) => e.preventDefault()}
         data-testid="arena-canvas-mount"
         className="fixed inset-0 z-0 h-[100dvh] w-[100dvw]"
       />
@@ -1114,7 +1370,9 @@ export default function App() {
           onSelectStage={handleSelectStage}
           onSelectDifficulty={handleSelectDifficulty}
           onUnlockFighter={handleUnlockFighter}
-          onWatchAdUnlock={handleWatchAdUnlock}
+          onRequestRewardedAd={handleRequestFighterRewardedAd}
+          onWatchFreeCoinsAd={handleWatchFreeCoinsAd}
+          freeCoinsAdBusy={freeCoinsAdBusy}
           onUnlockStage={handleUnlockStage}
           onToggleGlobalMute={handleToggleGlobalMute}
           onToggleFullscreen={toggleFullscreen}
@@ -1192,8 +1450,8 @@ export default function App() {
           result={matchResult}
           careerStats={careerStats}
           onlineRole={activeOnlineRole}
-          onRematch={handleStartFight}
-          onCharacterSelect={handleQuitToSelect}
+          onRematch={handleVictoryRematch}
+          onCharacterSelect={handleVictoryBackToSelect}
         />
       )}
 
@@ -1282,6 +1540,22 @@ export default function App() {
       )}
       {howToPlayOpen && <HowToPlayModal onClose={() => setHowToPlayOpen(false)} />}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+
+      {/* Non-Intrusive CrazyGames Rewarded Ad / Coin Toast */}
+      {adToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="ad-status-toast"
+          className={`pointer-events-none fixed top-4 left-1/2 z-[60] -translate-x-1/2 border-2 px-4 py-2 font-display text-sm font-extrabold uppercase tracking-wider shadow-[4px_4px_0_#0f0a06] ${
+            adToast.tone === 'error'
+              ? 'border-[#f87171] bg-[#450a0a]/95 text-[#fecaca]'
+              : 'border-[#4ade80] bg-[#14532d]/95 text-[#bbf7d0]'
+          }`}
+        >
+          {adToast.text}
+        </div>
+      )}
 
       {/* Mobile Portrait Orientation Guard */}
       <PortraitGuard onPortraitBlockedChange={handlePortraitBlockedChange} />

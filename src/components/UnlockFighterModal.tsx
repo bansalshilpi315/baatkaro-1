@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2, Coins, Lock, Sparkles, Tv, X } from 'lucide-react';
-import { audioEngine } from '../game/audio';
+import { useEffect, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, Coins, Lock, Sparkles, Tv, X } from 'lucide-react';
 import { FIGHTER_CONFIGS } from '../game/characters';
 import {
   FIGHTER_UNLOCK_ADS,
@@ -11,21 +10,30 @@ import {
 import type { FighterId } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
 
+export interface RewardedAdFighterResult {
+  ok: boolean;
+  watched: number;
+  required: number;
+  unlockedNow: boolean;
+  errorMessage?: string;
+}
+
 interface UnlockFighterModalProps {
   fighterId: FighterId;
   playerProfile: PlayerProfile;
   onUnlockWithCoins: (id: FighterId) => boolean;
-  onWatchRewardedAd: (id: FighterId) => { watched: number; required: number; unlockedNow: boolean };
+  onRequestRewardedAd: (
+    id: FighterId,
+    onSimulatedTick?: (secondsLeft: number) => void,
+  ) => Promise<RewardedAdFighterResult>;
   onClose: () => void;
 }
-
-const AD_SIMULATION_SECONDS = 2;
 
 export function UnlockFighterModal({
   fighterId,
   playerProfile,
   onUnlockWithCoins,
-  onWatchRewardedAd,
+  onRequestRewardedAd,
   onClose,
 }: UnlockFighterModalProps) {
   const cfg = FIGHTER_CONFIGS[fighterId];
@@ -36,57 +44,71 @@ export function UnlockFighterModal({
   const isAlreadyUnlocked = playerProfile.unlockedFighters.includes(fighterId);
 
   const [watchingAd, setWatchingAd] = useState(false);
-  const [adSecondsLeft, setAdSecondsLeft] = useState(AD_SIMULATION_SECONDS);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [adSecondsLeft, setAdSecondsLeft] = useState<number | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  const mountedRef = useRef(true);
+  const closeTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!watchingAd) return;
-    audioEngine.pauseAllAudio();
-    setAdSecondsLeft(AD_SIMULATION_SECONDS);
-
-    let remaining = AD_SIMULATION_SECONDS;
-    const intervalId = window.setInterval(() => {
-      remaining -= 1;
-      if (remaining > 0) {
-        setAdSecondsLeft(remaining);
-        return;
-      }
-      window.clearInterval(intervalId);
-      setWatchingAd(false);
-      audioEngine.resumeAllAudio(true);
-
-      const res = onWatchRewardedAd(fighterId);
-      if (res.unlockedNow) {
-        setStatusMessage(`${cfg.name} UNLOCKED PERMANENTLY!`);
-        window.setTimeout(() => {
-          onClose();
-        }, 700);
-      } else {
-        setStatusMessage(`Ad counted! Progress: ${res.watched}/${res.required} Ads.`);
-      }
-    }, 900);
-
+    mountedRef.current = true;
     return () => {
-      window.clearInterval(intervalId);
-      audioEngine.resumeAllAudio(true);
+      mountedRef.current = false;
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
     };
-  }, [watchingAd, fighterId, cfg.name, onWatchRewardedAd, onClose]);
+  }, []);
 
   const handleCoinUnlock = () => {
     if (!canAffordCoins || watchingAd) return;
     const unlocked = onUnlockWithCoins(fighterId);
     if (unlocked) {
-      setStatusMessage(`${cfg.name} UNLOCKED PERMANENTLY!`);
-      window.setTimeout(() => {
-        onClose();
+      setStatusMessage({ tone: 'success', text: `${cfg.name} UNLOCKED PERMANENTLY!` });
+      closeTimerRef.current = window.setTimeout(() => {
+        if (mountedRef.current) onClose();
       }, 650);
     }
   };
 
-  const handleStartAd = () => {
+  const handleStartAd = async () => {
     if (watchingAd || isAlreadyUnlocked) return;
     setStatusMessage(null);
+    setAdSecondsLeft(null);
     setWatchingAd(true);
+
+    const res = await onRequestRewardedAd(fighterId, (secondsLeft) => {
+      if (mountedRef.current) {
+        setAdSecondsLeft(secondsLeft);
+      }
+    });
+
+    if (!mountedRef.current) return;
+    setWatchingAd(false);
+    setAdSecondsLeft(null);
+
+    if (!res.ok) {
+      setStatusMessage({
+        tone: 'error',
+        text: res.errorMessage ?? 'Ad not available right now, try again!',
+      });
+      return;
+    }
+
+    if (res.unlockedNow) {
+      setStatusMessage({ tone: 'success', text: `${cfg.name} UNLOCKED PERMANENTLY!` });
+      closeTimerRef.current = window.setTimeout(() => {
+        if (mountedRef.current) onClose();
+      }, 700);
+    } else {
+      setStatusMessage({
+        tone: 'success',
+        text: `Ad counted! Progress: ${res.watched}/${res.required} Ads.`,
+      });
+    }
   };
 
   const adPct =
@@ -169,7 +191,7 @@ export function UnlockFighterModal({
           </div>
         </div>
 
-        {/* Simulated Rewarded Ad Player State */}
+        {/* Active Rewarded Ad State */}
         {watchingAd && (
           <div
             data-testid="rewarded-ad-countdown"
@@ -179,19 +201,29 @@ export function UnlockFighterModal({
               <Tv className="h-4 w-4 animate-pulse text-[#38bdf8]" aria-hidden="true" />
               <span>Playing Rewarded Ad... Hold tight!</span>
             </div>
-            <span className="font-mono-num text-sm font-extrabold text-[#facc15]">
-              {adSecondsLeft}s
-            </span>
+            {adSecondsLeft !== null && (
+              <span className="font-mono-num text-sm font-extrabold text-[#facc15]">
+                {adSecondsLeft}s
+              </span>
+            )}
           </div>
         )}
 
         {statusMessage && (
           <div
             data-testid="unlock-modal-status"
-            className="mt-3 flex items-center gap-2 border border-[#4ade80]/70 bg-[#14532d]/80 px-3 py-2 text-xs font-bold text-[#bbf7d0]"
+            className={`mt-3 flex items-center gap-2 border px-3 py-2 text-xs font-bold ${
+              statusMessage.tone === 'error'
+                ? 'border-[#f87171]/70 bg-[#450a0a]/85 text-[#fecaca]'
+                : 'border-[#4ade80]/70 bg-[#14532d]/80 text-[#bbf7d0]'
+            }`}
           >
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-[#4ade80]" aria-hidden="true" />
-            <span>{statusMessage}</span>
+            {statusMessage.tone === 'error' ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-[#f87171]" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#4ade80]" aria-hidden="true" />
+            )}
+            <span>{statusMessage.text}</span>
           </div>
         )}
 
@@ -216,13 +248,15 @@ export function UnlockFighterModal({
             type="button"
             data-testid="modal-watch-ad-btn"
             disabled={watchingAd || isAlreadyUnlocked}
-            onClick={handleStartAd}
+            onClick={() => void handleStartAd()}
             className="flex w-full cursor-pointer items-center justify-center gap-2 border-2 border-[#38bdf8] bg-[#0c4a6e]/90 px-4 py-2.5 font-display text-lg font-extrabold uppercase tracking-wider text-white shadow-[4px_4px_0_#0284c7] transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Tv className="h-4 w-4 shrink-0 text-[#fde047]" aria-hidden="true" />
             <span>
               {watchingAd
-                ? `Watching Ad (${adSecondsLeft}s)...`
+                ? adSecondsLeft !== null
+                  ? `Watching Ad (${adSecondsLeft}s)...`
+                  : 'Playing Ad...'
                 : `Watch Ad (${adProgress.watched}/${requiredAds})`}
             </span>
           </button>

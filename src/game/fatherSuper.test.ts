@@ -59,8 +59,8 @@ test('Principal Man (id: father) & School Assembly Ground are registered in the 
 
   const assembly = STAGE_CONFIGS.assembly;
   assert.equal(assembly.name, 'School Assembly Ground');
-  assert.equal(getSuperAudioUrl('father'), '/audio/supers/father.mp3');
-  assert.equal(FATHER_SUPER_AUDIO_URL, '/audio/supers/father.mp3');
+  assert.equal(getSuperAudioUrl('father'), './audio/supers/father.mp3');
+  assert.equal(FATHER_SUPER_AUDIO_URL, './audio/supers/father.mp3');
 });
 
 test('Father Roy Dolphus 5th Signature Move (DIARY NOTE) launches a diary projectile with 3.5s cooldown & 11-13% maxHP damage', () => {

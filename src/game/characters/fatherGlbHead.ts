@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-export const FATHER_GLB_HEAD_URL = '/models/father_head.glb';
-export const SAMYAK_GLB_HEAD_URL = '/models/samyak_head.glb';
-export const ADI_GLB_HEAD_URL = '/models/adi_head.glb';
-export const KRISH_GLB_HEAD_URL = '/models/krish_head.glb';
-export const UTKARSH_GLB_HEAD_URL = '/models/utkarsh_head.glb';
+export const FATHER_GLB_HEAD_URL = './models/father_head.glb';
+export const SAMYAK_GLB_HEAD_URL = './models/samyak_head.glb';
+export const ADI_GLB_HEAD_URL = './models/adi_head.glb';
+export const KRISH_GLB_HEAD_URL = './models/krish_head.glb';
+export const UTKARSH_GLB_HEAD_URL = './models/utkarsh_head.glb';
 
 /**
  * Easy one-line tweak constants for aligning Principal Man's TRELLIS GLB head
