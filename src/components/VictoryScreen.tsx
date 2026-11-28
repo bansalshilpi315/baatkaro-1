@@ -4,6 +4,7 @@ import { FIGHTER_CONFIGS } from '../game/characters';
 import type { OnlineRole } from '../game/friendRoomProtocol';
 import type { MatchResultSnapshot } from '../game/types';
 import { FighterPortrait } from './FighterPortrait';
+import { GameLogoBadge } from './GameLogoBadge';
 
 interface VictoryScreenProps {
   result: MatchResultSnapshot;
@@ -89,14 +90,21 @@ export function VictoryScreen({
           data-testid="breaking-bakwas-paper"
           className="victory-paper relative w-full max-w-[430px] -rotate-[1.5deg] border-2 border-[#231d18] bg-[#f5efe0] px-5 py-4 text-[#191512] shadow-[0_18px_45px_rgba(0,0,0,0.75),6px_6px_0_rgba(17,11,8,0.85)]"
         >
-          {/* Thin Double Rules + Bold Serif Masthead */}
-          <header className="border-y-[3px] border-double border-[#1c1917] py-1.5 text-center">
+          {/* Thin Double Rules + Bold Serif Masthead + Official Desi Dangal Seal */}
+          <header className="flex items-center justify-between gap-2 border-y-[3px] border-double border-[#1c1917] py-1.5">
             <h1
               id="breaking-bakwas-masthead"
-              className="victory-masthead whitespace-nowrap font-serif-news text-[1.75rem] font-black uppercase tracking-[0.05em] text-[#14110e] sm:text-[2.1rem]"
+              className="victory-masthead flex-1 whitespace-nowrap text-center font-serif-news text-[1.5rem] font-black uppercase tracking-[0.04em] text-[#14110e] sm:text-[1.9rem]"
             >
               BREAKING BAKWAS
             </h1>
+            <GameLogoBadge
+              testId="victory-newspaper-seal"
+              shape="circle"
+              variant="seal"
+              sizeClass="h-9 w-9 -rotate-6 sm:h-11 sm:w-11"
+              alt="DESI DANGAL Official Newspaper Seal"
+            />
           </header>
 
           {/* Sub-Header: Today's Date + PRICE ₹5 · SATIRE EDITION */}

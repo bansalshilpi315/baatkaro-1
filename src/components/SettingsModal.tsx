@@ -25,6 +25,7 @@ import {
   DEVELOPER_ROLE_BADGE,
   DEVELOPER_VISION_NOTE,
 } from '../utils/bugReport';
+import { GameLogoBadge } from './GameLogoBadge';
 
 interface SettingsModalProps {
   profile: PlayerProfile;
@@ -321,11 +322,24 @@ export function SettingsModal({
             </span>
           </div>
 
-          <div
-            data-testid="about-developer-name"
-            className="mt-2 font-display text-2xl font-extrabold uppercase italic tracking-wide text-white"
-          >
-            {DEVELOPER_NAME}
+          <div className="mt-2.5 flex items-center gap-3">
+            <GameLogoBadge
+              testId="settings-dev-logo"
+              shape="rounded"
+              variant="developer"
+              sizeClass="h-12 w-12"
+            />
+            <div className="min-w-0">
+              <div
+                data-testid="about-developer-name"
+                className="font-display text-2xl font-extrabold uppercase italic leading-none tracking-wide text-white"
+              >
+                {DEVELOPER_NAME}
+              </div>
+              <div className="mt-1 font-display text-[11px] font-bold uppercase tracking-[0.16em] text-[#fde047]/90">
+                DESI DANGAL · OFFICIAL STUDIO
+              </div>
+            </div>
           </div>
 
           {/* 4 Hobbies & Interests Tags */}

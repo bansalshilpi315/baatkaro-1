@@ -144,7 +144,7 @@ test('PART 1: Utkarsh is active playable Slot #3 (125 HP, Unlocked starter, SKY-
   assert.equal(isPhotoFaceFighter('utkarsh'), true);
   assert.equal(REAL_FACE_PHOTO_URLS.utkarsh, '/textures/faces/utkarsh.png');
 
-  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 27);
+  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 28);
   assert.ok(PRELOAD_GLB_URLS.includes('/models/utkarsh_head.glb'));
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/utkarsh.png'));
   assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/utkarsh.mp3'));

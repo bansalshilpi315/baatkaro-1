@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Music, Settings, Volume2, VolumeX } from 'lucide-react';
 import { FullscreenButton } from './FullscreenButton';
+import { GameLogoBadge } from './GameLogoBadge';
 
 interface TitleScreenProps {
   globalMuted: boolean;
@@ -49,11 +50,19 @@ export function TitleScreen({
 
   return (
     <div className="safe-pad-screen pointer-events-none fixed inset-0 z-20 flex h-[100dvh] w-[100dvw] flex-col justify-between overflow-hidden select-none touch-none sm:p-7">
-      {/* Top Bar: Live Arena Badge (Left) & Settings / Audio / Fullscreen Toggles (Right) */}
+      {/* Top Bar: Official Logo Emblem + Live Arena Badge (Left) & Settings / Audio / Fullscreen Toggles (Right) */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06]">
-          <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
-          <span>LIVE · DESI TV ARENA</span>
+        <div className="flex items-center gap-2.5">
+          <GameLogoBadge
+            testId="title-logo-emblem"
+            shape="rounded"
+            variant="corner"
+            sizeClass="h-9 w-9 sm:h-11 sm:w-11"
+          />
+          <div className="flex items-center gap-2 bg-[#dc2626] px-3 py-1.5 text-xs font-extrabold tracking-widest text-white shadow-[3px_3px_0_#0f0a06]">
+            <span className="inline-block h-2 w-2 rounded-full bg-white" aria-hidden="true" />
+            <span>LIVE · DESI TV ARENA</span>
+          </div>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">

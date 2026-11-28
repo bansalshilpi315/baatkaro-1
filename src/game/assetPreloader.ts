@@ -49,6 +49,10 @@ export const PRELOAD_PORTRAIT_URLS: readonly string[] = [
   '/textures/faces/principal_man.png',
 ];
 
+export const PRELOAD_LOGO_URL = '/logo.png';
+
+export const PRELOAD_BRAND_URLS: readonly string[] = [PRELOAD_LOGO_URL];
+
 export const PRELOAD_AUDIO_URLS: readonly string[] = [
   BGM_AUDIO_URL,
   SHERU_SUPER_AUDIO_URL,
@@ -67,11 +71,15 @@ export const PRELOAD_AUDIO_URLS: readonly string[] = [
 export const STARTUP_ASSET_MANIFEST = {
   glbModels: PRELOAD_GLB_URLS,
   portraits: PRELOAD_PORTRAIT_URLS,
+  brandAssets: PRELOAD_BRAND_URLS,
   audioFiles: PRELOAD_AUDIO_URLS,
 } as const;
 
 export const TOTAL_STARTUP_PRELOAD_ASSETS =
-  PRELOAD_GLB_URLS.length + PRELOAD_PORTRAIT_URLS.length + PRELOAD_AUDIO_URLS.length;
+  PRELOAD_GLB_URLS.length +
+  PRELOAD_PORTRAIT_URLS.length +
+  PRELOAD_BRAND_URLS.length +
+  PRELOAD_AUDIO_URLS.length;
 
 export interface PreloadProgressInfo {
   percent: number;
@@ -257,15 +265,20 @@ export async function preloadStartupAssets(
       trackTask(preloadSinglePortraitPng(url, maxRetries, retryBackoffMs)),
     );
 
+    const brandTasks = PRELOAD_BRAND_URLS.map((url) =>
+      trackTask(preloadSinglePortraitPng(url, maxRetries, retryBackoffMs)),
+    );
+
     const audioTasks = PRELOAD_AUDIO_URLS.map((url) =>
       trackTask(audioEngine.preloadSuperAudio(url, maxRetries, retryBackoffMs)),
     );
 
-    // Warm Three.js face texture cache alongside direct PNG decoding and await all manifest promises
+    // Warm Three.js face texture cache alongside direct PNG/logo decoding and await all manifest promises
     await Promise.all([
       preloadRealFaceTextures(createTexLoader).catch(() => undefined),
       ...glbTasks,
       ...portraitTasks,
+      ...brandTasks,
       ...audioTasks,
     ]);
   };

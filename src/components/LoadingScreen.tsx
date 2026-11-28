@@ -5,6 +5,7 @@ import {
   TOTAL_STARTUP_PRELOAD_ASSETS,
   preloadStartupAssets,
 } from '../game/assetPreloader';
+import { GameLogoBadge } from './GameLogoBadge';
 
 interface LoadingScreenProps {
   onComplete: () => void;
@@ -115,11 +116,17 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
             data-testid="preloader-stage-1"
             className="preloader-fade-in flex flex-col items-center"
           >
-            <div className="mb-3 border border-[#facc15]/50 bg-[#18110d]/90 px-4 py-1 font-display text-xs font-extrabold uppercase tracking-[0.34em] text-[#fde047]">
+            <GameLogoBadge
+              testId="preloader-logo"
+              shape="rounded"
+              variant="hero"
+              sizeClass="mb-2.5 h-16 w-16 sm:mb-3.5 sm:h-24 sm:w-24"
+            />
+            <div className="mb-2 border border-[#facc15]/50 bg-[#18110d]/90 px-4 py-1 font-display text-xs font-extrabold uppercase tracking-[0.34em] text-[#fde047] sm:mb-3">
               PRESENTS
             </div>
             <h1
-              className="font-display text-5xl font-extrabold uppercase italic tracking-[0.08em] text-[#facc15] sm:text-7xl"
+              className="font-display text-4xl font-extrabold uppercase italic tracking-[0.08em] text-[#facc15] sm:text-7xl"
               style={{
                 textShadow:
                   '0 0 28px rgba(250, 204, 21, 0.45), 0 4px 0 #110b08, 0 8px 22px rgba(220, 38, 38, 0.45)',
@@ -131,23 +138,29 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
             </h1>
             <div
               aria-hidden="true"
-              className="mt-5 h-1 w-44 bg-gradient-to-r from-transparent via-[#facc15] to-transparent shadow-[0_0_16px_rgba(250,204,21,0.8)]"
+              className="mt-4 h-1 w-44 bg-gradient-to-r from-transparent via-[#facc15] to-transparent shadow-[0_0_16px_rgba(250,204,21,0.8)] sm:mt-5"
             />
           </div>
         ) : (
           <div
             data-testid="preloader-stage-2"
-            className="preloader-fade-in mx-auto w-full max-w-lg"
+            className="preloader-fade-in mx-auto flex w-full max-w-lg flex-col items-center"
           >
-            <div className="mb-2 inline-block bg-[#dc2626] px-3 py-0.5 font-display text-xs font-extrabold uppercase tracking-[0.22em] text-white shadow-[3px_3px_0_#0f0a06]">
+            <GameLogoBadge
+              testId="preloader-logo"
+              shape="rounded"
+              variant="hero"
+              sizeClass="mb-2.5 h-14 w-14 sm:mb-3 sm:h-20 sm:w-20"
+            />
+            <div className="mb-1.5 inline-block bg-[#dc2626] px-3 py-0.5 font-display text-xs font-extrabold uppercase tracking-[0.22em] text-white shadow-[3px_3px_0_#0f0a06]">
               DESI DANGAL
             </div>
-            <h2 className="font-display text-4xl font-extrabold uppercase italic tracking-wider text-[#facc15] news-stroke sm:text-5xl">
+            <h2 className="font-display text-3xl font-extrabold uppercase italic tracking-wider text-[#facc15] news-stroke sm:text-5xl">
               DESI DANGAL ARENA
             </h2>
 
             {/* Modern Horizontal Asset Progress Bar (0% - 100%) */}
-            <div className="mx-auto mt-6 max-w-md border-2 border-[#facc15] bg-[#16110e] p-1 shadow-[5px_5px_0_#dc2626]">
+            <div className="mx-auto mt-4 w-full max-w-md border-2 border-[#facc15] bg-[#16110e] p-1 shadow-[5px_5px_0_#dc2626] sm:mt-5">
               <div className="relative h-6 w-full overflow-hidden bg-[#0b0907]">
                 <div
                   data-testid="preloader-progress-fill"
