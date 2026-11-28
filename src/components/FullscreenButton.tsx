@@ -1,3 +1,4 @@
+import type { MouseEvent, PointerEvent, TouchEvent } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
 interface FullscreenButtonProps {
@@ -13,9 +14,25 @@ export function FullscreenButton({
   onToggle,
   variant,
 }: FullscreenButtonProps) {
-  if (!isSupported) return null;
+  // Always keep Exit Fullscreen visible if the browser is currently in fullscreen
+  if (!isSupported && !isFullscreen) return null;
 
   const label = isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen';
+
+  const handlePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+  };
+
+  const handleTouchStart = (e: TouchEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+  };
+
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.blur();
+    onToggle();
+  };
 
   if (variant === 'hud') {
     return (
@@ -26,10 +43,9 @@ export function FullscreenButton({
         aria-label={label}
         aria-pressed={isFullscreen}
         title={label}
-        onClick={(e) => {
-          e.currentTarget.blur();
-          onToggle();
-        }}
+        onPointerDown={handlePointerDown}
+        onTouchStart={handleTouchStart}
+        onClick={handleClick}
         className={`hud-util-btn flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 transition-colors ${
           isFullscreen
             ? 'border-[#facc15] bg-[#facc15] text-[#110b08]'
@@ -53,7 +69,9 @@ export function FullscreenButton({
         aria-label={label}
         aria-pressed={isFullscreen}
         title={label}
-        onClick={onToggle}
+        onPointerDown={handlePointerDown}
+        onTouchStart={handleTouchStart}
+        onClick={handleClick}
         className={`select-util-btn flex h-9 w-9 cursor-pointer shrink-0 items-center justify-center border-2 shadow-[3px_3px_0_#0f0a06] transition-colors ${
           isFullscreen
             ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
@@ -77,7 +95,9 @@ export function FullscreenButton({
       aria-label={label}
       aria-pressed={isFullscreen}
       title={label}
-      onClick={onToggle}
+      onPointerDown={handlePointerDown}
+      onTouchStart={handleTouchStart}
+      onClick={handleClick}
       className={`title-util-btn flex h-10 w-10 cursor-pointer shrink-0 items-center justify-center border-2 transition-colors ${
         isFullscreen
           ? 'border-[#facc15] bg-[#facc15] text-[#0f0a06]'
