@@ -477,10 +477,7 @@ export default function App() {
       const shouldResumeMusic =
         !globalMutedRef.current &&
         !musicMutedRef.current &&
-        (screenRef.current === 'title' ||
-          screenRef.current === 'select' ||
-          screenRef.current === 'super_preview' ||
-          screenRef.current === 'victory');
+        screenRef.current !== 'loading';
       audioEngine.resumeAllAudio(shouldResumeMusic);
     };
 
@@ -547,11 +544,32 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Unlock Web Audio & start continuous gapless BGM on the user's very first interaction anywhere
+  useEffect(() => {
+    const handleFirstGesture = () => {
+      if (screenRef.current === 'loading') return;
+      audioEngine.unlock();
+      window.removeEventListener('pointerdown', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+      window.removeEventListener('touchstart', handleFirstGesture);
+    };
+    window.addEventListener('pointerdown', handleFirstGesture, { passive: true });
+    window.addEventListener('keydown', handleFirstGesture, { passive: true });
+    window.addEventListener('touchstart', handleFirstGesture, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+      window.removeEventListener('touchstart', handleFirstGesture);
+    };
+  }, []);
+
   const handleLoadingComplete = useCallback(() => {
     const nextScreen: GameScreen =
       playerProfileRef.current.mode === 'account' ? 'title' : 'auth';
     engineRef.current?.setScreen(nextScreen);
     setScreen(nextScreen);
+    // Start continuous gapless BGM immediately if AudioContext is already unlocked
+    audioEngine.tryAutoStartMusic();
   }, []);
 
   const handleGateGuest = useCallback(() => {

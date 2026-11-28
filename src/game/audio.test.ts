@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  BGM_AUDIO_URL,
+  BGM_DEFAULT_GAIN,
+  BGM_DUCKED_GAIN,
   DAHI_KO_AUDIO_URL,
   DesiAudioEngine,
   SHERU_SUPER_AUDIO_URL,
@@ -14,6 +17,7 @@ interface GainCall {
 
 interface MockSource {
   buffer: unknown;
+  loop: boolean;
   onended: (() => void) | null;
   startedAt: number[];
   stoppedCount: number;
@@ -28,6 +32,7 @@ function createMockAudioEnv(fetchImpl: typeof fetch) {
   const gainNodes: Array<{ calls: GainCall[]; disconnected: boolean }> = [];
   const sources: MockSource[] = [];
   let resumeCalls = 0;
+  let suspendCalls = 0;
   let decodeCalls = 0;
 
   class MockAudioContext {
@@ -38,6 +43,12 @@ function createMockAudioEnv(fetchImpl: typeof fetch) {
     public resume() {
       resumeCalls += 1;
       this.state = 'running';
+      return Promise.resolve();
+    }
+
+    public suspend() {
+      suspendCalls += 1;
+      this.state = 'suspended';
       return Promise.resolve();
     }
 
@@ -64,6 +75,7 @@ function createMockAudioEnv(fetchImpl: typeof fetch) {
     public createBufferSource(): MockSource {
       const src: MockSource = {
         buffer: null,
+        loop: false,
         onended: null,
         startedAt: [],
         stoppedCount: 0,
@@ -101,6 +113,7 @@ function createMockAudioEnv(fetchImpl: typeof fetch) {
     gainNodes,
     sources,
     getResumeCalls: () => resumeCalls,
+    getSuspendCalls: () => suspendCalls,
     getDecodeCalls: () => decodeCalls,
     restore: () => {
       (globalThis as { window?: unknown }).window = prevWindow;
@@ -141,12 +154,12 @@ test('Super MP3 preloads once into RAM AudioBuffer cache, ducks BGM via setTarge
     assert.deepEqual(env.sources[0].startedAt, [0], 'AudioBufferSourceNode must call start(0)');
     assert.ok(env.getResumeCalls() >= 1, 'AudioContext.resume() must be called');
 
-    // Verify BGM ducking scheduled ONCE via setTargetAtTime(0.15, now, 0.08)
+    // Verify BGM ducking scheduled ONCE via setTargetAtTime(BGM_DUCKED_GAIN, now, 0.08)
     const bgmGain = env.gainNodes[0];
     const duckCalls = bgmGain.calls.filter(
-      (c) => c.method === 'setTargetAtTime' && c.args[0] === 0.15 && c.args[2] === 0.08,
+      (c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DUCKED_GAIN && c.args[2] === 0.08,
     );
-    assert.equal(duckCalls.length, 1, 'BGM must duck once with setTargetAtTime(0.15, now, 0.08)');
+    assert.equal(duckCalls.length, 1, 'BGM must duck once with setTargetAtTime(BGM_DUCKED_GAIN, now, 0.08)');
 
     // Overlap guard: triggering again while active must NOT create a second source
     engine.playSheruSuperAudio();
@@ -157,14 +170,14 @@ test('Super MP3 preloads once into RAM AudioBuffer cache, ducks BGM via setTarge
     assert.equal(env.sources[0].stoppedCount, 0, 'notifySuperAnimationEnd must never call source.stop()');
     assert.equal(engine.isSuperAudioPlaying(), true, 'Source must keep playing until natural onended');
 
-    // Simulate natural audio end -> restores BGM via setTargetAtTime(1.0, now, 0.2)
+    // Simulate natural audio end -> restores BGM via setTargetAtTime(BGM_DEFAULT_GAIN, now, 0.2)
     env.sources[0].onended?.();
     assert.equal(engine.isSuperAudioPlaying(), false);
     assert.equal(env.sources[0].disconnected, true);
     const restoreCalls = bgmGain.calls.filter(
-      (c) => c.method === 'setTargetAtTime' && c.args[0] === 1.0 && c.args[2] === 0.2,
+      (c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DEFAULT_GAIN && c.args[2] === 0.2,
     );
-    assert.equal(restoreCalls.length, 1, 'source.onended must restore BGM via setTargetAtTime(1.0, now, 0.2)');
+    assert.equal(restoreCalls.length, 1, 'source.onended must restore BGM via setTargetAtTime(BGM_DEFAULT_GAIN, now, 0.2)');
   } finally {
     env.restore();
     clearSuperAudioCacheForTests();
@@ -233,6 +246,7 @@ test('All 9 fighter Super MP3s (sheru, billa, neta, anda, mausi, father, samyak,
     const engine = new DesiAudioEngine();
     await engine.preloadAllSuperAudios();
 
+    assert.ok(fetchedUrls.includes(BGM_AUDIO_URL));
     assert.ok(fetchedUrls.includes('/audio/supers/sheru.mp3'));
     assert.ok(fetchedUrls.includes('/audio/supers/billa.mp3'));
     assert.ok(fetchedUrls.includes('/audio/supers/neta.mp3'));
@@ -321,7 +335,7 @@ test('All 9 fighter Super MP3s (sheru, billa, neta, anda, mausi, father, samyak,
     env.sources[7].onended?.();
     assert.equal(engine.isSuperAudioPlaying(), false);
 
-    assert.equal(fetchedUrls.length, 10, 'Preloaded buffers must never trigger duplicate fetches');
+    assert.equal(fetchedUrls.length, 11, 'Preloaded buffers (bgm + 9 supers + dahi KO) must never trigger duplicate fetches');
   } finally {
     env.restore();
     clearSuperAudioCacheForTests();
@@ -349,7 +363,7 @@ test('DAHI KHATAM! KO MP3 (/audio/supers/dahi.mp3) plays from RAM cache, ducks B
     await engine.preloadAllSuperAudios();
     assert.equal(dahiFetchCount, 1, 'dahi.mp3 must be preloaded once into shared RAM cache');
 
-    // Trigger KO audio -> fresh AudioBufferSourceNode, BGM ducked to 0.15
+    // Trigger KO audio -> fresh AudioBufferSourceNode, BGM ducked to BGM_DUCKED_GAIN
     engine.playDahiKoAudio();
     assert.equal(engine.isDahiKoAudioPlaying(), true);
     assert.equal(env.sources.length, 1);
@@ -357,20 +371,20 @@ test('DAHI KHATAM! KO MP3 (/audio/supers/dahi.mp3) plays from RAM cache, ducks B
 
     const bgmGain = env.gainNodes[0];
     const duckCalls = bgmGain.calls.filter(
-      (c) => c.method === 'setTargetAtTime' && c.args[0] === 0.15 && c.args[2] === 0.08,
+      (c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DUCKED_GAIN && c.args[2] === 0.08,
     );
-    assert.equal(duckCalls.length, 1, 'BGM must duck to 15% when dahi.mp3 starts');
+    assert.equal(duckCalls.length, 1, 'BGM must duck to BGM_DUCKED_GAIN when dahi.mp3 starts');
 
     // Duplicate rapid trigger on the same KO must be ignored
     engine.playDahiKoAudio();
     assert.equal(env.sources.length, 1, 'Rapid duplicate KO triggers must not spawn overlapping sources');
 
-    // Natural finish via onended restores BGM smoothly via setTargetAtTime(1.0, now, 0.2)
+    // Natural finish via onended restores BGM smoothly via setTargetAtTime(BGM_DEFAULT_GAIN, now, 0.2)
     env.sources[0].onended?.();
     assert.equal(engine.isDahiKoAudioPlaying(), false);
     assert.equal(env.sources[0].disconnected, true);
     const restoreCallsAfterFirst = bgmGain.calls.filter(
-      (c) => c.method === 'setTargetAtTime' && c.args[0] === 1.0 && c.args[2] === 0.2,
+      (c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DEFAULT_GAIN && c.args[2] === 0.2,
     );
     assert.equal(restoreCallsAfterFirst.length, 1, 'BGM must restore cleanly on dahi.mp3 onended');
 
@@ -386,7 +400,7 @@ test('DAHI KHATAM! KO MP3 (/audio/supers/dahi.mp3) plays from RAM cache, ducks B
     assert.equal(engine.isSuperAudioPlaying(), false);
     assert.equal(engine.isDahiKoAudioPlaying(), true);
     const restoreWhileDahiActive = bgmGain.calls.filter(
-      (c) => c.method === 'setTargetAtTime' && c.args[0] === 1.0 && c.args[2] === 0.2,
+      (c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DEFAULT_GAIN && c.args[2] === 0.2,
     );
     assert.equal(restoreWhileDahiActive.length, 1, 'BGM must remain ducked until dahi.mp3 also finishes');
 
@@ -395,7 +409,7 @@ test('DAHI KHATAM! KO MP3 (/audio/supers/dahi.mp3) plays from RAM cache, ducks B
     assert.equal(env.sources[2].stoppedCount, 1);
     assert.equal(engine.isDahiKoAudioPlaying(), false);
     const restoreAfterStop = bgmGain.calls.filter(
-      (c) => c.method === 'setTargetAtTime' && c.args[0] === 1.0 && c.args[2] === 0.2,
+      (c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DEFAULT_GAIN && c.args[2] === 0.2,
     );
     assert.equal(restoreAfterStop.length, 2, 'Explicit stopDahiKoAudio must restore BGM');
   } finally {
@@ -410,6 +424,7 @@ test('Missing /audio/supers/dahi.mp3 fails silently with zero errors and does no
   const env = createMockAudioEnv((async () => {
     return {
       ok: false,
+      status: 404,
       headers: { get: () => 'text/html' },
       arrayBuffer: async () => new ArrayBuffer(0),
     } as unknown as Response;
@@ -425,9 +440,73 @@ test('Missing /audio/supers/dahi.mp3 fails silently with zero errors and does no
     assert.equal(engine.isDahiKoAudioPlaying(), false);
     assert.equal(env.sources.length, 0);
     const allDuckCalls = env.gainNodes.flatMap((g) =>
-      g.calls.filter((c) => c.method === 'setTargetAtTime' && c.args[0] === 0.15),
+      g.calls.filter((c) => c.method === 'setTargetAtTime' && c.args[0] === BGM_DUCKED_GAIN),
     );
     assert.equal(allDuckCalls.length, 0, 'Missing dahi.mp3 must never leave BGM stuck ducked');
+  } finally {
+    env.restore();
+    clearSuperAudioCacheForTests();
+  }
+});
+
+test('Gapless continuous /audio/bgm.mp3 loops via AudioBufferSourceNode at 0.35 gain, never restarts on screen changes, and preserves track position on mute & tab pause', async () => {
+  clearSuperAudioCacheForTests();
+  const env = createMockAudioEnv((async () => {
+    const bytes = new Uint8Array(512);
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'audio/mpeg' },
+      arrayBuffer: async () => bytes.buffer,
+    } as unknown as Response;
+  }) as typeof fetch);
+
+  try {
+    const engine = new DesiAudioEngine();
+    const bgmBuf = await engine.preloadBgmAudio();
+    assert.ok(bgmBuf, '/audio/bgm.mp3 must decode into AudioBuffer');
+
+    // Start music -> creates ONE looping AudioBufferSourceNode routed through bgmGain (0.35)
+    engine.startMusic();
+    assert.equal(engine.isBgmLooping(), true);
+    assert.equal(engine.isUsingMp3Bgm(), true);
+    assert.equal(env.sources.length, 1);
+    assert.equal(env.sources[0].loop, true, 'BGM AudioBufferSourceNode must set source.loop = true for gapless looping');
+    assert.deepEqual(env.sources[0].startedAt, [0]);
+
+    const bgmGain = env.gainNodes[0];
+    const initGainCall = bgmGain.calls.find(
+      (c) => c.method === 'setValueAtTime' && c.args[0] === BGM_DEFAULT_GAIN,
+    );
+    assert.ok(initGainCall, 'bgmGain must initialize at BGM_DEFAULT_GAIN (0.35)');
+
+    // Calling startMusic() again across screen transitions (Menu -> Select -> Combat -> Victory) must NEVER stop or recreate the looping node
+    engine.startMusic();
+    engine.startMusic();
+    assert.equal(env.sources.length, 1, 'BGM must never restart or duplicate across screen transitions');
+    assert.equal(env.sources[0].stoppedCount, 0);
+
+    // Muting sets gain to 0 WITHOUT stopping/restarting the continuous AudioBufferSourceNode
+    engine.setGlobalMuted(true);
+    assert.equal(env.sources[0].stoppedCount, 0, 'Global mute must preserve continuous BGM track position');
+    assert.ok(
+      bgmGain.calls.some((c) => c.method === 'setTargetAtTime' && c.args[0] === 0),
+      'Global mute must set bgmGain to 0',
+    );
+    engine.setGlobalMuted(false);
+    assert.equal(env.sources.length, 1, 'Unmuting must keep the exact same looping BGM source');
+
+    // Tab hidden / pauseAllAudio suspends AudioContext without stopping bgmBufferSource
+    const suspendsBefore = env.getSuspendCalls();
+    engine.pauseAllAudio();
+    assert.equal(env.getSuspendCalls(), suspendsBefore + 1, 'pauseAllAudio must suspend AudioContext');
+    assert.equal(env.sources[0].stoppedCount, 0, 'Tab pause must NOT stop or reset bgmBufferSource');
+
+    // Tab active / resumeAllAudio resumes AudioContext seamlessly from exact sample offset
+    const resumesBefore = env.getResumeCalls();
+    engine.resumeAllAudio(true);
+    assert.ok(env.getResumeCalls() > resumesBefore, 'resumeAllAudio must resume AudioContext');
+    assert.equal(env.sources.length, 1, 'Resuming from tab switch must continue exact same BGM source');
   } finally {
     env.restore();
     clearSuperAudioCacheForTests();

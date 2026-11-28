@@ -1,20 +1,45 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  PRELOADER_FALLBACK_TIMEOUT_MS,
+  formatPreloadStatusLabel,
+  PRELOAD_AUDIO_URLS,
+  PRELOAD_GLB_URLS,
+  PRELOAD_MAX_RETRIES,
+  PRELOAD_PORTRAIT_URLS,
+  PRELOAD_RETRY_BACKOFF_MS,
   preloadStartupAssets,
   SPLASH_STAGE1_MIN_MS,
+  STARTUP_ASSET_MANIFEST,
+  TOTAL_STARTUP_PRELOAD_ASSETS,
+  withPreloadRetry,
 } from './assetPreloader';
 
-test('startup preloader timing constants match 2.0s splash and 8.0s fallback spec', () => {
+test('startup preloader manifest and retry constants cover all 24 assets with 2 retries', () => {
   assert.equal(SPLASH_STAGE1_MIN_MS, 2000);
-  assert.equal(PRELOADER_FALLBACK_TIMEOUT_MS, 8000);
+  assert.equal(PRELOAD_MAX_RETRIES, 2);
+  assert.equal(PRELOAD_RETRY_BACKOFF_MS, 300);
+  assert.equal(STARTUP_ASSET_MANIFEST.glbModels.length, 4);
+  assert.equal(STARTUP_ASSET_MANIFEST.portraits.length, 9);
+  assert.equal(STARTUP_ASSET_MANIFEST.audioFiles.length, 11);
+  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 24);
+  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/bgm.mp3'));
+  assert.ok(PRELOAD_GLB_URLS.includes('/models/father_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('/models/samyak_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('/models/adi_head.glb'));
+  assert.ok(PRELOAD_GLB_URLS.includes('/models/krish_head.glb'));
+  assert.equal(PRELOAD_PORTRAIT_URLS.length, 9);
+  assert.equal(
+    formatPreloadStatusLabel(12, 24),
+    'Loading 3D Models, Portraits & Audio (12 / 24)...',
+  );
 });
 
-test('preloadStartupAssets drives THREE.LoadingManager progress up to 100% cleanly', async () => {
+test('preloadStartupAssets strictly waits until 100% of assets complete without early timeout', async () => {
   const seenPercents: number[] = [];
-  const res = await preloadStartupAssets({
-    timeoutMs: 1000,
+  let releasePendingAsset: () => void = () => {};
+  let resolvedEarly = false;
+
+  const preloadPromise = preloadStartupAssets({
     onProgress: (info) => {
       seenPercents.push(info.percent);
     },
@@ -22,26 +47,62 @@ test('preloadStartupAssets drives THREE.LoadingManager progress up to 100% clean
       manager.onStart?.('/models/father_head.glb', 0, 4);
       manager.onProgress?.('/models/father_head.glb', 1, 4);
       manager.onProgress?.('/models/samyak_head.glb', 2, 4);
-      manager.onProgress?.('/textures/faces/principal_man.png', 3, 4);
-      manager.onProgress?.('/textures/faces/samyak.png', 4, 4);
+      manager.onProgress?.('/audio/bgm.mp3', 3, 4);
+      await new Promise<void>((resolve) => {
+        releasePendingAsset = resolve;
+      });
+      manager.onProgress?.('/textures/faces/principal_man.png', 4, 4);
       manager.onLoad?.();
     },
+  }).then((res) => {
+    resolvedEarly = true;
+    return res;
   });
+
+  // Give microtasks & timers time to verify preloader does NOT resolve before the final asset finishes
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(resolvedEarly, false, 'Preloader must strictly wait for 100% asset completion');
+  assert.equal(seenPercents[seenPercents.length - 1], 75);
+
+  // Release final asset -> should immediately hit 100% and resolve
+  releasePendingAsset();
+  const res = await preloadPromise;
 
   assert.equal(res.timedOut, false);
   assert.equal(res.percent, 100);
+  assert.equal(res.loadedItems, 4);
+  assert.equal(res.totalItems, 4);
   assert.equal(res.statusText, 'Arena Ready!');
-  assert.ok(seenPercents.length >= 2);
   assert.equal(seenPercents[seenPercents.length - 1], 100);
 });
 
-test('preloadStartupAssets resolves safely via fallback timeout if an asset stalls', async () => {
-  const res = await preloadStartupAssets({
-    timeoutMs: 40,
-    runLoader: () => new Promise<void>(() => {}),
-  });
+test('withPreloadRetry retries transient failures up to 2 times before succeeding or falling back cleanly', async () => {
+  let attemptCount = 0;
+  const recovered = await withPreloadRetry(
+    async () => {
+      attemptCount += 1;
+      if (attemptCount < 3) {
+        throw new Error('transient network error');
+      }
+      return 'loaded-ok';
+    },
+    2,
+    5,
+  );
+  assert.equal(recovered.ok, true);
+  assert.equal(recovered.value, 'loaded-ok');
+  assert.equal(recovered.attempts, 3);
 
-  assert.equal(res.timedOut, true);
-  assert.equal(res.percent, 100);
-  assert.equal(res.statusText, 'Arena Ready!');
+  let failAttempts = 0;
+  const failed = await withPreloadRetry(
+    async () => {
+      failAttempts += 1;
+      throw new Error('permanent failure');
+    },
+    2,
+    5,
+  );
+  assert.equal(failed.ok, false);
+  assert.equal(failed.attempts, 3);
+  assert.equal(failAttempts, 3);
 });

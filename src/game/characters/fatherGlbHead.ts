@@ -259,6 +259,8 @@ function preloadCachedGlbHead(
   url: string,
   cache: GlbHeadCache,
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+  maxRetries = 0,
+  retryBackoffMs = 300,
 ): Promise<boolean> {
   if (cache.status === 'loaded') return Promise.resolve(true);
   if (cache.status === 'failed') return Promise.resolve(false);
@@ -273,43 +275,57 @@ function preloadCachedGlbHead(
   }
 
   cache.status = 'loading';
-  const loader = loaderFactory
-    ? loaderFactory()
-    : (sharedGltfLoader ?? (sharedGltfLoader = new GLTFLoader()));
+  let attempt = 0;
 
-  try {
-    loader.load(
-      url,
-      (gltf) => {
-        if (!gltf || !gltf.scene) {
-          cache.status = 'failed';
-          cache.listeners.clear();
-          resolveCacheWaiters(cache, false);
-          return;
-        }
-        stripEmbeddedLightsAndCameras(gltf.scene);
-        cache.templateScene = gltf.scene;
-        cache.status = 'loaded';
-        for (const listener of cache.listeners) {
-          listener(gltf.scene);
-        }
-        cache.listeners.clear();
-        resolveCacheWaiters(cache, true);
-      },
-      undefined,
-      () => {
-        // Silent graceful fallback to existing hemisphere head with zero crash
-        cache.status = 'failed';
-        cache.listeners.clear();
-        resolveCacheWaiters(cache, false);
-      },
-    );
-  } catch {
+  const failPermanently = () => {
+    // Silent graceful fallback to existing hemisphere head with zero crash
     cache.status = 'failed';
     cache.listeners.clear();
     resolveCacheWaiters(cache, false);
-  }
+  };
 
+  const runAttempt = () => {
+    const loader = loaderFactory
+      ? loaderFactory()
+      : (sharedGltfLoader ?? (sharedGltfLoader = new GLTFLoader()));
+
+    const handleFailure = () => {
+      if (attempt < maxRetries) {
+        attempt += 1;
+        globalThis.setTimeout(runAttempt, retryBackoffMs);
+        return;
+      }
+      failPermanently();
+    };
+
+    try {
+      loader.load(
+        url,
+        (gltf) => {
+          if (!gltf || !gltf.scene) {
+            handleFailure();
+            return;
+          }
+          stripEmbeddedLightsAndCameras(gltf.scene);
+          cache.templateScene = gltf.scene;
+          cache.status = 'loaded';
+          for (const listener of cache.listeners) {
+            listener(gltf.scene);
+          }
+          cache.listeners.clear();
+          resolveCacheWaiters(cache, true);
+        },
+        undefined,
+        () => {
+          handleFailure();
+        },
+      );
+    } catch {
+      handleFailure();
+    }
+  };
+
+  runAttempt();
   return completion;
 }
 
@@ -363,8 +379,16 @@ export function buildFittedSamyakGlbHead(
  */
 export function preloadFatherGlbHead(
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+  maxRetries = 0,
+  retryBackoffMs = 300,
 ): Promise<boolean> {
-  return preloadCachedGlbHead(FATHER_GLB_HEAD_URL, fatherGlbCache, loaderFactory);
+  return preloadCachedGlbHead(
+    FATHER_GLB_HEAD_URL,
+    fatherGlbCache,
+    loaderFactory,
+    maxRetries,
+    retryBackoffMs,
+  );
 }
 
 /**
@@ -373,8 +397,16 @@ export function preloadFatherGlbHead(
  */
 export function preloadSamyakGlbHead(
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+  maxRetries = 0,
+  retryBackoffMs = 300,
 ): Promise<boolean> {
-  return preloadCachedGlbHead(SAMYAK_GLB_HEAD_URL, samyakGlbCache, loaderFactory);
+  return preloadCachedGlbHead(
+    SAMYAK_GLB_HEAD_URL,
+    samyakGlbCache,
+    loaderFactory,
+    maxRetries,
+    retryBackoffMs,
+  );
 }
 
 /**
@@ -554,8 +586,16 @@ export function buildFittedAdiGlbHead(
  */
 export function preloadAdiGlbHead(
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+  maxRetries = 0,
+  retryBackoffMs = 300,
 ): Promise<boolean> {
-  return preloadCachedGlbHead(ADI_GLB_HEAD_URL, adiGlbCache, loaderFactory);
+  return preloadCachedGlbHead(
+    ADI_GLB_HEAD_URL,
+    adiGlbCache,
+    loaderFactory,
+    maxRetries,
+    retryBackoffMs,
+  );
 }
 
 /**
@@ -701,8 +741,16 @@ export function buildFittedKrishGlbHead(
  */
 export function preloadKrishGlbHead(
   loaderFactory?: () => Pick<GLTFLoader, 'load'>,
+  maxRetries = 0,
+  retryBackoffMs = 300,
 ): Promise<boolean> {
-  return preloadCachedGlbHead(KRISH_GLB_HEAD_URL, krishGlbCache, loaderFactory);
+  return preloadCachedGlbHead(
+    KRISH_GLB_HEAD_URL,
+    krishGlbCache,
+    loaderFactory,
+    maxRetries,
+    retryBackoffMs,
+  );
 }
 
 /**

@@ -3,6 +3,10 @@
 
 import type { FighterId } from './types';
 
+export const BGM_AUDIO_URL = '/audio/bgm.mp3';
+export const BGM_DEFAULT_GAIN = 0.35;
+export const BGM_DUCKED_GAIN = 0.1;
+
 export const SHERU_SUPER_AUDIO_URL = '/audio/supers/sheru.mp3';
 export const BILLA_SUPER_AUDIO_URL = '/audio/supers/billa.mp3';
 export const NETA_SUPER_AUDIO_URL = '/audio/supers/neta.mp3';
@@ -54,6 +58,12 @@ export class DesiAudioEngine {
   private musicTimer: number | null = null;
   private musicStep = 0;
   private musicPlaying = false;
+  private musicDesired = false;
+
+  // Gapless continuous /audio/bgm.mp3 Web Audio BufferSource + HTMLAudio fallback
+  private bgmBufferSource: AudioBufferSourceNode | null = null;
+  private bgmHtmlAudio: HTMLAudioElement | null = null;
+  private bgmUsingMp3 = false;
 
   // Active Web Audio API Super MP3 playback state
   private activeSuperSource: AudioBufferSourceNode | null = null;
@@ -77,7 +87,8 @@ export class DesiAudioEngine {
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
       this.bgmGain = this.ctx.createGain();
-      this.bgmGain.gain.setValueAtTime(this.globalMuted ? 0 : 1.0, this.ctx.currentTime);
+      const initialBgmGain = this.globalMuted || this.musicMuted ? 0 : BGM_DEFAULT_GAIN;
+      this.bgmGain.gain.setValueAtTime(initialBgmGain, this.ctx.currentTime);
       this.bgmGain.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended' && !this.globalMuted && !this.audioPaused) {
@@ -93,11 +104,16 @@ export class DesiAudioEngine {
   }
 
   /**
-   * Preloads & decodes a Super Power MP3 into RAM (cached in module-level superAudioBuffers).
+   * Preloads & decodes an MP3 into RAM (cached in module-level superAudioBuffers)
+   * with automatic retry (up to 2 retries, 300ms backoff) on transient network errors.
    * Safe to call before user gesture (caches raw ArrayBuffer bytes until AudioContext is available)
-   * and fails silently if the MP3 asset is not yet uploaded.
+   * and fails silently if the MP3 asset is not yet uploaded or empty.
    */
-  public preloadSuperAudio(url = SHERU_SUPER_AUDIO_URL): Promise<AudioBuffer | null> {
+  public preloadSuperAudio(
+    url = SHERU_SUPER_AUDIO_URL,
+    maxRetries = 2,
+    retryBackoffMs = 300,
+  ): Promise<AudioBuffer | null> {
     if (superAudioBuffers.has(url)) {
       return Promise.resolve(superAudioBuffers.get(url)!);
     }
@@ -113,27 +129,49 @@ export class DesiAudioEngine {
       try {
         let rawBytes = superAudioRawBytes.get(url);
         if (!rawBytes) {
-          const res = await fetch(url);
-          if (!res.ok) {
-            superAudioFailedUrls.add(url);
-            return null;
+          let lastStatus: number | null = null;
+          for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+              const res = await fetch(url);
+              lastStatus = res.status;
+              if (!res.ok) {
+                // Retry on 5xx / transient errors, skip immediately on hard 404
+                if (res.status === 404 || attempt >= maxRetries) {
+                  superAudioFailedUrls.add(url);
+                  return null;
+                }
+                await new Promise((r) => globalThis.setTimeout(r, retryBackoffMs));
+                continue;
+              }
+              const contentType = (res.headers?.get?.('content-type') ?? '').toLowerCase();
+              if (contentType.includes('text/html') || contentType.includes('application/json')) {
+                // Vite SPA fallback returned index.html instead of an audio file
+                superAudioFailedUrls.add(url);
+                return null;
+              }
+              const bytes = await res.arrayBuffer();
+              if (!bytes || bytes.byteLength < 64) {
+                // Empty placeholder MP3 file: treat cleanly as optional missing audio
+                superAudioFailedUrls.add(url);
+                return null;
+              }
+              rawBytes = bytes;
+              superAudioRawBytes.set(url, rawBytes);
+              break;
+            } catch {
+              if (attempt >= maxRetries) {
+                if (lastStatus === 404) superAudioFailedUrls.add(url);
+                return null;
+              }
+              await new Promise((r) => globalThis.setTimeout(r, retryBackoffMs));
+            }
           }
-          const contentType = (res.headers?.get?.('content-type') ?? '').toLowerCase();
-          if (contentType.includes('text/html') || contentType.includes('application/json')) {
-            // Vite SPA fallback returned index.html instead of an audio file
-            superAudioFailedUrls.add(url);
-            return null;
-          }
-          rawBytes = await res.arrayBuffer();
-          if (!rawBytes || rawBytes.byteLength < 64) {
-            superAudioFailedUrls.add(url);
-            return null;
-          }
-          superAudioRawBytes.set(url, rawBytes);
         }
 
+        if (!rawBytes) return null;
+
         const ctx = this.ctx ?? this.ensureContext();
-        if (!ctx) {
+        if (!ctx || typeof ctx.decodeAudioData !== 'function') {
           // Keep rawBytes cached so decode runs as soon as AudioContext becomes available
           return null;
         }
@@ -155,8 +193,13 @@ export class DesiAudioEngine {
     return loadTask;
   }
 
+  public preloadBgmAudio(maxRetries = 2, retryBackoffMs = 300): Promise<AudioBuffer | null> {
+    return this.preloadSuperAudio(BGM_AUDIO_URL, maxRetries, retryBackoffMs);
+  }
+
   public preloadAllSuperAudios(): Promise<Array<AudioBuffer | null>> {
     return Promise.all([
+      this.preloadBgmAudio(),
       this.preloadSuperAudio(SHERU_SUPER_AUDIO_URL),
       this.preloadSuperAudio(BILLA_SUPER_AUDIO_URL),
       this.preloadSuperAudio(NETA_SUPER_AUDIO_URL),
@@ -172,18 +215,49 @@ export class DesiAudioEngine {
 
   public unlock(): void {
     this.ensureContext();
-    void this.preloadAllSuperAudios();
-    if (!this.musicMuted && !this.musicPlaying) {
+    void this.preloadAllSuperAudios().then(() => {
+      // If bgm.mp3 decoded right after first user gesture and music is active/desired, switch seamlessly to gapless MP3
+      if (
+        this.musicDesired &&
+        !this.bgmUsingMp3 &&
+        !this.audioPaused &&
+        superAudioBuffers.has(BGM_AUDIO_URL)
+      ) {
+        this.startGaplessBgmBuffer();
+      }
+    });
+    if (!this.globalMuted && !this.musicMuted && !this.audioPaused) {
       this.startMusic();
     }
+  }
+
+  /**
+   * Attempts to start continuous BGM immediately after the startup preloader finishes
+   * if AudioContext is already unlocked (otherwise BGM starts cleanly on first user gesture).
+   */
+  public tryAutoStartMusic(): void {
+    if (this.globalMuted || this.musicMuted || this.audioPaused) return;
+    if (this.ctx && this.ctx.state === 'running') {
+      this.startMusic();
+    }
+  }
+
+  private getTargetBgmGain(): number {
+    if (this.globalMuted || this.musicMuted) return 0;
+    if (this.superAudioActive || this.dahiAudioActive) return BGM_DUCKED_GAIN;
+    return BGM_DEFAULT_GAIN;
   }
 
   private duckBgmForSuper(): void {
     const ctx = this.ctx;
     const bgmGain = this.bgmGain;
+    if (this.bgmHtmlAudio) {
+      this.bgmHtmlAudio.volume = this.globalMuted || this.musicMuted ? 0 : BGM_DUCKED_GAIN;
+    }
     if (!ctx || !bgmGain) return;
     try {
-      bgmGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.08);
+      const target = this.globalMuted || this.musicMuted ? 0 : BGM_DUCKED_GAIN;
+      bgmGain.gain.setTargetAtTime(target, ctx.currentTime, 0.08);
     } catch {
       // Ignore Web Audio scheduling edge errors
     }
@@ -192,11 +266,15 @@ export class DesiAudioEngine {
   private restoreBgmFromSuper(): void {
     // Keep BGM ducked until both any active Super Power MP3 and the KO dahi.mp3 have finished
     if (this.superAudioActive || this.dahiAudioActive) return;
+    const target = this.getTargetBgmGain();
+    if (this.bgmHtmlAudio) {
+      this.bgmHtmlAudio.volume = target;
+    }
     const ctx = this.ctx;
     const bgmGain = this.bgmGain;
     if (!ctx || !bgmGain) return;
     try {
-      bgmGain.gain.setTargetAtTime(1.0, ctx.currentTime, 0.2);
+      bgmGain.gain.setTargetAtTime(target, ctx.currentTime, 0.2);
     } catch {
       // Ignore Web Audio scheduling edge errors
     }
@@ -549,14 +627,13 @@ export class DesiAudioEngine {
   }
 
   private syncActiveGains(): void {
+    const bgmLevel = this.getTargetBgmGain();
+    if (this.bgmHtmlAudio) {
+      this.bgmHtmlAudio.muted = this.globalMuted || this.musicMuted;
+      this.bgmHtmlAudio.volume = bgmLevel;
+    }
     if (!this.ctx) return;
     const voiceLevel = this.globalMuted || this.sfxMuted ? 0 : 1.0;
-    const bgmLevel =
-      this.globalMuted || this.musicMuted
-        ? 0
-        : this.superAudioActive || this.dahiAudioActive
-          ? 0.08
-          : 1.0;
     if (this.bgmGain) {
       try {
         this.bgmGain.gain.setTargetAtTime(bgmLevel, this.ctx.currentTime, 0.025);
@@ -583,20 +660,26 @@ export class DesiAudioEngine {
   /**
    * Global master mute toggle (Poki / CrazyGames QA requirement):
    * Immediately silences/restores ALL active BGM, Web Audio contexts, SFX,
-   * custom MP3 voice-lines, and any HTML5 media elements.
+   * custom MP3 voice-lines, and any HTML5 media elements WITHOUT resetting BGM track position.
    */
   public setGlobalMuted(mute: boolean, resumeMusicIfUnmuted = true): void {
     this.globalMuted = mute;
     this.syncHtmlMediaMute(mute);
     this.syncActiveGains();
     if (mute) {
-      this.stopMusic();
+      // Pause legacy synth timer only; keep gapless AudioBufferSourceNode alive (at gain=0 / suspended ctx)
+      this.pauseSynthMusicTimer();
       if (this.ctx && this.ctx.state === 'running') {
         this.ctx.suspend().catch(() => {});
       }
     } else if (!this.audioPaused) {
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
+      }
+      if (this.bgmHtmlAudio && this.musicDesired && !this.musicMuted) {
+        this.bgmHtmlAudio.muted = false;
+        this.bgmHtmlAudio.volume = this.getTargetBgmGain();
+        this.bgmHtmlAudio.play().catch(() => {});
       }
       if (resumeMusicIfUnmuted && !this.musicMuted) {
         this.startMusic();
@@ -609,13 +692,17 @@ export class DesiAudioEngine {
   }
 
   /**
-   * Suspends ALL playing audio immediately when the tab is hidden, minimized, or paused.
+   * Suspends ALL playing audio immediately when the tab is hidden, minimized, or paused
+   * WITHOUT resetting continuous BGM playback position.
    */
   public pauseAllAudio(): void {
     this.audioPaused = true;
-    this.stopMusic();
+    this.pauseSynthMusicTimer();
     if (this.ctx && this.ctx.state === 'running') {
       this.ctx.suspend().catch(() => {});
+    }
+    if (this.bgmHtmlAudio && !this.bgmHtmlAudio.paused) {
+      this.bgmHtmlAudio.pause();
     }
     if (typeof document !== 'undefined') {
       try {
@@ -629,7 +716,8 @@ export class DesiAudioEngine {
   }
 
   /**
-   * Resumes audio after returning from pause / tab switch (honoring current mute settings).
+   * Resumes audio after returning from pause / tab switch from the exact paused position
+   * (honoring current mute settings).
    */
   public resumeAllAudio(shouldPlayMusic = true): void {
     this.audioPaused = false;
@@ -639,6 +727,11 @@ export class DesiAudioEngine {
     }
     this.syncActiveGains();
     if (shouldPlayMusic && !this.musicMuted) {
+      if (this.bgmHtmlAudio && this.musicDesired) {
+        this.bgmHtmlAudio.muted = false;
+        this.bgmHtmlAudio.volume = this.getTargetBgmGain();
+        this.bgmHtmlAudio.play().catch(() => {});
+      }
       this.startMusic();
     }
   }
@@ -656,8 +749,17 @@ export class DesiAudioEngine {
     this.musicMuted = mute;
     this.syncActiveGains();
     if (mute) {
-      this.stopMusic();
+      // Preserve continuous gapless BGM playback position by muting bgmGainNode (gain=0)
+      this.pauseSynthMusicTimer();
+      if (this.bgmHtmlAudio) {
+        this.bgmHtmlAudio.muted = true;
+      }
     } else if (!this.globalMuted && !this.audioPaused) {
+      if (this.bgmHtmlAudio && this.musicDesired) {
+        this.bgmHtmlAudio.muted = false;
+        this.bgmHtmlAudio.volume = this.getTargetBgmGain();
+        this.bgmHtmlAudio.play().catch(() => {});
+      }
       this.startMusic();
     }
   }
@@ -666,18 +768,128 @@ export class DesiAudioEngine {
     return this.musicMuted || this.globalMuted;
   }
 
+  public isBgmLooping(): boolean {
+    return Boolean(this.bgmBufferSource?.loop || this.bgmHtmlAudio?.loop || this.musicPlaying);
+  }
+
+  public isUsingMp3Bgm(): boolean {
+    return this.bgmUsingMp3;
+  }
+
+  private pauseSynthMusicTimer(): void {
+    if (this.musicTimer !== null) {
+      clearInterval(this.musicTimer);
+      this.musicTimer = null;
+    }
+    if (!this.bgmBufferSource && !this.bgmHtmlAudio) {
+      this.musicPlaying = false;
+    }
+  }
+
+  /**
+   * Starts sample-accurate gapless looping of decoded `/audio/bgm.mp3` via
+   * a dedicated Web Audio `AudioBufferSourceNode` (`source.loop = true`) routed
+   * through `bgmGain` (~0.35). Never restarts if already playing.
+   */
+  private startGaplessBgmBuffer(): boolean {
+    if (this.bgmBufferSource) {
+      this.bgmUsingMp3 = true;
+      this.musicPlaying = true;
+      this.syncActiveGains();
+      return true;
+    }
+    const buffer = superAudioBuffers.get(BGM_AUDIO_URL);
+    const ctx = this.ctx ?? this.ensureContext();
+    if (!buffer || !ctx || !this.bgmGain) return false;
+
+    try {
+      // Stop legacy synth timer if it was acting as a temporary placeholder
+      this.pauseSynthMusicTimer();
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.bgmGain);
+      this.bgmGain.gain.setValueAtTime(this.getTargetBgmGain(), ctx.currentTime);
+      source.start(0);
+      this.bgmBufferSource = source;
+      this.bgmUsingMp3 = true;
+      this.musicPlaying = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * HTML5 `<audio loop>` fallback used ONLY when Web Audio decoding is unavailable
+   * while `/audio/bgm.mp3` exists.
+   */
+  private startHtmlAudioBgmFallback(): boolean {
+    if (typeof Audio === 'undefined' || superAudioFailedUrls.has(BGM_AUDIO_URL)) {
+      return false;
+    }
+    if (!superAudioRawBytes.has(BGM_AUDIO_URL)) {
+      return false;
+    }
+    try {
+      if (!this.bgmHtmlAudio) {
+        const el = new Audio(BGM_AUDIO_URL);
+        el.loop = true;
+        el.preload = 'auto';
+        this.bgmHtmlAudio = el;
+      }
+      this.bgmHtmlAudio.muted = this.globalMuted || this.musicMuted;
+      this.bgmHtmlAudio.volume = this.getTargetBgmGain();
+      void this.bgmHtmlAudio.play().catch(() => {});
+      this.bgmUsingMp3 = true;
+      this.musicPlaying = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   public startMusic(): void {
-    if (
-      this.globalMuted ||
-      this.audioPaused ||
-      this.musicMuted ||
-      this.musicPlaying ||
-      typeof window === 'undefined'
-    ) {
+    this.musicDesired = true;
+    if (this.globalMuted || this.audioPaused || this.musicMuted || typeof window === 'undefined') {
       return;
     }
+
+    // Never restart or cut continuous BGM if gapless MP3 loop is already running
+    if (this.bgmBufferSource) {
+      this.syncActiveGains();
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      this.musicPlaying = true;
+      return;
+    }
+
     const ctx = this.ensureContext();
-    if (!ctx) return;
+
+    // 1. Primary path: sample-accurate gapless Web Audio API AudioBufferSourceNode loop
+    if (superAudioBuffers.has(BGM_AUDIO_URL) && this.startGaplessBgmBuffer()) {
+      return;
+    }
+
+    // 2. If raw bytes were preloaded before AudioContext was unlocked, decode & start gapless loop
+    if (superAudioRawBytes.has(BGM_AUDIO_URL)) {
+      if (ctx && typeof ctx.decodeAudioData === 'function') {
+        void this.preloadBgmAudio().then((decoded) => {
+          if (decoded && this.musicDesired && !this.audioPaused) {
+            this.startGaplessBgmBuffer();
+          }
+        });
+        return;
+      }
+      // Fallback to <audio loop> only when Web Audio decodeAudioData is unavailable
+      if (this.startHtmlAudioBgmFallback()) {
+        return;
+      }
+    }
+
+    // 3. Fallback when /audio/bgm.mp3 is empty or not yet uploaded: procedural Desi Dhol-Funk groove
+    if (this.musicPlaying || !ctx) return;
     this.musicPlaying = true;
     this.syncActiveGains();
 
@@ -691,6 +903,7 @@ export class DesiAudioEngine {
         this.musicMuted ||
         this.globalMuted ||
         this.audioPaused ||
+        this.bgmUsingMp3 ||
         !this.ctx ||
         this.ctx.state !== 'running'
       ) {
@@ -709,7 +922,7 @@ export class DesiAudioEngine {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(idx === 0 || idx === 8 ? 115 : 145, now);
         osc.frequency.exponentialRampToValueAtTime(48, now + 0.11);
-        gain.gain.setValueAtTime(0.085, now);
+        gain.gain.setValueAtTime(0.18, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.connect(gain);
         gain.connect(bgmDest);
@@ -724,7 +937,7 @@ export class DesiAudioEngine {
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(bFreq, now);
-        gain.gain.setValueAtTime(0.055, now);
+        gain.gain.setValueAtTime(0.12, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
         osc.connect(gain);
         gain.connect(bgmDest);
@@ -742,7 +955,7 @@ export class DesiAudioEngine {
         filter.type = 'lowpass';
         filter.frequency.value = 1400;
         osc.frequency.setValueAtTime(lFreq, now);
-        gain.gain.setValueAtTime(0.025, now);
+        gain.gain.setValueAtTime(0.055, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
         osc.connect(filter);
         filter.connect(gain);
@@ -755,11 +968,38 @@ export class DesiAudioEngine {
     this.musicTimer = window.setInterval(stepTick, 145);
   }
 
+  /**
+   * Stops and tears down BGM completely (called ONLY on full app unmount / dispose).
+   */
   public stopMusic(): void {
+    this.musicDesired = false;
     this.musicPlaying = false;
+    this.bgmUsingMp3 = false;
     if (this.musicTimer !== null) {
       clearInterval(this.musicTimer);
       this.musicTimer = null;
+    }
+    if (this.bgmBufferSource) {
+      try {
+        this.bgmBufferSource.stop();
+      } catch {
+        // Ignore if already stopped
+      }
+      try {
+        this.bgmBufferSource.disconnect();
+      } catch {
+        // Ignore
+      }
+      this.bgmBufferSource = null;
+    }
+    if (this.bgmHtmlAudio) {
+      try {
+        this.bgmHtmlAudio.pause();
+        this.bgmHtmlAudio.currentTime = 0;
+      } catch {
+        // Ignore
+      }
+      this.bgmHtmlAudio = null;
     }
   }
 

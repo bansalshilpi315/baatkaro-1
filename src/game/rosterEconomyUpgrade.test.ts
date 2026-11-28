@@ -135,18 +135,19 @@ test('Dual Unlock System (Coins OR Ads) enforces exact costs/ad counts, persists
   assert.equal(accountProfile.unlockedFighters.includes('adi'), true);
 });
 
-test('Unified startup preloader covers all 4 GLB heads, 9 PNG portraits, and 10 MP3 audio files', () => {
+test('Unified startup preloader covers all 4 GLB heads, 9 PNG portraits, and 11 MP3 audio files including bgm.mp3', () => {
   assert.equal(PRELOAD_GLB_URLS.length, 4);
   assert.equal(PRELOAD_PORTRAIT_URLS.length, 9);
-  assert.equal(PRELOAD_AUDIO_URLS.length, 10);
-  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 23);
+  assert.equal(PRELOAD_AUDIO_URLS.length, 11);
+  assert.equal(TOTAL_STARTUP_PRELOAD_ASSETS, 24);
   assert.equal(
     formatPreloadStatusLabel(11, TOTAL_STARTUP_PRELOAD_ASSETS),
-    'Loading 3D Heads, Portraits & Audio (11/23)...',
+    'Loading 3D Models, Portraits & Audio (11 / 24)...',
   );
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/principal_man.png'));
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/adi.png'));
   assert.ok(PRELOAD_PORTRAIT_URLS.includes('/textures/faces/krish.png'));
+  assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/bgm.mp3'));
   assert.ok(PRELOAD_AUDIO_URLS.includes('/audio/supers/dahi.mp3'));
 });
 

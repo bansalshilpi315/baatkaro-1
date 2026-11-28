@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   formatPreloadStatusLabel,
-  PRELOADER_FALLBACK_TIMEOUT_MS,
   SPLASH_STAGE1_MIN_MS,
   TOTAL_STARTUP_PRELOAD_ASSETS,
   preloadStartupAssets,
@@ -25,73 +24,56 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
 
   useEffect(() => {
     let cancelled = false;
-    let splashDone = false;
-    let stage2MinDone = false;
-    let assetsDone = false;
-    let completed = false;
+    let splashTimer = 0;
     let stage2Timer = 0;
     let fadeTimer = 0;
+    let finishTimer = 0;
 
-    const tryFinish = () => {
-      if (cancelled || completed) return;
-      if (!splashDone || !stage2MinDone || !assetsDone) return;
-      completed = true;
-      setDisplayProgress(100);
-      setStatusText('Arena Ready!');
-      fadeTimer = window.setTimeout(() => {
-        if (cancelled) return;
-        setFadingOut(true);
-        window.setTimeout(() => {
-          if (!cancelled) onCompleteRef.current();
-        }, 320);
-      }, 220);
-    };
+    // 1. Strict 2.0-second DESI DANGAL ARENA splash timer + Stage 2 transition
+    const splashPromise = new Promise<void>((resolve) => {
+      splashTimer = window.setTimeout(() => {
+        if (cancelled) {
+          resolve();
+          return;
+        }
+        setStage('loading');
+        // Allow Stage 2's 0-100% progress bar to sweep visibly before fading out
+        stage2Timer = window.setTimeout(() => {
+          resolve();
+        }, 450);
+      }, SPLASH_STAGE1_MIN_MS);
+    });
 
-    // Start preloading GLB heads, face textures & audio immediately via THREE.LoadingManager
-    void preloadStartupAssets({
-      timeoutMs: PRELOADER_FALLBACK_TIMEOUT_MS,
+    // 2. Strict 100% manifest preload (4 GLBs + 9 PNGs + 11 MP3s including bgm.mp3, zero early skip)
+    const assetsPromise = preloadStartupAssets({
       onProgress: (info) => {
         if (cancelled) return;
         setAssetProgress(info.percent);
         setStatusText(info.statusText);
       },
-    }).then(() => {
-      if (cancelled) return;
-      assetsDone = true;
-      setAssetProgress(100);
-      tryFinish();
     });
 
-    // Stage 1: Exact minimum 2.0-second DESI DANGAL ARENA splash
-    const splashTimer = window.setTimeout(() => {
+    // Strictly gate dismissal behind BOTH splash completion AND 100% asset completion
+    void Promise.all([splashPromise, assetsPromise]).then(() => {
       if (cancelled) return;
-      splashDone = true;
-      setStage('loading');
-      // Allow Stage 2's 0-100% bar to visibly sweep smoothly before fading out
-      stage2Timer = window.setTimeout(() => {
-        if (cancelled) return;
-        stage2MinDone = true;
-        tryFinish();
-      }, 600);
-    }, SPLASH_STAGE1_MIN_MS);
-
-    // Hard 8-second safety fallback so the preloader can never stall
-    const hardFallbackTimer = window.setTimeout(() => {
-      if (cancelled || completed) return;
-      splashDone = true;
-      stage2MinDone = true;
-      assetsDone = true;
-      setStage('loading');
       setAssetProgress(100);
-      tryFinish();
-    }, PRELOADER_FALLBACK_TIMEOUT_MS + 250);
+      setDisplayProgress(100);
+      setStatusText('Arena Ready!');
+      fadeTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        setFadingOut(true);
+        finishTimer = window.setTimeout(() => {
+          if (!cancelled) onCompleteRef.current();
+        }, 320);
+      }, 220);
+    });
 
     return () => {
       cancelled = true;
       window.clearTimeout(splashTimer);
       window.clearTimeout(stage2Timer);
-      window.clearTimeout(hardFallbackTimer);
       window.clearTimeout(fadeTimer);
+      window.clearTimeout(finishTimer);
     };
   }, []);
 
@@ -155,7 +137,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
         ) : (
           <div
             data-testid="preloader-stage-2"
-            className="preloader-fade-in mx-auto w-full max-w-md"
+            className="preloader-fade-in mx-auto w-full max-w-lg"
           >
             <div className="mb-2 inline-block bg-[#dc2626] px-3 py-0.5 font-display text-xs font-extrabold uppercase tracking-[0.22em] text-white shadow-[3px_3px_0_#0f0a06]">
               DESI DANGAL
@@ -165,7 +147,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
             </h2>
 
             {/* Modern Horizontal Asset Progress Bar (0% - 100%) */}
-            <div className="mt-6 border-2 border-[#facc15] bg-[#16110e] p-1 shadow-[5px_5px_0_#dc2626]">
+            <div className="mx-auto mt-6 max-w-md border-2 border-[#facc15] bg-[#16110e] p-1 shadow-[5px_5px_0_#dc2626]">
               <div className="relative h-6 w-full overflow-hidden bg-[#0b0907]">
                 <div
                   data-testid="preloader-progress-fill"
@@ -183,7 +165,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
 
             <p
               data-testid="preloader-status-text"
-              className="mt-3 font-display text-sm font-bold uppercase tracking-[0.16em] text-[#fde68a]"
+              className="mt-3 font-display text-xs font-bold uppercase tracking-[0.11em] text-[#fde68a] sm:text-sm"
             >
               {statusText}
             </p>
