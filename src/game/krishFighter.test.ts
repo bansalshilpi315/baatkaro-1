@@ -23,7 +23,7 @@ import {
 } from './combat';
 import type { FighterId } from './types';
 
-test('Krish is registered in the 10-playable roster with 140 HP, DESK SLAM, and KRISH BACKBENCH RUSH', () => {
+test('Krish is registered in the 10-playable roster with 140 HP, DROP-BARRAGE, and 10KG HEAVY BAG SMASH', () => {
   assert.equal(FIGHTER_LIST.length, 10);
   assert.deepEqual(
     FIGHTER_LIST.map((f) => f.id),
@@ -34,10 +34,10 @@ test('Krish is registered in the 10-playable roster with 140 HP, DESK SLAM, and 
   assert.equal(krish.name, 'Krish');
   assert.equal(krish.maxHp, 140);
   assert.equal(krish.attackPowerMultiplier, 1.12);
-  assert.equal(krish.special.id, 'desk_slam');
-  assert.equal(krish.special.shortLabel, 'DESK SLAM');
+  assert.equal(krish.special.id, 'drop_barrage');
+  assert.equal(krish.special.shortLabel, 'DROP-BARRAGE');
   assert.equal(krish.special.cooldown, 3.5);
-  assert.equal(krish.superName, 'KRISH BACKBENCH RUSH');
+  assert.equal(krish.superName, '10KG HEAVY BAG SMASH');
   assert.equal(getSuperAudioUrl('krish'), '/audio/supers/krish.mp3');
   assert.equal(KRISH_SUPER_AUDIO_URL, '/audio/supers/krish.mp3');
   assert.equal(KRISH_GLB_HEAD_URL, '/models/krish_head.glb');
@@ -162,7 +162,7 @@ test('attachKrishGlbHead caches /models/krish_head.glb across mirror matches and
   clearKrishGlbHeadCacheForTests();
 });
 
-test('Krish DESK SLAM lunges forward for 11%-13% maxHP signature damage with 3.5s cooldown', () => {
+test('Krish DROP-BARRAGE leaps horizontally forward for 11%-13% maxHP signature damage with 3.5s cooldown', () => {
   const state = createMatchState('krish', 'adi', true);
   state.fighters[0].x = -0.9;
   state.fighters[1].x = 1.0;
@@ -173,23 +173,23 @@ test('Krish DESK SLAM lunges forward for 11%-13% maxHP signature damage with 3.5
   p1Input.special = true;
   stepMatch(state, [p1Input, createEmptyInput()], 0.016);
   assert.equal(state.fighters[0].specialCooldown, 3.5);
-  assert.ok(state.fighters[0].vx > 0, 'DESK SLAM must lunge forward toward opponent');
+  assert.ok(state.fighters[0].vx > 0, 'DROP-BARRAGE must glide forward toward opponent');
 
-  let landedDeskSlam = false;
+  let landedDropBarrage = false;
   for (let i = 0; i < 40; i++) {
     const events = stepMatch(state, [createEmptyInput(), createEmptyInput()], 0.02);
-    if (events.some((e) => e.type === 'heavy_hit' && e.moveCallout === 'DESK SLAM!')) {
-      landedDeskSlam = true;
+    if (events.some((e) => e.type === 'heavy_hit' && e.moveCallout === 'DROP-BARRAGE!')) {
+      landedDropBarrage = true;
     }
   }
-  assert.equal(landedDeskSlam, true, 'DESK SLAM must connect in melee range');
+  assert.equal(landedDropBarrage, true, 'DROP-BARRAGE must connect in melee range');
   const dealt = startHp - state.fighters[1].hp;
   const expected = computeSignatureDamage(oppMaxHp);
   assert.equal(dealt, expected);
   assert.ok(dealt / oppMaxHp >= 0.11 && dealt / oppMaxHp <= 0.13);
 });
 
-test('Krish placeholder Super KRISH BACKBENCH RUSH respects strict 33% maxHP cap across opponents', () => {
+test('Krish Super 10KG HEAVY BAG SMASH respects strict 33% maxHP cap across opponents', () => {
   const opponents: FighterId[] = ['sheru', 'billa', 'mausi', 'father', 'samyak', 'adi', 'krish'];
   for (const oppId of opponents) {
     const state = createMatchState('krish', oppId, true);
@@ -204,7 +204,7 @@ test('Krish placeholder Super KRISH BACKBENCH RUSH respects strict 33% maxHP cap
     p1In.superMove = true;
     stepMatch(state, [p1In, createEmptyInput()], 0.016);
 
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 165; i++) {
       stepMatch(state, [createEmptyInput(), createEmptyInput()], 0.02);
     }
 
@@ -212,7 +212,7 @@ test('Krish placeholder Super KRISH BACKBENCH RUSH respects strict 33% maxHP cap
     assert.equal(
       totalDealt,
       expectedCap,
-      `KRISH BACKBENCH RUSH against ${oppId} must deal exactly 33% maxHp (${expectedCap}), got ${totalDealt}`,
+      `10KG HEAVY BAG SMASH against ${oppId} must deal exactly 33% maxHp (${expectedCap}), got ${totalDealt}`,
     );
     assert.equal(state.fighters[0].shakti, 0);
   }

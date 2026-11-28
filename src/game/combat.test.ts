@@ -419,14 +419,14 @@ test('All 10 fighters have custom named Signature Moves (never SPECIAL), 3.5s co
   const expectedLabels: Record<string, string> = {
     sheru: 'PAISA FLEX',
     billa: 'SWATTER THROW',
-    utkarsh: 'SWIFT COMBO',
+    utkarsh: 'SKY-BOLT SMASH',
     neta: 'DHARNA SHIELD',
     anda: 'ANDA SQUASH',
     mausi: 'BELAN THROW',
     father: 'DIARY NOTE',
     samyak: 'LAXMIKANT SLAM',
     adi: 'NOTEBOOK SMASH',
-    krish: 'DESK SLAM',
+    krish: 'DROP-BARRAGE',
   };
 
   assert.equal(FIGHTER_LIST.length, 10);

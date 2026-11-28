@@ -15,6 +15,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { FIGHTER_LIST } from '../game/characters';
 import type { PlayerProfile } from '../game/playerAccount';
 import {
   buildBugReportMailtoUrl,
@@ -183,7 +184,7 @@ export function SettingsModal({
             <span>TEST SUPERS BEFORE FIGHTING</span>
           </button>
           <p className="mt-1.5 text-center text-[11px] font-medium text-[#d6d3d1]">
-            Preview all 10 fighters&apos; full 3D Super Power cinematics &amp; custom audio live on stage.
+            Preview all {FIGHTER_LIST.length} fighters&apos; full 3D Super Power cinematics &amp; custom audio live on stage.
           </p>
         </div>
 

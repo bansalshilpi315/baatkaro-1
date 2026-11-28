@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Gamepad2, Info, Sparkles, X } from 'lucide-react';
-import { FIGHTER_LIST } from '../game/characters';
+import { FIGHTER_LIST, STAGE_LIST } from '../game/characters';
 
 interface ModalProps {
   onClose: () => void;
@@ -193,10 +193,10 @@ export function AboutModal({ onClose }: ModalProps) {
             <strong className="text-[#facc15]">DESI DANGAL: The Great Multiverse Fight</strong> is a 2.5D Indian satire arcade fighter celebrating over-the-top prime-time TV news drama, iconic desi archetypes, and fast 60 FPS arcade action.
           </p>
           <p className="text-xs text-[#d6d3d1]">
-            Built with articulated 3D fighters, custom 3D head models, living Desi stages with cheering spectators, signature voice lines with English subtitles, and synthesized Web Audio dhol-funk music — 100% self-contained with zero external CDNs.
+            Built with articulated 3D fighters, custom 3D head models, living Desi stages with cheering spectators, signature voice lines with English subtitles, and gapless Web Audio soundtrack playback — 100% self-contained with zero external CDNs.
           </p>
           <div className="border-t border-white/15 pt-3 text-xs text-[#fde68a]">
-            <strong>Full Arcade Edition:</strong> 7 Playable Fighters · 6 Living 3D Stages · 5-Stage Progressive CPU AI · 2-Player Online Friend Room · Super Power Test Lab.
+            <strong>Full Arcade Edition:</strong> {FIGHTER_LIST.length} Playable Fighters · {STAGE_LIST.length} Living 3D Stages · 5-Stage Progressive CPU AI · 2-Player Online Friend Room · Super Power Test Lab.
           </div>
           <div className="flex justify-end pt-1">
             <button

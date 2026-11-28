@@ -36,10 +36,20 @@ import {
   stepSamyakSuper,
 } from './samyakSuper';
 import {
+  KRISH_SUPER_DURATION,
+  createKrishSuperState,
+  stepKrishSuper,
+} from './krishSuper';
+import {
   SHERU_SUPER_DURATION,
   createSheruSuperState,
   stepSheruSuper,
 } from './sheruSuper';
+import {
+  UTKARSH_SUPER_DURATION,
+  createUtkarshSuperState,
+  stepUtkarshSuper,
+} from './utkarshSuper';
 import type {
   CombatEvent,
   Difficulty,
@@ -207,6 +217,10 @@ export function createMatchState(p1Id: FighterId, p2Id: FighterId, skipIntro = f
     samyakSuperSignals: [],
     adiSuper: null,
     adiSuperSignals: [],
+    krishSuper: null,
+    krishSuperSignals: [],
+    utkarshSuper: null,
+    utkarshSuperSignals: [],
   };
 }
 
@@ -221,6 +235,8 @@ export function isAnySuperActive(state: MatchState): boolean {
       state.fatherSuper?.active ||
       state.samyakSuper?.active ||
       state.adiSuper?.active ||
+      (state.krishSuper && state.krishSuper.phase !== 'done') ||
+      (state.utkarshSuper && state.utkarshSuper.phase !== 'done') ||
       state.fighters[0].action === 'super' ||
       state.fighters[1].action === 'super',
   );
@@ -675,31 +691,35 @@ function startAction(
         moveCallout: 'PAISA FLEX!',
         color: '#FACC15',
       });
-    } else if (cfg.special.id === 'desk_slam') {
-      // Stocky forward brawler lunge into double-fist Backbench Desk Slam!
-      fighter.vx = fighter.facing * 5.2;
+    } else if (cfg.special.id === 'drop_barrage') {
+      // Krish HORIZONTAL DOUBLE-LEG DROP-BARRAGE: hops off floor, rotates horizontal, rockets forward!
+      fighter.vx = fighter.facing * 8.2;
+      fighter.vy = 5.4;
+      fighter.y = Math.max(fighter.y, 0.08);
       events.push({
         type: 'special',
         attackerSlot: fighter.slot,
         x: fighter.x + fighter.facing * 0.55,
-        y: fighter.y + 1.35,
+        y: fighter.y + 1.25,
         damage: 0,
-        word: 'DESK SLAM!',
-        moveCallout: 'DESK SLAM!',
-        color: '#84CC16',
+        word: 'DROP-BARRAGE!',
+        moveCallout: 'DROP-BARRAGE!',
+        color: '#A3E635',
       });
-    } else if (cfg.special.id === 'swift_combo') {
-      // Agile rapid-step dash burst for Utkarsh's signature SWIFT COMBO!
-      fighter.vx = fighter.facing * 6.8;
+    } else if (cfg.special.id === 'sky_bolt_smash') {
+      // Utkarsh SKY-BOLT LIGHTNING SMASH: leaps swiftly upward charged with electric arcs, then dives diagonally!
+      fighter.vx = fighter.facing * 2.4;
+      fighter.vy = 9.2;
+      fighter.y = Math.max(fighter.y, 0.08);
       events.push({
         type: 'special',
         attackerSlot: fighter.slot,
-        x: fighter.x + fighter.facing * 0.55,
-        y: fighter.y + 1.32,
+        x: fighter.x + fighter.facing * 0.45,
+        y: fighter.y + 1.38,
         damage: 0,
-        word: 'SWIFT COMBO!',
-        moveCallout: 'SWIFT COMBO!',
-        color: '#EF4444',
+        word: 'SKY-BOLT SMASH!',
+        moveCallout: 'SKY-BOLT SMASH!',
+        color: '#38BDF8',
       });
     } else {
       events.push({
@@ -870,6 +890,44 @@ function startAction(
         damage: 0,
         color: '#84CC16',
         headline: `ADI LAST-BENCH STRIKE! ${cfg.name.toUpperCase()} UNLEASHES THE BACK-BENCH BARRAGE!`,
+      });
+    } else if (fighter.id === 'krish') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = KRISH_SUPER_DURATION;
+      state.krishSuper = createKrishSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = KRISH_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.55,
+        damage: 0,
+        color: '#A3E635',
+        headline: `10KG HEAVY BAG SMASH! ${cfg.name.toUpperCase()} UNSTRAPS THE 10KG BACKPACK!`,
+      });
+    } else if (fighter.id === 'utkarsh') {
+      fighter.invulnTimer = 0.65;
+      fighter.vx = 0;
+      fighter.vy = 0;
+      fighter.y = GROUND_Y;
+      fighter.actionDuration = UTKARSH_SUPER_DURATION;
+      state.utkarshSuper = createUtkarshSuperState(fighter, opp);
+      state.activeSuperSlot = fighter.slot;
+      state.activeSuperElapsed = 0;
+      state.activeSuperDuration = UTKARSH_SUPER_DURATION;
+      events.push({
+        type: 'super',
+        attackerSlot: fighter.slot,
+        x: fighter.x,
+        y: fighter.y + 1.5,
+        damage: 0,
+        color: '#38BDF8',
+        headline: `LIGHTNING ORBIT BLITZ! ${cfg.name.toUpperCase()} IGNITES 360° LIGHTNING SPEED!`,
       });
     } else {
       fighter.invulnTimer = 0.65;
@@ -1412,6 +1470,10 @@ export function stepMatch(
         state.samyakSuperSignals = [];
         state.adiSuper = null;
         state.adiSuperSignals = [];
+        state.krishSuper = null;
+        state.krishSuperSignals = [];
+        state.utkarshSuper = null;
+        state.utkarshSuperSignals = [];
         state.activeSuperSlot = null;
         state.activeSuperElapsed = 0;
         state.activeSuperDuration = 0;
@@ -1434,6 +1496,8 @@ export function stepMatch(
   state.fatherSuperSignals = [];
   state.samyakSuperSignals = [];
   state.adiSuperSignals = [];
+  state.krishSuperSignals = [];
+  state.utkarshSuperSignals = [];
 
   // Hit-stop freezes simulation physics while camera shake / flashes still tick
   if (state.hitstopTimer > 0) {
@@ -1585,6 +1649,70 @@ export function stepMatch(
     state.adiSuper = null;
   }
 
+  // Choreographed 3.0s Krish "10KG HEAVY BAG SMASH!" Super sequence
+  if (state.krishSuper) {
+    if (state.krishSuper.phase !== 'done') {
+      const attacker = state.fighters[state.krishSuper.attackerSlot];
+      const defender = state.fighters[state.krishSuper.defenderSlot];
+      const finished = stepKrishSuper(
+        state.krishSuper,
+        attacker,
+        defender,
+        dt,
+        events,
+        state.krishSuperSignals,
+      );
+      state.activeSuperSlot = state.krishSuper.attackerSlot;
+      state.activeSuperElapsed = state.krishSuper.elapsed;
+      state.activeSuperDuration = state.krishSuper.duration;
+      if (state.krishSuper.finisherTriggeredKo && defender.hp <= 0) {
+        state.krishSuper = null;
+        resolveRoundEnd(state, attacker.slot, 'ko');
+        return events;
+      }
+      if (finished) {
+        state.krishSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.krishSuper = null;
+  }
+
+  // Choreographed 3.4s Utkarsh "LIGHTNING ORBIT BLITZ!" Super sequence
+  if (state.utkarshSuper) {
+    if (state.utkarshSuper.phase !== 'done') {
+      const attacker = state.fighters[state.utkarshSuper.attackerSlot];
+      const defender = state.fighters[state.utkarshSuper.defenderSlot];
+      const finished = stepUtkarshSuper(
+        state.utkarshSuper,
+        attacker,
+        defender,
+        dt,
+        events,
+        state.utkarshSuperSignals,
+      );
+      state.activeSuperSlot = state.utkarshSuper.attackerSlot;
+      state.activeSuperElapsed = state.utkarshSuper.elapsed;
+      state.activeSuperDuration = state.utkarshSuper.duration;
+      if (state.utkarshSuper.finisherTriggeredKo && defender.hp <= 0) {
+        state.utkarshSuper = null;
+        resolveRoundEnd(state, attacker.slot, 'ko');
+        return events;
+      }
+      if (finished) {
+        state.utkarshSuper = null;
+        state.activeSuperSlot = null;
+        state.activeSuperElapsed = 0;
+        state.activeSuperDuration = 0;
+      }
+      return events;
+    }
+    state.utkarshSuper = null;
+  }
+
   // Track active non-Sheru Super cutscene timer
   if (state.activeSuperSlot !== null) {
     const caster = state.fighters[state.activeSuperSlot];
@@ -1716,8 +1844,10 @@ export function stepMatch(
       f.actionTimer += dt;
       const timing = getAttackTiming(f);
 
-      // Slow horizontal momentum during grounded attacks (except Anda Squash hop / Super lunge)
+      // Slow horizontal momentum during grounded attacks (except airborne Signature Moves / Super lunge)
       const isAndaSquash = f.action === 'special' && cfg.special.id === 'anda_squash';
+      const isKrishDropBarrage = f.action === 'special' && cfg.special.id === 'drop_barrage';
+      const isUtkarshSkyBolt = f.action === 'special' && cfg.special.id === 'sky_bolt_smash';
       if (f.action === 'super' && f.id !== 'sheru') {
         // Non-Sheru Super: hold dramatic pose during startup close-up, then lunge forward at windup!
         if (prevTime < timing.windup && f.actionTimer >= timing.windup) {
@@ -1728,6 +1858,22 @@ export function stepMatch(
       } else if (isAndaSquash) {
         if (f.y <= GROUND_Y + 0.04) {
           f.vx *= Math.max(0, 1 - dt * 16);
+        }
+      } else if (isKrishDropBarrage) {
+        // Horizontal mid-air double-leg barrage glide across the arena!
+        if (f.actionTimer >= timing.windup && f.actionTimer <= timing.windup + timing.active) {
+          f.vx = f.facing * 7.8;
+          f.vy = Math.max(f.vy, -1.2);
+        } else if (f.y <= GROUND_Y + 0.04) {
+          f.vx *= Math.max(0, 1 - dt * 12);
+        }
+      } else if (isUtkarshSkyBolt) {
+        // Phase A (0.0-0.16s): swift upward lightning charge -> Phase B (0.16s+): diagonal dive smash!
+        if (prevTime < timing.windup && f.actionTimer >= timing.windup) {
+          f.vx = f.facing * 9.8;
+          f.vy = -12.6;
+        } else if (f.actionTimer > timing.windup + timing.active && f.y <= GROUND_Y + 0.04) {
+          f.vx *= Math.max(0, 1 - dt * 14);
         }
       } else if (f.action !== 'super') {
         f.vx *= Math.max(0, 1 - dt * 10);

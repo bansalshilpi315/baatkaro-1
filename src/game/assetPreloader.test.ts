@@ -14,9 +14,9 @@ import {
   withPreloadRetry,
 } from './assetPreloader';
 
-test('startup preloader manifest and retry constants cover all 27 assets with 2 retries', () => {
+test('startup preloader manifest and retry constants cover all 27 assets with 3 retries', () => {
   assert.equal(SPLASH_STAGE1_MIN_MS, 2000);
-  assert.equal(PRELOAD_MAX_RETRIES, 2);
+  assert.equal(PRELOAD_MAX_RETRIES, 3);
   assert.equal(PRELOAD_RETRY_BACKOFF_MS, 300);
   assert.equal(STARTUP_ASSET_MANIFEST.glbModels.length, 5);
   assert.equal(STARTUP_ASSET_MANIFEST.portraits.length, 10);

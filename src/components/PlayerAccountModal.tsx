@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Coins, LogIn, LogOut, ShieldCheck, Trophy, User, UserPlus, Users, X } from 'lucide-react';
+import { FIGHTER_LIST, STAGE_LIST } from '../game/characters';
 import {
   checkUsernameAvailability,
   validateUsernameFormat,
@@ -181,7 +182,7 @@ export function PlayerAccountModal({
                   data-testid="profile-fighters-count"
                   className="mt-1 font-mono-num text-lg font-extrabold text-white"
                 >
-                  {profile.unlockedFighters.length} / 7
+                  {profile.unlockedFighters.length} / {FIGHTER_LIST.length}
                 </div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-[#a8a29e]">
                   Fighters
@@ -205,7 +206,7 @@ export function PlayerAccountModal({
             <div className="flex items-center justify-between border border-white/10 bg-[#1a1410] px-3.5 py-2 text-xs text-[#d6d3d1]">
               <span>Arcade Stage Access</span>
               <span className="font-mono-num font-bold text-[#fde047]">
-                Stage 1 – {profile.highestStage} / 6
+                Stage 1 – {profile.highestStage} / {STAGE_LIST.length}
               </span>
             </div>
 
@@ -242,7 +243,7 @@ export function PlayerAccountModal({
                   </span>
                 </div>
                 <div className="text-[11px] text-[#a8a29e]">
-                  {profile.unlockedFighters.length}/7 Fighters · {profile.wins} Wins
+                  {profile.unlockedFighters.length}/{FIGHTER_LIST.length} Fighters · {profile.wins} Wins
                 </div>
               </div>
               <button

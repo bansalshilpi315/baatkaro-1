@@ -109,6 +109,62 @@ export async function exitFullscreen(
 }
 
 /**
+ * Pure helper: detects touch-first mobile / tablet devices where auto-fullscreen
+ * should engage upon landscape boot or first user tap.
+ */
+export function isMobileOrTouchDevice(
+  win:
+    | {
+        innerWidth?: number;
+        innerHeight?: number;
+        matchMedia?: (query: string) => { matches: boolean };
+      }
+    | undefined = typeof window !== 'undefined' ? window : undefined,
+  nav:
+    | {
+        maxTouchPoints?: number;
+        userAgent?: string;
+      }
+    | undefined = typeof navigator !== 'undefined' ? navigator : undefined,
+): boolean {
+  if (!win && !nav) return false;
+  const coarsePointer =
+    typeof win?.matchMedia === 'function' && win.matchMedia('(pointer: coarse)').matches;
+  const hasTouchPoints = (nav?.maxTouchPoints ?? 0) > 0;
+  const ua = nav?.userAgent ?? '';
+  const mobileUa = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile/i.test(ua);
+  const compactViewport =
+    typeof win?.innerWidth === 'number' &&
+    typeof win?.innerHeight === 'number' &&
+    Math.min(win.innerWidth, win.innerHeight) <= 900;
+  return mobileUa || (coarsePointer && compactViewport) || (hasTouchPoints && compactViewport);
+}
+
+/**
+ * Attempts automatic fullscreen + landscape orientation lock on mobile/touch devices.
+ * Safe against browser gesture restrictions (never throws).
+ */
+export async function tryAutoMobileFullscreen(
+  doc: VendorFullscreenDocument | undefined = typeof document !== 'undefined'
+    ? (document as unknown as VendorFullscreenDocument)
+    : undefined,
+  win?: {
+    innerWidth?: number;
+    innerHeight?: number;
+    matchMedia?: (query: string) => { matches: boolean };
+  },
+  nav?: {
+    maxTouchPoints?: number;
+    userAgent?: string;
+  },
+): Promise<boolean> {
+  if (!isMobileOrTouchDevice(win, nav)) return false;
+  if (!checkFullscreenSupport(doc) || readIsFullscreen(doc)) return false;
+  return enterFullscreen(doc);
+}
+
+
+/**
  * React hook managing fullscreen state across standard and WebKit events.
  */
 export function useFullscreen(): {

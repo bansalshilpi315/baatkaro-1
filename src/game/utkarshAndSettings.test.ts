@@ -117,7 +117,7 @@ function findProceduralNeckMeshes(root: THREE.Object3D): THREE.Mesh[] {
   return found;
 }
 
-test('PART 1: Utkarsh is active playable Slot #3 (125 HP, Unlocked starter, SWIFT COMBO, UTKARSH QUICK-STEP RUSH)', () => {
+test('PART 1: Utkarsh is active playable Slot #3 (125 HP, Unlocked starter, SKY-BOLT SMASH, LIGHTNING ORBIT BLITZ)', () => {
   assert.equal(FIGHTER_LIST.length, 10);
   assert.equal(ROSTER_SLOTS.length, 10);
   assert.equal(FIGHTER_LIST[2].id, 'utkarsh');
@@ -129,10 +129,10 @@ test('PART 1: Utkarsh is active playable Slot #3 (125 HP, Unlocked starter, SWIF
   assert.equal(utkarsh.maxHp, 125);
   assert.equal(utkarsh.walkSpeed, 5.25);
   assert.equal(utkarsh.jumpVelocity, 11.3);
-  assert.equal(utkarsh.special.id, 'swift_combo');
-  assert.equal(utkarsh.special.shortLabel, 'SWIFT COMBO');
+  assert.equal(utkarsh.special.id, 'sky_bolt_smash');
+  assert.equal(utkarsh.special.shortLabel, 'SKY-BOLT SMASH');
   assert.equal(utkarsh.special.cooldown, 3.5);
-  assert.equal(utkarsh.superName, 'UTKARSH QUICK-STEP RUSH');
+  assert.equal(utkarsh.superName, 'LIGHTNING ORBIT BLITZ');
 
   assert.equal(STARTER_FIGHTERS.includes('utkarsh'), true);
   assert.equal(FIGHTER_UNLOCK_COSTS.utkarsh, 0);

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-export function PortraitGuard() {
+interface PortraitGuardProps {
+  onPortraitBlockedChange?: (blocked: boolean) => void;
+}
+
+export function PortraitGuard({ onPortraitBlockedChange }: PortraitGuardProps) {
   const [isPortraitMobile, setIsPortraitMobile] = useState(false);
 
   useEffect(() => {
@@ -11,7 +15,9 @@ export function PortraitGuard() {
         w < 900 ||
         (typeof window.matchMedia === 'function' &&
           window.matchMedia('(pointer: coarse)').matches);
-      setIsPortraitMobile(isNarrowOrTouch && h > w);
+      const blocked = isNarrowOrTouch && h > w;
+      setIsPortraitMobile(blocked);
+      onPortraitBlockedChange?.(blocked);
     };
     check();
     window.addEventListener('resize', check);
@@ -22,7 +28,7 @@ export function PortraitGuard() {
       window.removeEventListener('orientationchange', check);
       window.visualViewport?.removeEventListener('resize', check);
     };
-  }, []);
+  }, [onPortraitBlockedChange]);
 
   if (!isPortraitMobile) return null;
 

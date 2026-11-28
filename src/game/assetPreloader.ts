@@ -25,7 +25,7 @@ import {
 import { preloadRealFaceTextures } from './characters/photoFaceLoader';
 
 export const SPLASH_STAGE1_MIN_MS = 2000;
-export const PRELOAD_MAX_RETRIES = 2;
+export const PRELOAD_MAX_RETRIES = 3;
 export const PRELOAD_RETRY_BACKOFF_MS = 300;
 
 export const PRELOAD_GLB_URLS: readonly string[] = [
@@ -178,9 +178,9 @@ export function formatPreloadStatusLabel(loaded: number, total: number): string 
 /**
  * Strict 100% blocking startup asset preloader (NO arbitrary early timeout):
  * Awaits `Promise.all` across every asset in the manifest:
- * 1. All 4 custom 3D `.glb` head models (via GLTFLoader + module-level GLB cache, 2 retries)
- * 2. All 9 2D face `.png` portraits (decoded via Image.decode() + THREE.TextureLoader cache, 2 retries)
- * 3. All 11 `.mp3` audio files including `/audio/bgm.mp3` + all Super/KO MP3s (ArrayBuffer + decodeAudioData, 2 retries)
+ * 1. All 5 custom 3D `.glb` head models (via GLTFLoader + module-level GLB cache, 3 retries)
+ * 2. All 10 2D face `.png` portraits (decoded via Image.decode() + THREE.TextureLoader cache, 3 retries)
+ * 3. All 12 `.mp3` audio files including `/audio/bgm.mp3` + all Super/KO MP3s (ArrayBuffer + decodeAudioData, 3 retries)
  *
  * Updates progress (`0% -> 100%`) and live `(X / Total)` counter dynamically and
  * only resolves once `loadedItems === totalItems`.

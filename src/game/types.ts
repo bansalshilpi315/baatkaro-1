@@ -2,10 +2,12 @@ import type { AdiSuperBeatSignal, AdiSuperState } from './adiSuper';
 import type { AndaSuperBeatSignal, AndaSuperState } from './andaSuper';
 import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
 import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
+import type { KrishSuperBeatSignal, KrishSuperState } from './krishSuper';
 import type { MausiSuperBeatSignal, MausiSuperState } from './mausiSuper';
 import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
 import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
+import type { UtkarshSuperBeatSignal, UtkarshSuperState } from './utkarshSuper';
 
 export type FighterId =
   | 'sheru'
@@ -61,14 +63,14 @@ export type FaceExpression = 'idle' | 'attack' | 'hit' | 'block' | 'ko' | 'victo
 export type SpecialMoveKind =
   | 'currency_burst'
   | 'swatter_throw'
-  | 'swift_combo'
+  | 'sky_bolt_smash'
   | 'dharna_shield'
   | 'anda_squash'
   | 'belan_throw'
   | 'diary_note'
   | 'laxmikant_slam'
   | 'notebook_smash'
-  | 'desk_slam';
+  | 'drop_barrage';
 
 export interface SpecialMoveConfig {
   id: SpecialMoveKind;
@@ -288,6 +290,10 @@ export interface MatchState {
   samyakSuperSignals: SamyakSuperBeatSignal[];
   adiSuper: AdiSuperState | null;
   adiSuperSignals: AdiSuperBeatSignal[];
+  krishSuper: KrishSuperState | null;
+  krishSuperSignals: KrishSuperBeatSignal[];
+  utkarshSuper: UtkarshSuperState | null;
+  utkarshSuperSignals: UtkarshSuperBeatSignal[];
 }
 
 export interface FloatingCallout {

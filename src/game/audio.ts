@@ -57,10 +57,10 @@ export class DesiAudioEngine {
   private sfxMuted = false;
   private superSfxMuted = false;
   private musicMuted = false;
-  private musicTimer: number | null = null;
-  private musicStep = 0;
   private musicPlaying = false;
   private musicDesired = false;
+  private bootReady = true;
+  private portraitBlocked = false;
 
   // Gapless continuous /audio/bgm.mp3 Web Audio BufferSource + HTMLAudio fallback
   private bgmBufferSource: AudioBufferSourceNode | null = null;
@@ -100,7 +100,15 @@ export class DesiAudioEngine {
   }
 
   private ensureSfxContext(ignoreSuperMute = false): AudioContext | null {
-    if (this.globalMuted || this.audioPaused || this.sfxMuted) return null;
+    if (
+      this.globalMuted ||
+      this.audioPaused ||
+      this.sfxMuted ||
+      !this.bootReady ||
+      this.portraitBlocked
+    ) {
+      return null;
+    }
     if (!ignoreSuperMute && this.superSfxMuted) return null;
     return this.ensureContext();
   }
@@ -216,14 +224,63 @@ export class DesiAudioEngine {
     ]);
   }
 
+  /**
+   * Controls whether startup boot preloading has completed (100% loaded).
+   * While false, BGM and SFX remain strictly silent.
+   */
+  public setBootReady(ready: boolean): void {
+    this.bootReady = ready;
+    if (!ready) {
+      this.syncActiveGains();
+    }
+  }
+
+  public isBootReady(): boolean {
+    return this.bootReady;
+  }
+
+  /**
+   * Controls whether the mobile portrait rotation overlay is actively blocking gameplay.
+   * While true, all audio is suspended silently; returning to landscape resumes cleanly.
+   */
+  public setPortraitBlocked(blocked: boolean): void {
+    if (this.portraitBlocked === blocked) return;
+    this.portraitBlocked = blocked;
+    if (blocked) {
+      if (this.ctx && this.ctx.state === 'running') {
+        this.ctx.suspend().catch(() => {});
+      }
+      if (this.bgmHtmlAudio && !this.bgmHtmlAudio.paused) {
+        this.bgmHtmlAudio.pause();
+      }
+    } else if (this.bootReady && !this.globalMuted && !this.audioPaused) {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      this.syncActiveGains();
+      if (!this.musicMuted) {
+        this.startMusic();
+      }
+    }
+  }
+
+  public isPortraitBlocked(): boolean {
+    return this.portraitBlocked;
+  }
+
   public unlock(): void {
+    if (!this.bootReady || this.portraitBlocked) return;
     this.ensureContext();
     void this.preloadAllSuperAudios().then(() => {
-      // If bgm.mp3 decoded right after first user gesture and music is active/desired, switch seamlessly to gapless MP3
+      // If bgm.mp3 decoded right after first user gesture and music is active/desired, start gapless MP3 cleanly
       if (
+        this.bootReady &&
+        !this.portraitBlocked &&
         this.musicDesired &&
         !this.bgmUsingMp3 &&
         !this.audioPaused &&
+        !this.globalMuted &&
+        !this.musicMuted &&
         superAudioBuffers.has(BGM_AUDIO_URL)
       ) {
         this.startGaplessBgmBuffer();
@@ -235,12 +292,21 @@ export class DesiAudioEngine {
   }
 
   /**
-   * Attempts to start continuous BGM immediately after the startup preloader finishes
-   * if AudioContext is already unlocked (otherwise BGM starts cleanly on first user gesture).
+   * Attempts to start continuous `/audio/bgm.mp3` immediately after 100% boot finishes
+   * if AudioContext is already unlocked and device is not blocked in portrait mode.
    */
   public tryAutoStartMusic(): void {
-    if (this.globalMuted || this.musicMuted || this.audioPaused) return;
-    if (this.ctx && this.ctx.state === 'running') {
+    if (
+      !this.bootReady ||
+      this.portraitBlocked ||
+      this.globalMuted ||
+      this.musicMuted ||
+      this.audioPaused
+    ) {
+      return;
+    }
+    const ctx = this.ensureContext();
+    if (ctx && ctx.state === 'running') {
       this.startMusic();
     }
   }
@@ -674,12 +740,10 @@ export class DesiAudioEngine {
     this.syncHtmlMediaMute(mute);
     this.syncActiveGains();
     if (mute) {
-      // Pause legacy synth timer only; keep gapless AudioBufferSourceNode alive (at gain=0 / suspended ctx)
-      this.pauseSynthMusicTimer();
       if (this.ctx && this.ctx.state === 'running') {
         this.ctx.suspend().catch(() => {});
       }
-    } else if (!this.audioPaused) {
+    } else if (!this.audioPaused && this.bootReady && !this.portraitBlocked) {
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
       }
@@ -704,7 +768,6 @@ export class DesiAudioEngine {
    */
   public pauseAllAudio(): void {
     this.audioPaused = true;
-    this.pauseSynthMusicTimer();
     if (this.ctx && this.ctx.state === 'running') {
       this.ctx.suspend().catch(() => {});
     }
@@ -724,11 +787,11 @@ export class DesiAudioEngine {
 
   /**
    * Resumes audio after returning from pause / tab switch from the exact paused position
-   * (honoring current mute settings).
+   * (honoring current mute settings, boot gate, and portrait overlay).
    */
   public resumeAllAudio(shouldPlayMusic = true): void {
     this.audioPaused = false;
-    if (this.globalMuted) return;
+    if (this.globalMuted || !this.bootReady || this.portraitBlocked) return;
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
@@ -757,11 +820,10 @@ export class DesiAudioEngine {
     this.syncActiveGains();
     if (mute) {
       // Preserve continuous gapless BGM playback position by muting bgmGainNode (gain=0)
-      this.pauseSynthMusicTimer();
       if (this.bgmHtmlAudio) {
         this.bgmHtmlAudio.muted = true;
       }
-    } else if (!this.globalMuted && !this.audioPaused) {
+    } else if (!this.globalMuted && !this.audioPaused && this.bootReady && !this.portraitBlocked) {
       if (this.bgmHtmlAudio && this.musicDesired) {
         this.bgmHtmlAudio.muted = false;
         this.bgmHtmlAudio.volume = this.getTargetBgmGain();
@@ -776,21 +838,11 @@ export class DesiAudioEngine {
   }
 
   public isBgmLooping(): boolean {
-    return Boolean(this.bgmBufferSource?.loop || this.bgmHtmlAudio?.loop || this.musicPlaying);
+    return Boolean(this.bgmBufferSource?.loop || this.bgmHtmlAudio?.loop);
   }
 
   public isUsingMp3Bgm(): boolean {
     return this.bgmUsingMp3;
-  }
-
-  private pauseSynthMusicTimer(): void {
-    if (this.musicTimer !== null) {
-      clearInterval(this.musicTimer);
-      this.musicTimer = null;
-    }
-    if (!this.bgmBufferSource && !this.bgmHtmlAudio) {
-      this.musicPlaying = false;
-    }
   }
 
   /**
@@ -810,8 +862,6 @@ export class DesiAudioEngine {
     if (!buffer || !ctx || !this.bgmGain) return false;
 
     try {
-      // Stop legacy synth timer if it was acting as a temporary placeholder
-      this.pauseSynthMusicTimer();
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;
@@ -856,7 +906,14 @@ export class DesiAudioEngine {
     }
   }
 
+  /**
+   * Starts ONLY `/audio/bgm.mp3` via gapless Web Audio `AudioBufferSourceNode` (`loop = true`).
+   * Legacy procedural/synth BGM fallback has been completely removed so no wrong/old tune can ever play.
+   */
   public startMusic(): void {
+    if (!this.bootReady || this.portraitBlocked) {
+      return;
+    }
     this.musicDesired = true;
     if (this.globalMuted || this.audioPaused || this.musicMuted || typeof window === 'undefined') {
       return;
@@ -883,7 +940,15 @@ export class DesiAudioEngine {
     if (superAudioRawBytes.has(BGM_AUDIO_URL)) {
       if (ctx && typeof ctx.decodeAudioData === 'function') {
         void this.preloadBgmAudio().then((decoded) => {
-          if (decoded && this.musicDesired && !this.audioPaused) {
+          if (
+            decoded &&
+            this.bootReady &&
+            !this.portraitBlocked &&
+            this.musicDesired &&
+            !this.audioPaused &&
+            !this.globalMuted &&
+            !this.musicMuted
+          ) {
             this.startGaplessBgmBuffer();
           }
         });
@@ -895,84 +960,22 @@ export class DesiAudioEngine {
       }
     }
 
-    // 3. Fallback when /audio/bgm.mp3 is empty or not yet uploaded: procedural Desi Dhol-Funk groove
-    if (this.musicPlaying || !ctx) return;
-    this.musicPlaying = true;
-    this.syncActiveGains();
-
-    // Energetic Desi Dhol-Funk 16-step groove (C minor / Bhairav-inspired arcade riff)
-    const bassNotes = [130.81, 0, 130.81, 146.83, 155.56, 0, 130.81, 196.0, 130.81, 0, 174.61, 155.56, 146.83, 0, 196.0, 146.83];
-    const leadNotes = [523.25, 0, 587.33, 622.25, 0, 587.33, 523.25, 493.88, 523.25, 0, 698.46, 622.25, 587.33, 0, 523.25, 0];
-
-    const stepTick = () => {
-      if (
-        !this.musicPlaying ||
-        this.musicMuted ||
-        this.globalMuted ||
-        this.audioPaused ||
-        this.bgmUsingMp3 ||
-        !this.ctx ||
-        this.ctx.state !== 'running'
-      ) {
-        return;
-      }
-      const now = this.ctx.currentTime;
-      const idx = this.musicStep % 16;
-      this.musicStep++;
-
-      const bgmDest = this.bgmGain ?? this.ctx.destination;
-
-      // Dhol low thump on beats 0, 4, 8, 11, 14
-      if (idx === 0 || idx === 4 || idx === 8 || idx === 11 || idx === 14) {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(idx === 0 || idx === 8 ? 115 : 145, now);
-        osc.frequency.exponentialRampToValueAtTime(48, now + 0.11);
-        gain.gain.setValueAtTime(0.18, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-        osc.connect(gain);
-        gain.connect(bgmDest);
-        osc.start(now);
-        osc.stop(now + 0.13);
-      }
-
-      // Funky bass pulse
-      const bFreq = bassNotes[idx];
-      if (bFreq > 0) {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(bFreq, now);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
-        osc.connect(gain);
-        gain.connect(bgmDest);
-        osc.start(now);
-        osc.stop(now + 0.15);
-      }
-
-      // Crisp arcade shehnai/synth hook
-      const lFreq = leadNotes[idx];
-      if (lFreq > 0 && idx % 2 === 0) {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'square';
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 1400;
-        osc.frequency.setValueAtTime(lFreq, now);
-        gain.gain.setValueAtTime(0.055, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(bgmDest);
-        osc.start(now);
-        osc.stop(now + 0.12);
-      }
-    };
-
-    this.musicTimer = window.setInterval(stepTick, 145);
+    // 3. If /audio/bgm.mp3 has not yet been fetched and hasn't failed, fetch & decode cleanly
+    if (!superAudioFailedUrls.has(BGM_AUDIO_URL) && typeof fetch === 'function') {
+      void this.preloadBgmAudio().then((decoded) => {
+        if (
+          decoded &&
+          this.bootReady &&
+          !this.portraitBlocked &&
+          this.musicDesired &&
+          !this.audioPaused &&
+          !this.globalMuted &&
+          !this.musicMuted
+        ) {
+          this.startGaplessBgmBuffer();
+        }
+      });
+    }
   }
 
   /**
@@ -982,10 +985,6 @@ export class DesiAudioEngine {
     this.musicDesired = false;
     this.musicPlaying = false;
     this.bgmUsingMp3 = false;
-    if (this.musicTimer !== null) {
-      clearInterval(this.musicTimer);
-      this.musicTimer = null;
-    }
     if (this.bgmBufferSource) {
       try {
         this.bgmBufferSource.stop();

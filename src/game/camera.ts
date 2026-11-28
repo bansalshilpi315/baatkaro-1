@@ -145,6 +145,8 @@ export type SuperCameraKind =
   | 'father'
   | 'samyak'
   | 'adi'
+  | 'krish'
+  | 'utkarsh'
   | 'generic';
 
 /**
@@ -648,6 +650,125 @@ export function computeSuperCameraTarget(
       z: lerp(slamTarget.z, fightTarget.z, returnT),
       lookX: lerp(slamTarget.lookX, fightTarget.lookX, returnT),
       lookY: lerp(slamTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // KRISH ("10KG HEAVY BAG SMASH!", 3.0s):
+  // 0.0-1.4s: Dramatic low-angle close-up on Krish unstrapping & swinging his 10kg black backpack
+  // 1.4-2.1s: Dynamic upward zoom tracking Krish's high mid-air leap raising the backpack overhead
+  // 2.1-2.72s: Impact pull-back framing the overhead bag smash, golden shockwave & flying notebooks
+  // 2.72-3.0s: Smooth restore to standard 2.5D fighting camera
+  if (kind === 'krish') {
+    const midX = clampCameraPanX((attackerX + defenderX) * 0.5);
+
+    if (elapsed < 1.4) {
+      const windT = smoothstep(elapsed / 1.4);
+      const sweep = lerp(-0.32, 0.25, windT) * attackerFacing;
+      return {
+        x: clampCameraPanX(attackerX + Math.sin(sweep) * 1.9 + attackerFacing * 0.65),
+        y: lerp(1.18, 1.56, windT),
+        z: lerp(3.7, 4.15, windT),
+        lookX: attackerX,
+        lookY: lerp(1.38, 1.62, windT),
+        lookZ: 0,
+      };
+    }
+
+    if (elapsed < 2.1) {
+      const leapT = smoothstep((elapsed - 1.4) / 0.7);
+      return {
+        x: clampCameraPanX(lerp(attackerX + attackerFacing * 0.85, midX, leapT)),
+        y: lerp(1.56, 2.75 + attackerY * 0.42, leapT),
+        z: lerp(4.15, 6.25, leapT),
+        lookX: clampCameraPanX(lerp(attackerX, defenderX, leapT * 0.45)),
+        lookY: lerp(1.62, 1.95 + attackerY * 0.45, leapT),
+        lookZ: 0,
+      };
+    }
+
+    const smashTarget: FixedZoomCameraTarget = {
+      x: clampCameraPanX(lerp(midX, defenderX, 0.25)),
+      y: 2.95,
+      z: 7.75,
+      lookX: clampCameraPanX(lerp(midX, defenderX, 0.36)),
+      lookY: 1.28,
+      lookZ: 0,
+    };
+
+    if (elapsed < 2.72) {
+      const blendT = smoothstep((elapsed - 2.1) / 0.26);
+      return {
+        x: lerp(midX, smashTarget.x, blendT),
+        y: lerp(3.45, smashTarget.y, blendT),
+        z: lerp(6.25, smashTarget.z, blendT),
+        lookX: lerp(clampCameraPanX(lerp(attackerX, defenderX, 0.45)), smashTarget.lookX, blendT),
+        lookY: lerp(2.2, smashTarget.lookY, blendT),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 2.72) / Math.max(0.12, duration - 2.72));
+    return {
+      x: lerp(smashTarget.x, fightTarget.x, returnT),
+      y: lerp(smashTarget.y, fightTarget.y, returnT),
+      z: lerp(smashTarget.z, fightTarget.z, returnT),
+      lookX: lerp(smashTarget.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(smashTarget.lookY, fightTarget.lookY, returnT),
+      lookZ: 0,
+    };
+  }
+
+  // UTKARSH ("LIGHTNING ORBIT BLITZ!", 3.4s):
+  // 0.0-1.7s: Tight expressive close-up on Utkarsh's laughing taunt & crackling cyan sneaker sparks
+  // 1.7-3.08s: Elevated wide 3D perspective framing his full 360° circular orbit & cyan-white lightning trails
+  // 3.08-3.4s: Smooth restore to standard 2.5D fighting camera
+  if (kind === 'utkarsh') {
+    const centerX = clampCameraPanX(defenderX);
+
+    if (elapsed < 1.7) {
+      const tauntT = smoothstep(elapsed / 1.7);
+      const sweep = lerp(-0.28, 0.28, tauntT) * attackerFacing;
+      return {
+        x: clampCameraPanX(attackerX + Math.sin(sweep) * 1.65 + attackerFacing * 0.58),
+        y: lerp(1.24, 1.48, tauntT),
+        z: lerp(3.55, 3.95, tauntT),
+        lookX: attackerX,
+        lookY: lerp(1.42, 1.56, tauntT),
+        lookZ: 0,
+      };
+    }
+
+    const orbitNorm = Math.max(0, Math.min(1, (elapsed - 1.7) / 1.38));
+    const camSwing = lerp(-0.34, 0.36, orbitNorm) * attackerFacing;
+    const orbitFrame: FixedZoomCameraTarget = {
+      x: clampCameraPanX(centerX + Math.sin(camSwing) * 2.25),
+      y: 3.75,
+      z: 7.45,
+      lookX: centerX,
+      lookY: 1.24,
+      lookZ: 0,
+    };
+
+    if (elapsed < 3.08) {
+      const blendT = smoothstep((elapsed - 1.7) / 0.28);
+      return {
+        x: lerp(attackerX + attackerFacing * 0.85, orbitFrame.x, blendT),
+        y: lerp(1.48, orbitFrame.y, blendT),
+        z: lerp(3.95, orbitFrame.z, blendT),
+        lookX: lerp(attackerX, orbitFrame.lookX, blendT),
+        lookY: lerp(1.56, orbitFrame.lookY, blendT),
+        lookZ: 0,
+      };
+    }
+
+    const returnT = smoothstep((elapsed - 3.08) / Math.max(0.12, duration - 3.08));
+    return {
+      x: lerp(orbitFrame.x, fightTarget.x, returnT),
+      y: lerp(orbitFrame.y, fightTarget.y, returnT),
+      z: lerp(orbitFrame.z, fightTarget.z, returnT),
+      lookX: lerp(orbitFrame.lookX, fightTarget.lookX, returnT),
+      lookY: lerp(orbitFrame.lookY, fightTarget.lookY, returnT),
       lookZ: 0,
     };
   }

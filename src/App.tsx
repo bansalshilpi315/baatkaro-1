@@ -48,7 +48,7 @@ import type {
   MatchResultSnapshot,
   StageId,
 } from './game/types';
-import { useFullscreen } from './utils/fullscreen';
+import { tryAutoMobileFullscreen, useFullscreen } from './utils/fullscreen';
 import { loadAudioPrefs, saveAudioPrefs } from './utils/safeStorage';
 
 const INITIAL_HUD: HudSnapshot = {
@@ -215,9 +215,12 @@ export default function App() {
   onlineRoleRef.current = activeOnlineRole;
   playerProfileRef.current = playerProfile;
 
-  // Apply persisted audio mute preferences immediately on boot
+  const portraitBlockedRef = useRef(false);
+
+  // Apply persisted audio mute preferences immediately on boot & keep audio strictly silent until 100% booted
   useEffect(() => {
     const prefs = initialAudioPrefsRef.current;
+    audioEngine.setBootReady(isAutostartRequested());
     audioEngine.setMuted(prefs.sfxMuted);
     audioEngine.setMusicMuted(prefs.musicMuted);
     audioEngine.setGlobalMuted(prefs.globalMuted, false);
@@ -545,10 +548,11 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Unlock Web Audio & start continuous gapless BGM on the user's very first interaction anywhere
+  // Unlock Web Audio, trigger mobile fullscreen (if gesture required), & start /audio/bgm.mp3 on first post-boot landscape gesture
   useEffect(() => {
     const handleFirstGesture = () => {
-      if (screenRef.current === 'loading') return;
+      if (screenRef.current === 'loading' || portraitBlockedRef.current) return;
+      void tryAutoMobileFullscreen();
       audioEngine.unlock();
       window.removeEventListener('pointerdown', handleFirstGesture);
       window.removeEventListener('keydown', handleFirstGesture);
@@ -564,16 +568,31 @@ export default function App() {
     };
   }, []);
 
+  const handlePortraitBlockedChange = useCallback((blocked: boolean) => {
+    portraitBlockedRef.current = blocked;
+    audioEngine.setPortraitBlocked(blocked);
+    if (!blocked && screenRef.current !== 'loading') {
+      void tryAutoMobileFullscreen();
+    }
+  }, []);
+
   const handleLoadingComplete = useCallback(() => {
     const nextScreen: GameScreen =
       playerProfileRef.current.mode === 'account' ? 'title' : 'auth';
+    audioEngine.setBootReady(true);
     engineRef.current?.setScreen(nextScreen);
     setScreen(nextScreen);
-    // Start continuous gapless BGM immediately if AudioContext is already unlocked
-    audioEngine.tryAutoStartMusic();
+    if (!portraitBlockedRef.current) {
+      void tryAutoMobileFullscreen();
+      // Start continuous gapless /audio/bgm.mp3 immediately if AudioContext is already unlocked
+      audioEngine.tryAutoStartMusic();
+    }
   }, []);
 
   const handleGateGuest = useCallback(() => {
+    if (!portraitBlockedRef.current) {
+      void tryAutoMobileFullscreen();
+    }
     audioEngine.unlock();
     audioEngine.playUiClick();
     if (playerProfileRef.current.mode !== 'guest') {
@@ -586,6 +605,9 @@ export default function App() {
   }, []);
 
   const handleOpenSelect = useCallback(() => {
+    if (!portraitBlockedRef.current) {
+      void tryAutoMobileFullscreen();
+    }
     audioEngine.unlock();
     audioEngine.playUiClick();
     setHowToPlayOpen(false);
@@ -1262,7 +1284,7 @@ export default function App() {
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 
       {/* Mobile Portrait Orientation Guard */}
-      <PortraitGuard />
+      <PortraitGuard onPortraitBlockedChange={handlePortraitBlockedChange} />
     </main>
   );
 }

@@ -266,22 +266,43 @@ function lerpAngle(current: number, target: number, alpha: number): number {
   return current + (target - current) * alpha;
 }
 
+function lerpAngleShortest(current: number, target: number, alpha: number): number {
+  let diff = ((target - current + Math.PI) % (Math.PI * 2)) - Math.PI;
+  if (diff < -Math.PI) diff += Math.PI * 2;
+  return current + diff * alpha;
+}
+
+export interface SuperRigOverride {
+  hideKrishBackpack?: boolean;
+  orbitZ?: number;
+  orbitYaw?: number | null;
+}
+
 export function animateFighterRig(
   rig: FighterRig,
   state: FighterState,
   elapsed: number,
   dt: number,
   hideHandProp = false,
+  superOverride?: SuperRigOverride,
 ): void {
   const alpha = 1 - Math.exp(-18 * Math.max(dt, 0.008));
 
-  // Position fighter on 2.5D plane (Z = 0)
-  rig.root.position.set(state.x, 0, 0);
+  // Position fighter on 2.5D plane (or 3D XZ orbit during Utkarsh's Lightning Orbit Blitz)
+  const orbitZ = superOverride?.orbitZ ?? 0;
+  rig.root.position.set(state.x, 0, orbitZ);
   rig.bodyGroup.position.y = state.y;
 
-  // Facing rotation: slight 3/4 arcade angle toward camera so cartoon face & silhouette pop!
-  const targetYaw = state.facing === 1 ? Math.PI * 0.42 : -Math.PI * 0.42;
-  rig.bodyGroup.rotation.y = lerpAngle(rig.bodyGroup.rotation.y, targetYaw, alpha);
+  // Facing rotation: slight 3/4 arcade angle toward camera, or tangent sprint yaw during 360° orbit
+  const isOrbiting = superOverride?.orbitYaw != null;
+  const targetYaw = isOrbiting
+    ? (superOverride.orbitYaw as number)
+    : state.facing === 1
+      ? Math.PI * 0.42
+      : -Math.PI * 0.42;
+  rig.bodyGroup.rotation.y = isOrbiting
+    ? lerpAngleShortest(rig.bodyGroup.rotation.y, targetYaw, 1 - Math.exp(-26 * Math.max(dt, 0.008)))
+    : lerpAngle(rig.bodyGroup.rotation.y, targetYaw, alpha);
 
   // Squash & stretch
   rig.bodyGroup.scale.set(state.squashX, state.squashY, state.squashX);
@@ -347,7 +368,9 @@ export function animateFighterRig(
       state.id !== 'mausi' &&
       state.id !== 'father' &&
       state.id !== 'samyak' &&
-      state.id !== 'adi') ||
+      state.id !== 'adi' &&
+      state.id !== 'krish' &&
+      state.id !== 'utkarsh') ||
     state.shakti >= 100 ||
     isSheruPaisaFlex;
   if (rig.superAura.visible) {
@@ -387,9 +410,11 @@ export function animateFighterRig(
               ? 1.04
               : state.id === 'krish'
                 ? 1.02
-                : rig.isEggBody
-                  ? 0.68
-                  : 0.92;
+                : state.id === 'utkarsh'
+                  ? 0.98
+                  : rig.isEggBody
+                    ? 0.68
+                    : 0.92;
   const pose = computeCombatPose(state, elapsed, basePelvisY, rig.isEggBody);
 
   let pelvisX = pose.pelvisX;
@@ -1743,80 +1768,165 @@ export function animateFighterRig(
       lElbX = -1.42;
     }
   } else if (state.id === 'krish') {
-    if (state.action === 'special') {
-      // BACKBENCH DESK SLAM: Heavy overhead double-fist raise -> explosive downward brawler slam!
-      const isWindup = atkProgress < 0.28;
-      const wind = isWindup ? atkProgress / 0.28 : 1;
-      const slam = isWindup ? 0 : Math.min(1, (atkProgress - 0.28) / 0.28);
-      const settle = atkProgress > 0.68 ? (atkProgress - 0.68) / 0.32 : 0;
-      const impact = slam * (1 - settle * 0.45);
+    // Cleanly detach/hide Krish's worn torso backpack + shoulder strap while he holds/swings the 10KG backpack,
+    // and ALWAYS restore them when the Super ends or resets!
+    const wornPack = rig.torso.getObjectByName('krish_backpack');
+    const wornStrap = rig.torso.getObjectByName('krish_backpack_strap');
+    const hideBackpack = Boolean(superOverride?.hideKrishBackpack);
+    if (wornPack) wornPack.visible = !hideBackpack;
+    if (wornStrap) wornStrap.visible = !hideBackpack;
 
-      pelvisX = 0.2 * impact;
-      pelvisY = basePelvisY + (isWindup ? 0.05 * wind : -0.1 * impact);
-      torsoRotX = isWindup ? -0.18 * wind : 0.34 * impact;
+    if (state.action === 'special') {
+      // HORIZONTAL DOUBLE-LEG DROP-BARRAGE:
+      // 0.00-0.16: Explosive hop takeoff -> 0.16-0.74: Full horizontal mid-air body glide firing BOTH feet straight
+      // forward in rapid piston double-leg kicks -> 0.74-1.00: Crisp upright flip landing back into guard!
+      pelvisX = 0;
+      pelvisRotY = 0;
       torsoRotY = 0;
-      headRotX = isWindup ? -0.1 * wind : 0.14 * impact;
-      // Both fists raised high overhead on windup, then smashed down together!
-      lShX = isWindup ? -2.45 * wind - 0.3 : -2.6 + 1.85 * impact;
-      lShZ = isWindup ? -0.32 : -0.18;
-      lElbX = isWindup ? -0.65 * wind : -0.25;
-      rShX = isWindup ? -2.45 * wind - 0.3 : -2.6 + 1.85 * impact;
-      rShZ = isWindup ? 0.32 : 0.18;
-      rElbX = isWindup ? -0.65 * wind : -0.25;
-      lHipX = -0.32;
-      lKneeX = 0.44;
-      rHipX = 0.28;
-      rKneeX = 0.32;
-    } else if (state.action === 'super') {
-      // KRISH BACKBENCH RUSH (placeholder standard 33%-capped Super Power):
-      // 0.00-0.42s: Power-up brawler shoulder-strap brace & crouch charge
-      // 0.42-0.82s: Explosive forward heavyweight shoulder-rush & haymaker slam
-      // 0.82-1.60s: Confident brawler chest-out recovery
-      const t = state.actionTimer;
-      if (t < 0.42) {
-        const charge = Math.min(1, t / 0.35);
-        pelvisY = basePelvisY - 0.09 * charge;
-        pelvisRotY = -0.32 * state.facing * charge;
-        torsoRotX = 0.14 * charge;
-        headRotY = 0.2 * state.facing * charge;
-        lShX = -0.95 * charge;
-        lShZ = -0.72 * charge;
-        lElbX = -1.48 * charge;
-        rShX = -0.95 * charge;
-        rShZ = 0.72 * charge;
-        rElbX = -1.48 * charge;
-        lHipX = -0.38 * charge;
-        lKneeX = 0.56 * charge;
-        rHipX = 0.26 * charge;
-        rKneeX = 0.36 * charge;
-      } else if (t < 0.88) {
-        jointAlpha = 1 - Math.exp(-28 * Math.max(dt, 0.008));
-        const rush = Math.min(1, (t - 0.42) / 0.22);
-        pelvisX = 0.24 * rush;
-        pelvisY = basePelvisY - 0.06;
-        torsoRotX = 0.28 * rush;
-        torsoRotY = -0.58 * rush;
-        headRotY = 0.36 * rush;
-        rShX = -1.68 * rush;
-        rShZ = 0.12;
-        rElbX = -0.14;
-        lShX = -0.35;
-        lShZ = -0.55;
-        lElbX = -1.25;
-        lHipX = -0.42;
-        lKneeX = 0.52;
-        rHipX = 0.36;
-        rKneeX = 0.28;
+      headRotY = 0;
+      if (atkProgress < 0.16) {
+        const hopT = atkProgress / 0.16;
+        pelvisY = basePelvisY + 0.08 * hopT;
+        pelvisRotX = -0.35 * hopT;
+        torsoRotX = -0.14 * hopT;
+        lHipX = -0.68 * hopT;
+        lKneeX = 1.15 * hopT;
+        rHipX = -0.58 * hopT;
+        rKneeX = 1.05 * hopT;
+        lShX = -0.55;
+        lShZ = -0.45;
+        lElbX = -1.2;
+        rShX = -0.55;
+        rShZ = 0.45;
+        rElbX = -1.2;
+      } else if (atkProgress < 0.74) {
+        jointAlpha = 1 - Math.exp(-30 * Math.max(dt, 0.008));
+        const barrageT = (atkProgress - 0.16) / 0.58;
+        const piston = Math.sin(barrageT * Math.PI * 6);
+        // Body rotated completely horizontal in mid-air parallel to ground!
+        pelvisY = basePelvisY + 0.16;
+        pelvisRotX = -Math.PI * 0.46;
+        pelvisRotZ = piston * 0.06;
+        torsoRotX = 0.16;
+        headRotX = 0.36;
+        // BOTH legs extended straight forward toward opponent in rapid double-kick thrusts!
+        lHipX = -1.48 - Math.max(0, piston) * 0.22;
+        lKneeX = 0.08 + Math.max(0, -piston) * 0.34;
+        rHipX = -1.48 - Math.max(0, -piston) * 0.22;
+        rKneeX = 0.08 + Math.max(0, piston) * 0.34;
+        // Arms tucked tightly at chest for aerodynamic martial-arts balance
+        lShX = -0.78;
+        lShZ = -0.52;
+        lElbX = -1.35;
+        rShX = -0.78;
+        rShZ = 0.52;
+        rElbX = -1.35;
       } else {
-        const settle = Math.min(1, (t - 0.88) / 0.55);
-        pelvisY = basePelvisY + 0.03 * (1 - settle);
-        torsoRotX = -0.1 * (1 - settle);
-        rShX = -2.25 * (1 - settle) + pose.rShX * settle;
-        rShZ = 0.32 * (1 - settle) + pose.rShZ * settle;
-        rElbX = -0.42 * (1 - settle) + pose.rElbX * settle;
-        lShX = -0.65 * (1 - settle) + pose.lShX * settle;
-        lShZ = -0.32 * (1 - settle) + pose.lShZ * settle;
-        lElbX = -1.15 * (1 - settle) + pose.lElbX * settle;
+        const landT = (atkProgress - 0.74) / 0.26;
+        pelvisY = basePelvisY + 0.12 * (1 - landT);
+        pelvisRotX = -Math.PI * 0.46 * (1 - landT);
+        torsoRotX = 0.14 * (1 - landT);
+        headRotX = 0.25 * (1 - landT);
+        lHipX = -1.1 * (1 - landT) + pose.lHipX * landT;
+        rHipX = -1.1 * (1 - landT) + pose.rHipX * landT;
+        lKneeX = 0.55 * (1 - landT) + pose.lKneeX * landT;
+        rKneeX = 0.55 * (1 - landT) + pose.rKneeX * landT;
+      }
+    } else if (state.action === 'super') {
+      // 10KG HEAVY BAG SMASH! (3.0s):
+      // 0.00-1.40s: Reach right arm back over shoulder, detach 10KG black backpack & swing back with brawler power
+      // 1.40-2.10s: Explosive mid-air leap raising the 10KG backpack high overhead with BOTH hands!
+      // 2.10-2.55s: Crushing downward overhead bag smash onto opponent!
+      // 2.55-3.00s: Swing backpack smoothly back over shoulder to re-attach & settle into guard
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 1.4) {
+        const pullT = Math.min(1, t / 0.42);
+        const swingBack = t > 0.42 ? Math.min(1, (t - 0.42) / 0.72) : 0;
+        const rumble = Math.sin(t * 20) * 0.03 * swingBack;
+        pelvisY = basePelvisY - 0.06 * swingBack;
+        pelvisRotY = (-0.28 * pullT + 0.44 * swingBack) * state.facing;
+        torsoRotX = -0.14 * swingBack + rumble;
+        torsoRotY = 0.46 * swingBack;
+        headRotX = -0.06;
+        headRotY = -0.28 * swingBack;
+        // Right arm grabs strap over shoulder -> swings heavy 10kg bag far back in right hand
+        rShX = -2.05 * pullT * (1 - swingBack) + 0.92 * swingBack;
+        rShZ = 0.34 + 0.46 * swingBack;
+        rElbX = -1.45 * (1 - swingBack) - 0.32 * swingBack;
+        // Left arm braces forward toward opponent
+        lShX = -0.82 - 0.35 * swingBack;
+        lShZ = -0.42;
+        lElbX = -1.15;
+        lHipX = -0.34;
+        lKneeX = 0.48;
+        rHipX = 0.32;
+        rKneeX = 0.36;
+      } else if (t < 2.1) {
+        // Phase 2: Mid-air leap raising the 10KG backpack high overhead with BOTH hands!
+        jointAlpha = 1 - Math.exp(-26 * Math.max(dt, 0.008));
+        const leapT = Math.min(1, (t - 1.4) / 0.38);
+        pelvisY = basePelvisY + 0.04;
+        pelvisRotX = -0.12 * leapT;
+        torsoRotX = -0.26 * leapT;
+        torsoRotY = 0;
+        headRotX = 0.12;
+        // Both arms lifted straight up overhead gripping the heavy 10kg backpack!
+        lShX = -2.86;
+        lShZ = -0.16;
+        lElbX = -0.28;
+        rShX = -2.86;
+        rShZ = 0.16;
+        rElbX = -0.28;
+        // Athletic airborne knee tuck
+        lHipX = -0.62;
+        lKneeX = 1.08;
+        rHipX = -0.28;
+        rKneeX = 0.72;
+      } else if (t < 2.56) {
+        // Phase 3a: Explosive downward overhead bag slam!
+        jointAlpha = 1 - Math.exp(-32 * Math.max(dt, 0.008));
+        const slamT = Math.min(1, (t - 2.1) / 0.24);
+        pelvisX = 0.22 * slamT;
+        pelvisY = basePelvisY - 0.16 * slamT;
+        pelvisRotX = 0.16 * slamT;
+        torsoRotX = -0.22 * (1 - slamT) + 0.54 * slamT;
+        headRotX = -0.18 * slamT;
+        // Both arms violently whip downward from overhead to floor level!
+        lShX = -2.86 * (1 - slamT) - 0.85 * slamT;
+        lShZ = -0.16;
+        lElbX = -0.22;
+        rShX = -2.86 * (1 - slamT) - 0.85 * slamT;
+        rShZ = 0.16;
+        rElbX = -0.22;
+        lHipX = -0.56 * slamT;
+        lKneeX = 0.88 * slamT;
+        rHipX = 0.36 * slamT;
+        rKneeX = 0.44 * slamT;
+      } else {
+        // Phase 3b: Swing right hand back over shoulder to re-attach backpack & settle into stance
+        const retT = Math.min(1, (t - 2.56) / 0.22);
+        const settleT = t > 2.74 ? Math.min(1, (t - 2.74) / 0.24) : 0;
+        pelvisY = basePelvisY - 0.06 * (1 - retT);
+        torsoRotX = 0.22 * (1 - retT);
+        rShX = (-2.15 * retT - 0.85 * (1 - retT)) * (1 - settleT) + pose.rShX * settleT;
+        rShZ = 0.36 * (1 - settleT) + pose.rShZ * settleT;
+        rElbX = -1.35 * (1 - settleT) + pose.rElbX * settleT;
+        lShX = -0.65 * (1 - settleT) + pose.lShX * settleT;
+        lShZ = -0.35 * (1 - settleT) + pose.lShZ * settleT;
+        lElbX = -1.1 * (1 - settleT) + pose.lElbX * settleT;
       }
     } else if (state.action === 'victory') {
       // Confident heavyweight backbench victory: left hand hooks backpack strap / hip, right fist pumps!
@@ -1832,6 +1942,158 @@ export function animateFighterRig(
       lShX = -0.55;
       lShZ = -0.44;
       lElbX = -1.32;
+    }
+  } else if (state.id === 'utkarsh') {
+    if (state.action === 'special') {
+      // SKY-BOLT LIGHTNING SMASH:
+      // 0.00-0.28: Tucked upward lightning leap -> 0.28-0.74: Diagonal lightning spear dive strike ->
+      // 0.74-1.00: Crisp shockwave crouch landing & snap back to agile stance!
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotY = 0;
+      headRotY = 0;
+      if (atkProgress < 0.28) {
+        jointAlpha = 1 - Math.exp(-26 * Math.max(dt, 0.008));
+        const upT = atkProgress / 0.28;
+        pelvisY = basePelvisY + 0.08 * upT;
+        pelvisRotX = -0.18 * upT;
+        torsoRotX = -0.14 * upT;
+        lHipX = -0.78 * upT;
+        lKneeX = 1.38 * upT;
+        rHipX = -0.45 * upT;
+        rKneeX = 1.08 * upT;
+        lShX = -1.15 * upT;
+        lShZ = -0.48;
+        lElbX = -1.45;
+        rShX = -1.85 * upT;
+        rShZ = 0.35;
+        rElbX = -1.25;
+      } else if (atkProgress < 0.74) {
+        jointAlpha = 1 - Math.exp(-30 * Math.max(dt, 0.008));
+        const diveT = Math.min(1, (atkProgress - 0.28) / 0.24);
+        // Diagonal lightning bolt dive straight toward opponent!
+        pelvisX = 0.18 * diveT;
+        pelvisY = basePelvisY;
+        pelvisRotX = 0.56 * diveT;
+        torsoRotX = 0.34 * diveT;
+        torsoRotY = -0.36 * diveT;
+        headRotX = -0.32 * diveT;
+        // Right fist & forearm driven straight ahead like a lightning bolt!
+        rShX = -2.18;
+        rShZ = 0.14;
+        rElbX = -0.08;
+        // Left arm swept aerodynamically back
+        lShX = 0.62;
+        lShZ = -0.46;
+        lElbX = -0.35;
+        // Trailing legs extended dynamically behind during dive
+        lHipX = 0.38;
+        lKneeX = 0.42;
+        rHipX = -0.22;
+        rKneeX = 0.62;
+      } else {
+        const landT = (atkProgress - 0.74) / 0.26;
+        pelvisY = basePelvisY - 0.22 * (1 - landT);
+        pelvisRotX = 0.24 * (1 - landT);
+        torsoRotX = 0.32 * (1 - landT);
+        lHipX = -0.68 * (1 - landT) + pose.lHipX * landT;
+        lKneeX = 1.12 * (1 - landT) + pose.lKneeX * landT;
+        rHipX = 0.24 * (1 - landT) + pose.rHipX * landT;
+        rKneeX = 0.48 * (1 - landT) + pose.rKneeX * landT;
+      }
+    } else if (state.action === 'super') {
+      // LIGHTNING ORBIT BLITZ! (3.4s):
+      // 0.00-1.70s: Expressive animated grounded laughing taunt ("Ha ha ha! Pakad ke dikha bhai...")
+      // 1.70-3.06s: Hyper-speed low aerodynamic sprint orbiting 360° around opponent with lightning trails!
+      // 3.06-3.40s: Electric uppercut launch follow-through & crisp snap back into stance!
+      const t = state.actionTimer;
+      pelvisX = 0;
+      pelvisRotY = 0;
+      torsoRotZ = 0;
+      headRotY = 0;
+      lShY = 0;
+      rShY = 0;
+      lElbZ = 0;
+      rElbZ = 0;
+      lHipY = 0;
+      rHipY = 0;
+      lHipZ = 0;
+      rHipZ = 0;
+
+      if (t < 1.7) {
+        // Phase 1: Animated laughing taunt! Leaning back slightly with rhythmic laughing shoulder/head bounces
+        // + cocky "come catch me" beckoning wave gesture!
+        const laughWave = Math.sin(t * 21);
+        const laughBounce = Math.abs(Math.sin(t * 14));
+        const tauntPhase = t > 0.85 ? Math.min(1, (t - 0.85) / 0.35) : 0;
+        pelvisY = basePelvisY - 0.03 + laughBounce * 0.04;
+        pelvisRotY = -0.28 * state.facing;
+        torsoRotX = -0.18 + laughWave * 0.06;
+        torsoRotY = -0.12 * state.facing;
+        headRotX = -0.18 + laughWave * 0.14;
+        headRotZ = Math.sin(t * 10.5) * 0.09;
+        // Left hand rests playfully on hip/ribcage while laughing
+        lShX = -0.22;
+        lShZ = -0.56;
+        lElbX = -1.42 + laughWave * 0.12;
+        // Right hand laughs at chest then gestures cocky "pakad ke dikha" beckon!
+        rShX = -0.68 - 0.72 * tauntPhase + laughWave * 0.16;
+        rShZ = 0.42 - 0.22 * tauntPhase;
+        rElbX = -1.35 + 0.52 * tauntPhase + Math.sin(t * 18) * 0.28 * tauntPhase;
+        lHipX = -0.22;
+        lKneeX = 0.28;
+        rHipX = 0.24;
+        rKneeX = 0.24;
+      } else if (t < 3.06) {
+        // Phase 2: Low aerodynamic anime lightning hyper-sprint around opponent!
+        jointAlpha = 1 - Math.exp(-32 * Math.max(dt, 0.008));
+        const stride = Math.sin((t - 1.7) * 48);
+        pelvisY = basePelvisY - 0.1;
+        pelvisRotX = 0.18;
+        torsoRotX = 0.46;
+        torsoRotY = stride * 0.34;
+        headRotX = -0.24;
+        // High-speed pumping sprint legs
+        lHipX = stride * 1.12;
+        lKneeX = Math.max(0.15, -stride * 1.15 + 0.55);
+        rHipX = -stride * 1.12;
+        rKneeX = Math.max(0.15, stride * 1.15 + 0.55);
+        // High-speed pumping & lightning-striking arms
+        lShX = -0.65 - stride * 1.05;
+        lShZ = -0.22;
+        lElbX = -1.15 + Math.max(0, -stride) * 0.65;
+        rShX = -0.65 + stride * 1.05;
+        rShZ = 0.22;
+        rElbX = -1.15 + Math.max(0, stride) * 0.65;
+      } else {
+        // Electric launch uppercut follow-through -> crisp agile guard settle
+        const finT = Math.min(1, (t - 3.06) / 0.16);
+        const settleT = t > 3.22 ? Math.min(1, (t - 3.22) / 0.18) : 0;
+        const hold = finT * (1 - settleT);
+        pelvisY = basePelvisY + 0.06 * hold;
+        torsoRotX = -0.18 * hold + pose.torsoRotX * settleT;
+        torsoRotY = -0.45 * hold + pose.torsoRotY * settleT;
+        rShX = -2.42 * hold + pose.rShX * (1 - hold);
+        rShZ = 0.26 * hold + pose.rShZ * (1 - hold);
+        rElbX = -0.22 * hold + pose.rElbX * (1 - hold);
+        lShX = -0.55 * hold + pose.lShX * (1 - hold);
+        lShZ = -0.42 * hold + pose.lShZ * (1 - hold);
+        lElbX = -1.2 * hold + pose.lElbX * (1 - hold);
+      }
+    } else if (state.action === 'victory') {
+      // Confident agile speedster victory pose: cocky bounce & lightning fist pump!
+      const hop = Math.abs(Math.sin(elapsed * 6.2));
+      pelvisY = basePelvisY + hop * 0.07;
+      pelvisRotY = -0.38 * state.facing;
+      torsoRotX = -0.08;
+      torsoRotY = -0.12 * state.facing;
+      headRotZ = Math.sin(elapsed * 4.5) * 0.06;
+      rShX = -2.38 + Math.sin(elapsed * 6.2) * 0.18;
+      rShZ = 0.34;
+      rElbX = -0.3;
+      lShX = -0.35;
+      lShZ = -0.48;
+      lElbX = -1.38;
     }
   }
 
@@ -1874,7 +2136,9 @@ export function animateFighterRig(
   rig.torso.rotation.z = lerpAngle(rig.torso.rotation.z, torsoRotZ, jointAlpha);
 
   // Keep 3D GLB & photo-face heads angled ~25-35 deg toward front camera (+Z) for crisp 2.5D readability
+  // (skip during 360° orbit sprint so Utkarsh faces cleanly forward along his sprint trajectory!)
   if (
+    !isOrbiting &&
     isPhotoFaceFighter(state.id) &&
     state.squashedTimer <= 0 &&
     state.action !== 'knockdown' &&

@@ -3,10 +3,12 @@ import type { AdiSuperBeatSignal, AdiSuperState } from './adiSuper';
 import type { AndaSuperBeatSignal, AndaSuperState } from './andaSuper';
 import type { BillaSuperBeatSignal, BillaSuperState } from './billaSuper';
 import type { FatherSuperBeatSignal, FatherSuperState } from './fatherSuper';
+import type { KrishSuperBeatSignal, KrishSuperState } from './krishSuper';
 import type { MausiSuperBeatSignal, MausiSuperState } from './mausiSuper';
 import type { NetaSuperBeatSignal, NetaSuperState } from './netaSuper';
 import type { SamyakSuperBeatSignal, SamyakSuperState } from './samyakSuper';
 import type { SheruSuperBeatSignal, SheruSuperState } from './sheruSuper';
+import type { UtkarshSuperBeatSignal, UtkarshSuperState } from './utkarshSuper';
 import type {
   CombatEvent,
   FaceExpression,
@@ -87,6 +89,8 @@ export interface SyncedSuperStates {
   father?: FatherSuperState | null;
   samyak?: SamyakSuperState | null;
   adi?: AdiSuperState | null;
+  krish?: KrishSuperState | null;
+  utkarsh?: UtkarshSuperState | null;
 }
 
 export interface SyncedSuperSignals {
@@ -98,6 +102,8 @@ export interface SyncedSuperSignals {
   father?: FatherSuperBeatSignal[];
   samyak?: SamyakSuperBeatSignal[];
   adi?: AdiSuperBeatSignal[];
+  krish?: KrishSuperBeatSignal[];
+  utkarsh?: UtkarshSuperBeatSignal[];
 }
 
 export interface StateSnapshotPacket {
@@ -316,7 +322,9 @@ export function packMatchStateSnapshot(state: MatchState, seq: number): StateSna
     state.mausiSuper ||
     state.fatherSuper ||
     state.samyakSuper ||
-    state.adiSuper
+    state.adiSuper ||
+    state.krishSuper ||
+    state.utkarshSuper
   ) {
     supers = {};
     if (state.sheruSuper) supers.sheru = state.sheruSuper;
@@ -327,6 +335,8 @@ export function packMatchStateSnapshot(state: MatchState, seq: number): StateSna
     if (state.fatherSuper) supers.father = state.fatherSuper;
     if (state.samyakSuper) supers.samyak = state.samyakSuper;
     if (state.adiSuper) supers.adi = state.adiSuper;
+    if (state.krishSuper) supers.krish = state.krishSuper;
+    if (state.utkarshSuper) supers.utkarsh = state.utkarshSuper;
   }
 
   return {
@@ -459,4 +469,6 @@ export function applyStateSnapshotToGuest(
   state.fatherSuper = snap.supers?.father ?? null;
   state.samyakSuper = snap.supers?.samyak ?? null;
   state.adiSuper = snap.supers?.adi ?? null;
+  state.krishSuper = snap.supers?.krish ?? null;
+  state.utkarshSuper = snap.supers?.utkarsh ?? null;
 }
